@@ -28,7 +28,7 @@ test:
 
 go-build:
 	@echo "  >  Building binary on $(BIN_OUTPUT)..."
-	go build -o $(BIN_OUTPUT) -tags "release" -ldflags='$(LDFLAGS)' cmd/distribyted/main.go
+	go build -v -o $(BIN_OUTPUT) -tags "release" -ldflags='$(LDFLAGS)' cmd/distribyted/main.go
 
 go-generate:
 	@echo "  >  Generating code files..."

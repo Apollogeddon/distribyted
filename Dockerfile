@@ -4,15 +4,24 @@
 
 FROM golang:1.26-alpine as builder
 
-ENV BIN_REPO=github.com/Apollogeddon/distribyted
-ENV BIN_PATH=$GOPATH/src/$BIN_REPO
+RUN apk add --no-cache fuse-dev gcc libc-dev g++ make git
 
-COPY . $BIN_PATH
-WORKDIR $BIN_PATH
+WORKDIR /app
 
-RUN apk add --no-cache fuse-dev gcc libc-dev g++ make
+# Cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
 
-RUN BIN_OUTPUT=/bin/distribyted make build
+# Copy source
+COPY . .
+
+# Build arguments for versioning
+ARG VERSION=unknown
+ARG BUILD=unknown
+
+# Build with verbosity
+RUN BIN_OUTPUT=/bin/distribyted make build \
+    LDFLAGS="-X=main.Version=${VERSION} -X=main.Build=${BUILD}"
 
 #===============
 # Stage 2: Run
@@ -30,4 +39,4 @@ RUN mkdir -v /distribyted-data
 RUN echo "user_allow_other" | tee /etc/fuse.conf
 ENV DISTRIBYTED_FUSE_ALLOW_OTHER=true
 
-ENTRYPOINT [ "./bin/distribyted" ]
+ENTRYPOINT [ "/bin/distribyted" ]
