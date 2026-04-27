@@ -2,8 +2,10 @@ package loader
 
 import (
 	"io/fs"
+	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/distribyted/distribyted/config"
 )
@@ -21,7 +23,40 @@ func NewFolder(r []*config.Route) *Folder {
 }
 
 func (f *Folder) ListMagnets() (map[string][]string, error) {
-	return nil, nil
+	out := make(map[string][]string)
+	for _, r := range f.c {
+		if r.TorrentFolder == "" {
+			continue
+		}
+
+		err := filepath.WalkDir(r.TorrentFolder, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if d.IsDir() {
+				return nil
+			}
+			if path.Ext(p) == ".magnet" {
+				content, err := os.ReadFile(p)
+				if err != nil {
+					return err
+				}
+				magnet := strings.TrimSpace(string(content))
+				if magnet != "" {
+					out[r.Name] = append(out[r.Name], magnet)
+				}
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return out, nil
 }
 
 func (f *Folder) ListTorrentPaths() (map[string][]string, error) {
