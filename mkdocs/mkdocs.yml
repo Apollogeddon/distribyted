@@ -1,7 +1,7 @@
 site_name: Distribyted
 site_url: https://distribyted.com/
-repo_url: https://github.com/distribyted/distribyted
-repo_name: distribyted/distribyted
+repo_url: https://github.com/Apollogeddon/distribyted
+repo_name: Apollogeddon/distribyted
 
 nav:
     - Home: index.md

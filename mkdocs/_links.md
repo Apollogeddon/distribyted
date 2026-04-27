@@ -1,6 +1,6 @@
-[releases-url]: https://github.com/distribyted/distribyted/releases
+[releases-url]: https://github.com/Apollogeddon/distribyted/releases
 [winfsp-url]: https://winfsp.dev/
-[config-template-url]: https://github.com/distribyted/distribyted/blob/master/templates/config_template.yaml
+[config-template-url]: https://github.com/Apollogeddon/distribyted/blob/master/templates/config_template.yaml
 [rardecode-url]: https://github.com/nwaples/rardecode/tree/experimental
 [sevenzip-url]: https://github.com/bodgit/sevenzip
 [xz-url]: https://github.com/ulikunitz/xz

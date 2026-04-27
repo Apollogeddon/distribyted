@@ -39,7 +39,7 @@ docker run \
   -v /tmp/mount:/distribyted-data/mount:shared \
   -v /tmp/metadata:/distribyted-data/metadata \
   -v /tmp/config:/distribyted-data/config \
-  distribyted/distribyted:latest
+  Apollogeddon/distribyted:latest
 ```
 
 Docker compose example:
@@ -47,7 +47,7 @@ Docker compose example:
 ```yaml
 distribyted:
     container_name: distribyted
-    image: distribyted/distribyted:latest
+    image: Apollogeddon/distribyted:latest
     restart: always
     ports:
       - "4444:4444/tcp"

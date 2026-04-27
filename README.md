@@ -9,7 +9,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
-  <a href="https://github.com/distribyted/distribyted">
+  <a href="https://github.com/Apollogeddon/distribyted">
     <img src="mkdocs/docs/images/distribyted_icon.png" alt="Logo" width="100">
   </a>
 
@@ -19,9 +19,9 @@
     Torrent client with on-demand file downloading as a filesystem.
     <br />
     <br />
-    <a href="https://github.com/distribyted/distribyted/issues">Report a Bug</a>
+    <a href="https://github.com/Apollogeddon/distribyted/issues">Report a Bug</a>
     ·
-    <a href="https://github.com/distribyted/distribyted/issues">Request Feature</a>
+    <a href="https://github.com/Apollogeddon/distribyted/issues">Request Feature</a>
   </p>
 </p>
 
@@ -71,21 +71,21 @@ Distributed under the GPL3 license. See `LICENSE` for more information.
 [rardecode-repo-url]: https://github.com/nwaples/rardecode/tree/experimental
 [torrent-repo-url]: https://github.com/anacrolix/torrent
 [main-url]: https://distribyted.com
-[releases-shield]: https://img.shields.io/github/v/release/distribyted/distribyted.svg?style=flat-square
-[releases-url]: https://github.com/distribyted/distribyted/releases
-[docker-pulls-shield]:https://img.shields.io/docker/pulls/distribyted/distribyted.svg?style=flat-square
-[docker-pulls-url]:https://hub.docker.com/r/distribyted/distribyted
-[contributors-shield]: https://img.shields.io/github/contributors/distribyted/distribyted.svg?style=flat-square
-[contributors-url]: https://github.com/distribyted/distribyted/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/distribyted/distribyted.svg?style=flat-square
-[forks-url]: https://github.com/distribyted/distribyted/network/members
-[stars-shield]: https://img.shields.io/github/stars/distribyted/distribyted.svg?style=flat-square
-[stars-url]: https://github.com/distribyted/distribyted/stargazers
-[issues-shield]: https://img.shields.io/github/issues/distribyted/distribyted.svg?style=flat-square
-[issues-url]: https://github.com/distribyted/distribyted/issues
-[license-shield]: https://img.shields.io/github/license/distribyted/distribyted.svg?style=flat-square
-[license-url]: https://github.com/distribyted/distribyted/blob/master/LICENSE
+[releases-shield]: https://img.shields.io/github/v/release/Apollogeddon/distribyted.svg?style=flat-square
+[releases-url]: https://github.com/Apollogeddon/distribyted/releases
+[docker-pulls-shield]:https://img.shields.io/docker/pulls/Apollogeddon/distribyted.svg?style=flat-square
+[docker-pulls-url]:https://hub.docker.com/r/Apollogeddon/distribyted
+[contributors-shield]: https://img.shields.io/github/contributors/Apollogeddon/distribyted.svg?style=flat-square
+[contributors-url]: https://github.com/Apollogeddon/distribyted/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/Apollogeddon/distribyted.svg?style=flat-square
+[forks-url]: https://github.com/Apollogeddon/distribyted/network/members
+[stars-shield]: https://img.shields.io/github/stars/Apollogeddon/distribyted.svg?style=flat-square
+[stars-url]: https://github.com/Apollogeddon/distribyted/stargazers
+[issues-shield]: https://img.shields.io/github/issues/Apollogeddon/distribyted.svg?style=flat-square
+[issues-url]: https://github.com/Apollogeddon/distribyted/issues
+[license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
+[license-url]: https://github.com/Apollogeddon/distribyted/blob/master/LICENSE
 [product-screenshot]: mkdocs/docs/images/distribyted.gif
-[example-config]: https://github.com/distribyted/distribyted/blob/master/examples/conf_example.yaml
-[coveralls-shield]: https://img.shields.io/coveralls/github/distribyted/distribyted?style=flat-square
-[coveralls-url]: https://coveralls.io/github/distribyted/distribyted
+[example-config]: https://github.com/Apollogeddon/distribyted/blob/master/examples/conf_example.yaml
+[coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
+[coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted

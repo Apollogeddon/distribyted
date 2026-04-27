@@ -4,7 +4,7 @@
 
 FROM golang:1.24-alpine as builder
 
-ENV BIN_REPO=github.com/distribyted/distribyted
+ENV BIN_REPO=github.com/Apollogeddon/distribyted
 ENV BIN_PATH=$GOPATH/src/$BIN_REPO
 
 COPY . $BIN_PATH
