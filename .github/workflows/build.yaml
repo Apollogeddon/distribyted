@@ -115,7 +115,7 @@ jobs:
           GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} GOARM=${{ matrix.go_arm }} make build
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           if-no-files-found: error
           name: build-${{ matrix.job_name }}
