@@ -1,6 +1,6 @@
-module github.com/distribyted/distribyted
+module github.com/Apollogeddon/distribyted
 
-go 1.25.0
+go 1.24.11
 
 require (
 	github.com/RoaringBitmap/roaring v1.9.4 // indirect

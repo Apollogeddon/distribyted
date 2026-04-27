@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/distribyted/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/rs/zerolog/log"
 )
 

@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/anacrolix/missinggo/v2/filecache"
-	"github.com/distribyted/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/torrent"
 	"github.com/gin-gonic/gin"
 )
 

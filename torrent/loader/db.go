@@ -5,7 +5,7 @@ import (
 
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/dgraph-io/badger/v3"
-	dlog "github.com/distribyted/distribyted/log"
+	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/rs/zerolog/log"
 )
 

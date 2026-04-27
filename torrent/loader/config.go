@@ -1,6 +1,6 @@
 package loader
 
-import "github.com/distribyted/distribyted/config"
+import "github.com/Apollogeddon/distribyted/config"
 
 var _ Loader = &Config{}
 

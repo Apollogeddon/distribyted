@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/distribyted/distribyted/fs"
-	"github.com/distribyted/distribyted/iio"
+	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/iio"
 	"golang.org/x/net/webdav"
 )
 

@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/distribyted/distribyted/iio"
+	"github.com/Apollogeddon/distribyted/iio"
 	"github.com/stretchr/testify/require"
 )
 

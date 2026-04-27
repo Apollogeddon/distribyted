@@ -9,9 +9,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/shurcooL/httpfs/html/vfstemplate"
 
-	"github.com/distribyted/distribyted"
-	"github.com/distribyted/distribyted/config"
-	"github.com/distribyted/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted"
+	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/torrent"
 )
 
 func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, cfg *config.HTTPGlobal) error {

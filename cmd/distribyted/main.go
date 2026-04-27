@@ -15,14 +15,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/distribyted/distribyted/config"
-	"github.com/distribyted/distribyted/fs"
-	"github.com/distribyted/distribyted/fuse"
-	"github.com/distribyted/distribyted/http"
-	dlog "github.com/distribyted/distribyted/log"
-	"github.com/distribyted/distribyted/torrent"
-	"github.com/distribyted/distribyted/torrent/loader"
-	"github.com/distribyted/distribyted/webdav"
+	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/fuse"
+	"github.com/Apollogeddon/distribyted/http"
+	dlog "github.com/Apollogeddon/distribyted/log"
+	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/torrent/loader"
+	"github.com/Apollogeddon/distribyted/webdav"
 )
 
 const (

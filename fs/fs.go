@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/distribyted/distribyted/iio"
+	"github.com/Apollogeddon/distribyted/iio"
 )
 
 type File interface {

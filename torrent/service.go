@@ -12,8 +12,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/distribyted/distribyted/fs"
-	"github.com/distribyted/distribyted/torrent/loader"
+	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/torrent/loader"
 )
 
 type Service struct {

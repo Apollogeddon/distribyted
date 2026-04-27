@@ -12,8 +12,8 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	"github.com/rs/zerolog/log"
 
-	"github.com/distribyted/distribyted/config"
-	dlog "github.com/distribyted/distribyted/log"
+	"github.com/Apollogeddon/distribyted/config"
+	dlog "github.com/Apollogeddon/distribyted/log"
 )
 
 func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal, id [20]byte) (*torrent.Client, error) {

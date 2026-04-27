@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/distribyted/distribyted/config"
+	"github.com/Apollogeddon/distribyted/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

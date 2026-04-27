@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/distribyted/distribyted/config"
+	"github.com/Apollogeddon/distribyted/config"
 )
 
 type ServerState int

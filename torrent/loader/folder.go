@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/distribyted/distribyted/config"
+	"github.com/Apollogeddon/distribyted/config"
 )
 
 var _ Loader = &Folder{}

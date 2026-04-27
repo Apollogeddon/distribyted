@@ -6,7 +6,7 @@ import (
 	"runtime"
 
 	"github.com/billziss-gh/cgofuse/fuse"
-	"github.com/distribyted/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/rs/zerolog/log"
 )
 
