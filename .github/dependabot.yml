@@ -22,3 +22,33 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      non-major:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "docker"
+    directory: "/build_tools"
+    schedule:
+      interval: "weekly"
+    groups:
+      non-major:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "pip"
+    directory: "/mkdocs"
+    schedule:
+      interval: "weekly"
+    groups:
+      non-major:
+        update-types:
+          - "minor"
+          - "patch"

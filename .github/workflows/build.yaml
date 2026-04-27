@@ -16,24 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        job_name: ['linux_amd64', 'linux_arm64', 'linux_armv7', 'mac', 'windows_amd64']
+        job_name: ['linux_amd64', 'mac', 'windows_amd64']
 
         include:
           - job_name: linux_amd64
             os: ubuntu-latest
             go_os: linux
             go_arch: amd64
-
-          - job_name: linux_arm64
-            os: ubuntu-latest
-            go_os: linux
-            go_arch: arm64
-
-          - job_name: linux_armv7
-            os: ubuntu-latest
-            go_os: linux
-            go_arch: arm
-            go_arm: 7
 
           - job_name: mac
             os: macos-latest

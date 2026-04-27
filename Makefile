@@ -6,7 +6,7 @@ BIN_OUTPUT ?= bin/distribyted-$(VERSION)-`go env GOOS`-`go env GOARCH``go env GO
 PROJECTNAME := $(shell basename "$(PWD)")
 
 # Use linker flags to provide version/build settings
-LDFLAGS=-X=main.Version=$(VERSION) -X=main.Build=$(BUILD) -linkmode external
+LDFLAGS=-X=main.Version=$(VERSION) -X=main.Build=$(BUILD)
 
 # Make is verbose in Linux. Make it silent.
 MAKEFLAGS += --silent
