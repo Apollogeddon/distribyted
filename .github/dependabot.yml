@@ -4,6 +4,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      non-major:
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -11,5 +17,8 @@ updates:
     open-pull-requests-limit: 10
     pull-request-branch-name:
       separator: "-"
-    reviewers:
-      - "ajnavarro"
+    groups:
+      non-major:
+        update-types:
+          - "minor"
+          - "patch"

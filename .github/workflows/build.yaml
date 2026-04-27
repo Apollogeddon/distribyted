@@ -16,17 +16,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        job_name: ['linux', 'mac', 'windows_amd64']
+        job_name: ['linux_amd64', 'linux_arm64', 'linux_armv7', 'mac', 'windows_amd64']
 
         include:
-          - job_name: linux
+          - job_name: linux_amd64
             os: ubuntu-latest
+            go_os: linux
+            go_arch: amd64
+
+          - job_name: linux_arm64
+            os: ubuntu-latest
+            go_os: linux
+            go_arch: arm64
+
+          - job_name: linux_armv7
+            os: ubuntu-latest
+            go_os: linux
+            go_arch: arm
+            go_arm: 7
 
           - job_name: mac
             os: macos-latest
+            go_os: darwin
+            go_arch: amd64
 
           - job_name: windows_amd64
             os: windows-latest
+            go_os: windows
+            go_arch: amd64
           
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
@@ -39,7 +56,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v6
         with:
-          go-version: ^1.24
+          go-version: '1.24'
 
       - name: Install Libraries on Linux
         shell: bash
@@ -48,7 +65,7 @@ jobs:
           sudo chmod 666 /dev/fuse
           sudo chown root:$USER /etc/fuse.conf
           sudo apt-get install fuse libfuse-dev rpm pkg-config
-        if: matrix.job_name == 'linux'
+        if: startsWith(matrix.job_name, 'linux')
 
       - name: Install Libraries on macOS
         shell: bash
@@ -63,10 +80,6 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
           choco install --allow-empty-checksums -y winfsp zip
           echo "CPATH=C:\Program Files\WinFsp\inc\fuse;C:\Program Files (x86)\WinFsp\inc\fuse" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          if ($env:GOARCH -eq "386") {
-            choco install --allow-empty-checksums -y mingw --forcex86 --force
-            echo "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw32\\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          }
           # Copy mingw32-make.exe to make.exe so the same command line
           # can be used on Windows as on macOS and Linux
           $path = (get-command mingw32-make.exe).Path
@@ -95,20 +108,22 @@ jobs:
         shell: bash
         run: |
           make test-race
+        if: matrix.go_arch == 'amd64' # Only run tests on amd64 to avoid cross-compilation test issues
+
       - name: Convert coverage.out to coverage.lcov
         uses: jandelgado/gcov2lcov-action@v1.2.0
-        if: matrix.job_name == 'linux'
+        if: matrix.job_name == 'linux_amd64'
       - name: Coveralls
         uses: coverallsapp/github-action@v2.3.7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: coverage.lcov
-        if: matrix.job_name == 'linux'
+        if: matrix.job_name == 'linux_amd64'
 
       - name: Build
         shell: bash
         run: |
-          make build
+          GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} GOARM=${{ matrix.go_arm }} make build
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
