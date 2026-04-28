@@ -1,0 +1,15 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "go",
+      "package-name": "distribyted",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false
+    }
+  },
+  "plugins": [
+    {
+      "type": "sentence-case"
+    }
+  ]
+}

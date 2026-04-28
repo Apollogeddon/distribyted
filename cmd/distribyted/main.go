@@ -32,10 +32,16 @@ const (
 	webDAVPortFlag = "webdav-port"
 )
 
+var (
+	Version = "dev"
+	Build   = "none"
+)
+
 func main() {
 	app := &cli.App{
-		Name:  "distribyted",
-		Usage: "Torrent client with on-demand file downloading as a filesystem.",
+		Name:    "distribyted",
+		Usage:   "Torrent client with on-demand file downloading as a filesystem.",
+		Version: Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    configFlag,
