@@ -25,3 +25,4 @@ jobs:
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/release.json
