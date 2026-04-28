@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/Apollogeddon/distribyted/compare/v0.16.1...v0.16.2) (2026-04-28)
+
+
+### Bug Fixes
+
+* Add qBittorrent API endpoints for preferences management ([c84b052](https://github.com/Apollogeddon/distribyted/commit/c84b052d2b762678876383c78e8cf5be7a44d0da))
+
 ## [0.16.1](https://github.com/Apollogeddon/distribyted/compare/v0.16.0...v0.16.1) (2026-04-28)
 
 
