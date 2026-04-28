@@ -53,7 +53,7 @@ jobs:
         run: |
           echo "${CUSTOM_DOMAIN}" > "docs/CNAME"
           echo -e "User-agent: *\nDisallow: /v*.*/\nSitemap: https://${CUSTOM_DOMAIN}/sitemap.xml" > "docs/robots.txt"
-          git fetch origin gh-pages --verbose
+          git fetch origin gh-pages --verbose || true
           mike deploy master dev --push
         env:
           CUSTOM_DOMAIN: distribyted.com
@@ -63,7 +63,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: ./mkdocs
         run: |
-          git fetch origin gh-pages --verbose
+          git fetch origin gh-pages --verbose || true
           mike deploy ${GITHUB_REF##*/} latest --push --update-aliases
         env:
           GOOGLE_ANALYTICS_KEY: ${{ secrets.GOOGLE_ANALYTICS_KEY }}

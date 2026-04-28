@@ -46,14 +46,3 @@ jobs:
       contents: read
       packages: write
       security-events: write
-    secrets: inherit
-
-  mkdocs:
-    name: MkDocs Deploy
-    needs: build
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
-    uses: ./.github/workflows/mkdocs.yml
-    permissions:
-      contents: write
-    secrets:
-      GOOGLE_ANALYTICS_KEY: ${{ secrets.GOOGLE_ANALYTICS_KEY }}
