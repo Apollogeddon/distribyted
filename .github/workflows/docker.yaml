@@ -18,12 +18,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository_owner }}/distribyted
+          images: ghcr.io/apollogeddon/distribyted
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long,prefix=
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4.0.0
