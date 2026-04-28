@@ -44,7 +44,7 @@ func (s *storage) Clear() {
 	s.children = make(map[string]map[string]File)
 	s.filesystems = make(map[string]Filesystem)
 
-	s.Add(&Dir{}, "/")
+	_ = s.Add(&Dir{}, "/")
 }
 
 func (s *storage) Has(path string) bool {

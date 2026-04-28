@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -28,7 +28,7 @@ func (c *Handler) createFromTemplateFile() ([]byte, error) {
 	}
 	defer t.Close()
 
-	tb, err := ioutil.ReadAll(t)
+	tb, err := io.ReadAll(t)
 	if err != nil {
 		return nil, err
 	}
@@ -36,11 +36,11 @@ func (c *Handler) createFromTemplateFile() ([]byte, error) {
 	if err := os.MkdirAll(filepath.Dir(c.p), 0744); err != nil {
 		return nil, fmt.Errorf("error creating path for configuration file: %s, %w", c.p, err)
 	}
-	return tb, ioutil.WriteFile(c.p, tb, 0644)
+	return tb, os.WriteFile(c.p, tb, 0644)
 }
 
 func (c *Handler) GetRaw() ([]byte, error) {
-	f, err := ioutil.ReadFile(c.p)
+	f, err := os.ReadFile(c.p)
 	if os.IsNotExist(err) {
 		fmt.Println("configuration file does not exist, creating from template file:", c.p)
 		return c.createFromTemplateFile()

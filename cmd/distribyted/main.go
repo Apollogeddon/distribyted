@@ -70,7 +70,7 @@ func main() {
 			if err != nil && runtime.GOOS == "windows" {
 				log.Error().Err(err).Msg("problem starting application")
 				fmt.Print("Press 'Enter' to continue...")
-				bufio.NewReader(os.Stdin).ReadBytes('\n')
+				_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 			}
 
 			return err
@@ -165,7 +165,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		mh = fuse.NewHandler(fuseAllowOther || conf.Fuse.AllowOther, conf.Fuse.Path)
 	}
 
-	sigChan := make(chan os.Signal)
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {

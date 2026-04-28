@@ -99,7 +99,6 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 		return -fuse.EIO
 	}
 
-	dest = buf[:n]
 	return n
 }
 

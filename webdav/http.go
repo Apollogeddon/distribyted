@@ -22,7 +22,7 @@ func NewWebDAVServer(fs fs.Filesystem, port int, user, pass string) error {
 
 		w.Header().Set("WWW-Authenticate", `Basic realm="BASIC WebDAV REALM"`)
 		w.WriteHeader(401)
-		w.Write([]byte("401 Unauthorized\n"))
+		_, _ = w.Write([]byte("401 Unauthorized\n"))
 	})
 
 	return http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil)

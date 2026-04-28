@@ -26,7 +26,7 @@ func TestReadData(t *testing.T) {
 	require.Equal(5, n)
 	require.Equal("World", string(toRead))
 
-	r.ReadAt(toRead, 0)
+	_, _ = r.ReadAt(toRead, 0)
 	require.NoError(err)
 	require.Equal(5, n)
 	require.Equal("Hello", string(toRead))

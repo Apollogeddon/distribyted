@@ -2,7 +2,6 @@ package iio
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 )
@@ -21,7 +20,7 @@ type DiskTeeReader struct {
 }
 
 func NewDiskTeeReader(r io.Reader) (Reader, error) {
-	fr, err := ioutil.TempFile("", "dtb_tmp")
+	fr, err := os.CreateTemp("", "dtb_tmp")
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +34,7 @@ func (dtr *DiskTeeReader) ReadAt(p []byte, off int64) (int, error) {
 	tb := off + int64(len(p))
 
 	if tb > dtr.fo {
-		w, err := io.CopyN(ioutil.Discard, dtr.tr, tb-dtr.fo)
+		w, err := io.CopyN(io.Discard, dtr.tr, tb-dtr.fo)
 		dtr.to += w
 		if err != nil && err != io.EOF {
 			return 0, err

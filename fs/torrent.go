@@ -57,7 +57,7 @@ func (fs *Torrent) load() {
 	for _, t := range fs.ts {
 		<-t.GotInfo()
 		for _, file := range t.Files() {
-			fs.s.Add(&torrentFile{
+			_ = fs.s.Add(&torrentFile{
 				readerFunc: file.NewReader,
 				len:        file.Length(),
 				timeout:    fs.readTimeout,

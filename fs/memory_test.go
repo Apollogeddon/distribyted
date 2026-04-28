@@ -13,7 +13,7 @@ func TestMemory(t *testing.T) {
 
 	mem := NewMemory()
 
-	mem.Storage.Add(NewMemoryFile([]byte("Hello")), "/dir/here")
+	_ = mem.Storage.Add(NewMemoryFile([]byte("Hello")), "/dir/here")
 
 	fss := map[string]Filesystem{
 		"/test": mem,
