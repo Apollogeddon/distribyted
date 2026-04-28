@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.1](https://github.com/Apollogeddon/distribyted/compare/v0.16.0...v0.16.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* Enhance Docker workflow to accept version input and streamline conditional execution ([0e287b3](https://github.com/Apollogeddon/distribyted/commit/0e287b396d318961f7a2e4ec941d6663026a7b8b))
+* Update pion/dtls and pion/transport dependencies to latest versions ([7830e82](https://github.com/Apollogeddon/distribyted/commit/7830e82cc11f254e255718f9a233cdd49e2cbbc8))
+
 ## [0.16.0](https://github.com/Apollogeddon/distribyted/compare/v0.15.0...v0.16.0) (2026-04-28)
 
 
