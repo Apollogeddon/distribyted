@@ -1,6 +1,6 @@
 #-include .env
 
-VERSION := $(shell git describe --tags)
+VERSION := $(shell git describe --tags 2>/dev/null || echo "dev")
 BUILD := $(shell git rev-parse --short HEAD)
 BIN_OUTPUT ?= bin/distribyted-$(VERSION)-`go env GOOS`-`go env GOARCH``go env GOEXE`
 PROJECTNAME := $(shell basename "$(PWD)")

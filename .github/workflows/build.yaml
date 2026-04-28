@@ -19,7 +19,7 @@ jobs:
             go_arch: amd64
 
           - job_name: mac
-            os: macos-latest
+            os: macos-13
             go_os: darwin
             go_arch: amd64
 
