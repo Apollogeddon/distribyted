@@ -46,6 +46,7 @@ jobs:
       contents: read
       packages: write
       security-events: write
+    secrets: inherit
 
   mkdocs:
     name: MkDocs Deploy
