@@ -12,19 +12,16 @@ jobs:
   gitleaks:
     name: Gitleaks
     uses: ./.github/workflows/gitleaks.yaml
-    secrets: inherit
 
   lint:
     name: Lint
     needs: gitleaks
     uses: ./.github/workflows/lint.yaml
-    secrets: inherit
 
   govulncheck:
     name: Govulncheck
     needs: lint
     uses: ./.github/workflows/govulncheck.yaml
-    secrets: inherit
 
   codeql:
     name: CodeQL
@@ -34,13 +31,11 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    secrets: inherit
 
   build:
     name: Build & Test
     needs: codeql
     uses: ./.github/workflows/build.yaml
-    secrets: inherit
 
   docker:
     name: Docker Build & Push
@@ -51,7 +46,6 @@ jobs:
       contents: read
       packages: write
       security-events: write
-    secrets: inherit
 
   mkdocs:
     name: MkDocs Deploy
@@ -60,4 +54,5 @@ jobs:
     uses: ./.github/workflows/mkdocs.yml
     permissions:
       contents: write
-    secrets: inherit
+    secrets:
+      GOOGLE_ANALYTICS_KEY: ${{ secrets.GOOGLE_ANALYTICS_KEY }}

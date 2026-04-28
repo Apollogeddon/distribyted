@@ -1,6 +1,10 @@
 name: mkdocs
 
-on: workflow_call
+on:
+  workflow_call:
+    secrets:
+      GOOGLE_ANALYTICS_KEY:
+        required: false
 
 permissions:
   contents: write
