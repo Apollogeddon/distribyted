@@ -66,6 +66,8 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		qbit.POST("/auth/login", qBitLoginHandler)
 		qbit.GET("/app/webapiVersion", qBitWebapiVersionHandler)
 		qbit.GET("/app/version", qBitWebapiVersionHandler)
+		qbit.GET("/app/preferences", qBitAppPreferencesHandler)
+		qbit.POST("/app/setPreferences", qBitAppSetPreferencesHandler)
 		qbit.GET("/transfer/info", qBitTransferInfoHandler(ss))
 		qbit.GET("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
 		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(ss))

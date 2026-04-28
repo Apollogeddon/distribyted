@@ -39,6 +39,28 @@ func qBitWebapiVersionHandler(c *gin.Context) {
 	c.String(http.StatusOK, "2.8.19")
 }
 
+func qBitAppPreferencesHandler(c *gin.Context) {
+	// Mocked preferences for compatibility
+	c.JSON(http.StatusOK, gin.H{
+		"save_path":              "",
+		"temp_path_enabled":      false,
+		"listen_port":            8999,
+		"upnp":                   false,
+		"dl_limit":               0,
+		"up_limit":               0,
+		"max_connecs":            500,
+		"max_connecs_per_torrent": 100,
+		"max_uploads":            -1,
+		"max_uploads_per_torrent": -1,
+		"web_ui_port":            4444,
+	})
+}
+
+func qBitAppSetPreferencesHandler(c *gin.Context) {
+	// Dummy set preferences, always success
+	c.String(http.StatusOK, "Ok.")
+}
+
 func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		torrents := ss.GetAllTorrents()
