@@ -1,11 +1,6 @@
 name: docker
 
-on:
-  push:
-    branches: 
-      - master
-    tags:
-      - 'v*'
+on: workflow_call
 
 jobs:
   main:
@@ -53,3 +48,16 @@ jobs:
           build-args: |
             VERSION=${{ github.ref_name }}
             BUILD=${{ github.sha }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ github.repository_owner }}/distribyted:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'

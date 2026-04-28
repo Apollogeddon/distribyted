@@ -2,13 +2,7 @@
 name: build
 
 # Trigger the workflow on push or pull request
-on:
-  push:
-    branches:
-      - '*'
-    tags:
-      - '*'
-  pull_request:
+on: workflow_call
 
 jobs:
   build:
@@ -85,19 +79,10 @@ jobs:
           printf "\n\nSystem environment:\n\n"
           env
 
-      - name: Go module cache
-        uses: actions/cache@v5
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Run tests
         shell: bash
         run: |
           make test-race
-        if: matrix.go_arch == 'amd64' # Only run tests on amd64 to avoid cross-compilation test issues
 
       - name: Convert coverage.out to coverage.lcov
         uses: jandelgado/gcov2lcov-action@v1.2.0

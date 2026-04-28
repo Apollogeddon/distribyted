@@ -1,0 +1,53 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ '*' ]
+    tags: [ '*' ]
+  pull_request:
+  schedule:
+    - cron: '26 14 * * 1' # Weekly scan
+
+jobs:
+  gitleaks:
+    name: Gitleaks
+    uses: ./.github/workflows/gitleaks.yaml
+    secrets: inherit
+
+  lint:
+    name: Lint
+    needs: gitleaks
+    uses: ./.github/workflows/lint.yaml
+    secrets: inherit
+
+  govulncheck:
+    name: Govulncheck
+    needs: lint
+    uses: ./.github/workflows/govulncheck.yaml
+    secrets: inherit
+
+  codeql:
+    name: CodeQL
+    needs: govulncheck
+    uses: ./.github/workflows/codeql-analysis.yml
+    secrets: inherit
+
+  build:
+    name: Build & Test
+    needs: codeql
+    uses: ./.github/workflows/build.yaml
+    secrets: inherit
+
+  docker:
+    name: Docker Build & Push
+    needs: build
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    uses: ./.github/workflows/docker.yaml
+    secrets: inherit
+
+  mkdocs:
+    name: MkDocs Deploy
+    needs: build
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    uses: ./.github/workflows/mkdocs.yml
+    secrets: inherit

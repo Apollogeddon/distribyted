@@ -1,11 +1,6 @@
 name: mkdocs
 
-on:
-  push:
-    branches: 
-      - master
-    tags:
-      - 'v*'
+on: workflow_call
 
 permissions:
   contents: write
