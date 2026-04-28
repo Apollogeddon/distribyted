@@ -47,6 +47,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 	r.GET("/routes", routesHandler(ss))
 	r.GET("/logs", logsHandler)
 	r.GET("/servers", serversFoldersHandler())
+	r.GET("/version/api", qBitWebapiVersionHandler)
 
 	api := r.Group("/api")
 	{
@@ -63,7 +64,11 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 	qbit := r.Group("/api/v2")
 	{
 		qbit.POST("/auth/login", qBitLoginHandler)
+		qbit.GET("/app/webapiVersion", qBitWebapiVersionHandler)
+		qbit.GET("/app/version", qBitWebapiVersionHandler)
+		qbit.GET("/transfer/info", qBitTransferInfoHandler(ss))
 		qbit.GET("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
+		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(ss))
 		qbit.POST("/torrents/add", qBitTorrentsAddHandler(s))
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}

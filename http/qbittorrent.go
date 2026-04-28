@@ -34,6 +34,65 @@ func qBitLoginHandler(c *gin.Context) {
 	c.String(http.StatusOK, "Ok.")
 }
 
+func qBitWebapiVersionHandler(c *gin.Context) {
+	// Mocked webapi version for compatibility
+	c.String(http.StatusOK, "2.8.19")
+}
+
+func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		torrents := ss.GetAllTorrents()
+		var totalDownloadData int64
+		var totalUploadData int64
+
+		for _, t := range torrents {
+			st := t.Stats()
+			// Stats() returns cumulative data and current rates
+			// We can use the cumulative data for session totals
+			// and calculate speeds from deltas if we wanted, but anacrolix/torrent
+			// might not give us instant rates easily in a compatible way here
+			// For now, we'll use a simplified version.
+			totalDownloadData += st.BytesReadData.Int64()
+			totalUploadData += st.BytesWrittenData.Int64()
+		}
+
+		// Since distribyted's torrent.Stats already tracks deltas for speeds,
+		// we can leverage GlobalStats() but we need to be careful about interference.
+		// For simplicity in this mock, we'll just return the session totals.
+		// Radarr/Sonarr mostly care that the response is valid.
+
+		c.JSON(http.StatusOK, gin.H{
+			"connection_status":    "connected",
+			"dht_nodes":            0,
+			"dl_info_data":         totalDownloadData,
+			"dl_info_speed":        0, // TODO: calculate real speed
+			"dl_rate_limit":        0,
+			"up_info_data":         totalUploadData,
+			"up_info_speed":        0, // TODO: calculate real speed
+			"up_rate_limit":        0,
+			"refresh_interval":     2000,
+			"queueing_enabled":     false,
+			"use_alt_speed_limits": false,
+		})
+	}
+}
+
+func qBitTorrentsCategoriesHandler(ss *torrent.Stats) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		routes := ss.RoutesStats()
+		resp := make(map[string]gin.H)
+
+		for _, r := range routes {
+			resp[r.Name] = gin.H{
+				"name":     r.Name,
+				"savePath": "", // qBit can have specific save paths per category
+			}
+		}
+
+		c.JSON(http.StatusOK, resp)
+	}
+}
+
 func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		torrents := ss.GetAllTorrents()
