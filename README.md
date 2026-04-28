@@ -29,19 +29,58 @@
 
 ![Distribyted Screen Shot][product-screenshot]
 
-Distribyted is an alternative torrent client. 
-It can expose torrent files as a standard FUSE, webDAV or HTTP endpoint and download them on demand, allowing random reads using a fixed amount of disk space. 
+Distribyted is an alternative torrent client that treats torrents as a standard filesystem. It downloads only the parts of the file that are requested by the OS or applications, allowing you to access Terabytes of data using minimal local disk space.
 
-Distribyted tries to make easier integrations with other applications using torrent files, presenting them as a standard filesystem. 
+### Core Features
 
-**Note that distribyted is in beta version, it is a proof of concept with a lot of bugs.**
+- **Filesystem Access:** Mount torrents via **FUSE** (Linux/Windows), **WebDAV**, or **HTTP**.
+- **On-Demand Downloading:** Only downloads the specific blocks of data being read.
+- **Routes:** Organize different sets of torrents into virtual folders.
+- **Servers:** Turn any local folder into a live torrent. It monitors the folder and updates the magnet link automatically as files change.
+- **qBitTorrent API Compatibility:** Integration with popular automation tools.
+
+## Usage
+
+### 1. Configuration
+
+The application uses a YAML configuration file. You can find an example in `examples/conf_example.yaml`.
+
+### 2. Running
+
+```bash
+./distribyted examples/conf_example.yaml
+```
+
+### 3. Accessing Files
+
+- **FUSE:** By default, files are mounted to `./distribyted-data/mount` (configurable).
+- **WebDAV:** Access via `http://localhost:36911` (Default: admin/admin).
+- **HTTP:** Browse files at `http://localhost:4444/fs/`.
+
+### 4. Integration with Radarr/Sonarr
+
+You can add `distribyted` as a qBitTorrent download client:
+
+- **Host:** `localhost`
+- **Port:** `4444`
+- **Username/Password:** Any (Authentication is currently mocked to always succeed)
+- **Category:** Use the name of one of your configured **Routes**.
+
+## qBitTorrent API (v2) Support
+
+The following endpoints are implemented under `/api/v2`:
+
+- `POST /auth/login` - Always returns OK.
+- `GET /torrents/info` - Lists torrents in a format compatible with qBitTorrent.
+- `POST /torrents/add` - Adds magnet links. The `category` parameter determines the `route`.
+- `POST /torrents/delete` - Removes torrents.
 
 ## Use Cases
 
-- Play **multimedia files** on your favorite video or audio player. These files will be downloaded on demand and only the needed parts.
-- Explore TBs of data from public **datasets** only downloading the parts you need. Use **Jupyter Notebooks** directly to process or analyze this data.
-- Give access to your latest dataset creation just by sharing a magnet link. People will start using your data in seconds.
-- Play your **ROM backups** directly from the torrent file. You can have virtually GBs in games and only downloaded the needed ones.
+- **Multimedia:** Stream 4K movies directly in VLC without waiting for the full download.
+- **Datasets:** Browse massive public datasets and only download the specific files or offsets needed for analysis.
+- **Gaming:** Access large ROM collections or game backups directly from the filesystem.
+- **Content Sharing:** Use the **Server** feature to instantly share a local folder with anyone via a magnet link.
 
 ## Documentation
 
@@ -49,27 +88,16 @@ Check [here][main-url] for further documentation.
 
 ## Contributing
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Contributions are welcome! Specifically:
 
-Some areas need more care than others:
-- Windows and macOS tests and compatibility. I don't have any easy way to test distribyted on these operating systems.
-- Web interface. Web development is not my _forte_.
-- Tutorials. Share with the community your use case!
-
-## Special thanks
-
-- [Anacrolix BitTorrent client package and utilities][torrent-repo-url]. An amazing torrent library with file seek support.
-- [Nwaples rardecode library, experimental branch][rardecode-repo-url]. The only go library that is able to seek over rar files and avoid to use `io.Discard`.
-- [Bodgit 7zip library][sevenzip-repo-url]. Amazing library to decode 7zip files.
-
+- Testing and compatibility improvements for Windows and macOS.
+- Enhancements to the Web Dashboard.
+- New tutorials and use cases.
 
 ## License
 
 Distributed under the GPL3 license. See `LICENSE` for more information.
 
-[sevenzip-repo-url]: https://github.com/bodgit/sevenzip
-[rardecode-repo-url]: https://github.com/nwaples/rardecode/tree/experimental
-[torrent-repo-url]: https://github.com/anacrolix/torrent
 [main-url]: https://distribyted.com
 [releases-shield]: https://img.shields.io/github/v/release/Apollogeddon/distribyted.svg?style=flat-square
 [releases-url]: https://github.com/Apollogeddon/distribyted/releases
@@ -86,6 +114,5 @@ Distributed under the GPL3 license. See `LICENSE` for more information.
 [license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
 [license-url]: https://github.com/Apollogeddon/distribyted/blob/master/LICENSE
 [product-screenshot]: mkdocs/docs/images/distribyted.gif
-[example-config]: https://github.com/Apollogeddon/distribyted/blob/master/examples/conf_example.yaml
 [coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
 [coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted
