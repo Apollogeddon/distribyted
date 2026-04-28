@@ -127,6 +127,29 @@ func (s *Stats) Del(route, hash string) {
 	delete(ts, hash)
 }
 
+func (s *Stats) GetAllTorrents() map[string]*torrent.Torrent {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	out := make(map[string]*torrent.Torrent)
+	for h, t := range s.torrents {
+		out[h] = t
+	}
+	return out
+}
+
+func (s *Stats) GetRouteFromHash(hash string) string {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	for route, torrents := range s.torrentsByRoute {
+		if _, ok := torrents[hash]; ok {
+			return route
+		}
+	}
+	return ""
+}
+
 func (s *Stats) Stats(hash string) (*TorrentStats, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()

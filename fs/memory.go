@@ -24,6 +24,28 @@ func (fs *Memory) ReadDir(path string) (map[string]File, error) {
 	return fs.Storage.Children(path)
 }
 
+func (fs *Memory) Link(oldpath, newpath string) error {
+	f, err := fs.Storage.Get(oldpath)
+	if err != nil {
+		return err
+	}
+
+	return fs.Storage.Add(f, newpath)
+}
+
+func (fs *Memory) Rename(oldpath, newpath string) error {
+	f, err := fs.Storage.Get(oldpath)
+	if err != nil {
+		return err
+	}
+
+	if err := fs.Storage.Add(f, newpath); err != nil {
+		return err
+	}
+
+	return fs.Storage.Remove(oldpath)
+}
+
 var _ File = &MemoryFile{}
 
 type MemoryFile struct {

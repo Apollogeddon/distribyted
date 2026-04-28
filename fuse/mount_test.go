@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -11,16 +12,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHandler(t *testing.T) {
+func checkWinFsp(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("test for windows only")
 	}
+
+	// Check for WinFsp in registry
+	cmd := exec.Command("reg", "query", "HKLM\\SOFTWARE\\WinFsp", "/v", "InstallDir")
+	if err := cmd.Run(); err == nil {
+		return
+	}
+
+	cmd = exec.Command("reg", "query", "HKLM\\SOFTWARE\\WOW6432Node\\WinFsp", "/v", "InstallDir")
+	if err := cmd.Run(); err == nil {
+		return
+	}
+
+	t.Skip("WinFsp not found, skipping FUSE tests")
+}
+
+func TestHandler(t *testing.T) {
+	checkWinFsp(t)
 
 	require := require.New(t)
 
 	p := "./testmnt"
 
 	h := NewHandler(false, p)
+	defer h.Unmount()
 
 	mem := fs.NewMemory()
 
@@ -40,15 +59,14 @@ func TestHandler(t *testing.T) {
 }
 
 func TestHandlerDriveLetter(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("test for windows only")
-	}
+	checkWinFsp(t)
 
 	require := require.New(t)
 
 	p := "Z:"
 
 	h := NewHandler(false, p)
+	defer h.Unmount()
 
 	mem := fs.NewMemory()
 

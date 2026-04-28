@@ -8,8 +8,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/gin-gonic/gin"
 )
 

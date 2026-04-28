@@ -14,7 +14,7 @@ import (
 	"github.com/Apollogeddon/distribyted/torrent"
 )
 
-func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, cfg *config.HTTPGlobal) error {
+func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, cfg *config.HTTPGlobal, fusePath string) error {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -58,6 +58,14 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		api.POST("/routes/:route/torrent", apiAddTorrentHandler(s))
 		api.DELETE("/routes/:route/torrent/:torrent_hash", apiDelTorrentHandler(s))
 
+	}
+
+	qbit := r.Group("/api/v2")
+	{
+		qbit.POST("/auth/login", qBitLoginHandler)
+		qbit.GET("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
+		qbit.POST("/torrents/add", qBitTorrentsAddHandler(s))
+		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}
 
 	log.Info().Str("host", fmt.Sprintf("%s:%d", cfg.IP, cfg.Port)).Msg("starting webserver")

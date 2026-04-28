@@ -105,6 +105,25 @@ func (s *storage) Add(f File, p string) error {
 	return s.createParent(p, f)
 }
 
+func (s *storage) Remove(p string) error {
+	p = clean(p)
+	if !s.Has(p) {
+		return os.ErrNotExist
+	}
+
+	delete(s.files, p)
+	delete(s.filesystems, p)
+
+	base, filename := path.Split(p)
+	base = clean(base)
+
+	if children, ok := s.children[base]; ok {
+		delete(children, filename)
+	}
+
+	return nil
+}
+
 func (s *storage) createParent(p string, f File) error {
 	base, filename := path.Split(p)
 	base = clean(base)

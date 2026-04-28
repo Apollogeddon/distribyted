@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/bodgit/sevenzip"
 	"github.com/Apollogeddon/distribyted/iio"
+	"github.com/bodgit/sevenzip"
 	"github.com/nwaples/rardecode/v2"
 )
 
@@ -181,6 +181,14 @@ func (fs *archive) ReadDir(path string) (map[string]File, error) {
 	}
 
 	return fs.s.Children(path)
+}
+
+func (fs *archive) Link(oldpath, newpath string) error {
+	return os.ErrPermission
+}
+
+func (fs *archive) Rename(oldpath, newpath string) error {
+	return os.ErrPermission
 }
 
 var _ File = &ArchiveFile{}

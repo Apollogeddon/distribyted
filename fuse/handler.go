@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/rs/zerolog/log"
 )
 

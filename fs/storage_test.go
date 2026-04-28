@@ -169,6 +169,14 @@ func (d *DummyFs) ReadDir(path string) (map[string]File, error) {
 	return nil, os.ErrNotExist
 }
 
+func (d *DummyFs) Link(oldpath, newpath string) error {
+	return error(nil)
+}
+
+func (d *DummyFs) Rename(oldpath, newpath string) error {
+	return error(nil)
+}
+
 var _ File = &Dummy{}
 
 type Dummy struct {

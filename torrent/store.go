@@ -5,9 +5,9 @@ import (
 	"encoding/gob"
 	"time"
 
+	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/anacrolix/dht/v2/bep44"
 	"github.com/dgraph-io/badger/v3"
-	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/rs/zerolog/log"
 )
 

@@ -12,6 +12,7 @@ type File interface {
 	Size() int64
 
 	iio.Reader
+	Close() error
 }
 
 type Filesystem interface {
@@ -23,6 +24,12 @@ type Filesystem interface {
 	// ReadDir reads the directory named by dirname and returns a list of
 	// directory entries.
 	ReadDir(path string) (map[string]File, error)
+
+	// Link creates a new link (hard link) for the existing path.
+	Link(oldpath, newpath string) error
+
+	// Rename renames a file or directory.
+	Rename(oldpath, newpath string) error
 }
 
 type fileInfo struct {

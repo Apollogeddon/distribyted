@@ -209,3 +209,12 @@ func (s *Service) RemoveFromHash(r, h string) error {
 
 	return nil
 }
+
+func (s *Service) RemoveFromHashOnly(h string) error {
+	r := s.s.GetRouteFromHash(h)
+	if r == "" {
+		return fmt.Errorf("torrent with hash %v not found", h)
+	}
+
+	return s.RemoveFromHash(r, h)
+}

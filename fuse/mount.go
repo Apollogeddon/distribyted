@@ -7,8 +7,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -113,6 +113,32 @@ func (fs *FS) Release(path string, fh uint64) int {
 
 func (fs *FS) Releasedir(path string, fh uint64) int {
 	return fs.Release(path, fh)
+}
+
+func (fs *FS) Link(oldpath string, newpath string) int {
+	err := fs.fh.fs.Link(oldpath, newpath)
+	if os.IsNotExist(err) {
+		return -fuse.ENOENT
+	}
+	if err != nil {
+		fs.log.Error().Err(err).Str("oldpath", oldpath).Str("newpath", newpath).Msg("error linking file")
+		return -fuse.EIO
+	}
+
+	return 0
+}
+
+func (fs *FS) Rename(oldpath string, newpath string) int {
+	err := fs.fh.fs.Rename(oldpath, newpath)
+	if os.IsNotExist(err) {
+		return -fuse.ENOENT
+	}
+	if err != nil {
+		fs.log.Error().Err(err).Str("oldpath", oldpath).Str("newpath", newpath).Msg("error renaming file")
+		return -fuse.EIO
+	}
+
+	return 0
 }
 
 func (fs *FS) Readdir(path string,

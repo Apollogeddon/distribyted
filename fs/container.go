@@ -22,3 +22,25 @@ func (fs *ContainerFs) Open(filename string) (File, error) {
 func (fs *ContainerFs) ReadDir(path string) (map[string]File, error) {
 	return fs.s.Children(path)
 }
+
+func (fs *ContainerFs) Link(oldpath, newpath string) error {
+	f, err := fs.s.Get(oldpath)
+	if err != nil {
+		return err
+	}
+
+	return fs.s.Add(f, newpath)
+}
+
+func (fs *ContainerFs) Rename(oldpath, newpath string) error {
+	f, err := fs.s.Get(oldpath)
+	if err != nil {
+		return err
+	}
+
+	if err := fs.s.Add(f, newpath); err != nil {
+		return err
+	}
+
+	return fs.s.Remove(oldpath)
+}

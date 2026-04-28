@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Apollogeddon/distribyted/iio"
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/torrent"
-	"github.com/Apollogeddon/distribyted/iio"
 )
 
 var _ Filesystem = &Torrent{}
@@ -76,6 +76,30 @@ func (fs *Torrent) Open(filename string) (File, error) {
 func (fs *Torrent) ReadDir(path string) (map[string]File, error) {
 	fs.load()
 	return fs.s.Children(path)
+}
+
+func (fs *Torrent) Link(oldpath, newpath string) error {
+	fs.load()
+	f, err := fs.s.Get(oldpath)
+	if err != nil {
+		return err
+	}
+
+	return fs.s.Add(f, newpath)
+}
+
+func (fs *Torrent) Rename(oldpath, newpath string) error {
+	fs.load()
+	f, err := fs.s.Get(oldpath)
+	if err != nil {
+		return err
+	}
+
+	if err := fs.s.Add(f, newpath); err != nil {
+		return err
+	}
+
+	return fs.s.Remove(oldpath)
 }
 
 type reader interface {
