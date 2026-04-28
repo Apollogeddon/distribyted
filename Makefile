@@ -11,6 +11,8 @@ LDFLAGS=-X=main.Version=$(VERSION) -X=main.Build=$(BUILD)
 # Make is verbose in Linux. Make it silent.
 MAKEFLAGS += --silent
 
+all: build
+
 ## run: run from code.
 run:
 	go run cmd/distribyted/main.go examples/conf_example.yaml
