@@ -6,6 +6,7 @@ type ContainerFs struct {
 
 func NewContainerFs(fss map[string]Filesystem) (*ContainerFs, error) {
 	s := newStorage(SupportedFactories)
+	_ = s.Add(&Dir{}, "/")
 	for p, fs := range fss {
 		if err := s.AddFS(fs, p); err != nil {
 			return nil, err
