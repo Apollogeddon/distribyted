@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.3](https://github.com/Apollogeddon/distribyted/compare/v0.18.2...v0.18.3) (2026-04-29)
+
+
+### Bug Fixes
+
+* Initialize storage with root directory on creation ([eea36ac](https://github.com/Apollogeddon/distribyted/commit/eea36ac9546220fe5971cd62028d61dc844335d6))
+
 ## [0.18.2](https://github.com/Apollogeddon/distribyted/compare/v0.18.1...v0.18.2) (2026-04-29)
 
 
