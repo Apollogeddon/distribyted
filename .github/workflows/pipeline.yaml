@@ -15,17 +15,15 @@ jobs:
 
   lint:
     name: Lint
-    needs: gitleaks
     uses: ./.github/workflows/lint.yaml
 
   govulncheck:
     name: Govulncheck
-    needs: lint
     uses: ./.github/workflows/govulncheck.yaml
 
   codeql:
     name: CodeQL
-    needs: govulncheck
+    needs: [gitleaks, lint, govulncheck]
     uses: ./.github/workflows/codeql-analysis.yml
     permissions:
       actions: read
