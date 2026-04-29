@@ -58,24 +58,37 @@ func qBitAppVersionHandler(c *gin.Context) {
 	c.String(http.StatusOK, "v4.3.5")
 }
 
-func qBitAppPreferencesHandler(c *gin.Context) {
-	// Mocked preferences for compatibility
-	c.JSON(http.StatusOK, gin.H{
-		"save_path":                 "",
-		"temp_path_enabled":         false,
-		"listen_port":               8999,
-		"upnp":                      false,
-		"dl_limit":                  0,
-		"up_limit":                  0,
-		"max_connecs":               500,
-		"max_connecs_per_torrent":    100,
-		"max_uploads":               -1,
-		"max_uploads_per_torrent":    -1,
-		"web_ui_port":               4444,
-		"scan_dirs":                  make(map[string]interface{}),
-		"export_dir":                "",
-		"mail_notification_enabled": false,
-	})
+func qBitAppPreferencesHandler(conf *config.Root, fusePath string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Mocked preferences for compatibility
+		pref := gin.H{
+			"save_path":                 fusePath,
+			"temp_path_enabled":         false,
+			"listen_port":               8999,
+			"upnp":                      false,
+			"dl_limit":                  0,
+			"up_limit":                  0,
+			"max_connecs":               500,
+			"max_connecs_per_torrent":    100,
+			"max_uploads":               -1,
+			"max_uploads_per_torrent":    -1,
+			"web_ui_port":               4444,
+			"scan_dirs":                  make(map[string]interface{}),
+			"export_dir":                "",
+			"mail_notification_enabled": false,
+		}
+
+		if conf.HTTPGlobal != nil {
+			pref["web_ui_port"] = conf.HTTPGlobal.Port
+		}
+
+		if conf.Torrent != nil {
+			// qbit uses enabled, distribyted uses disabled
+			pref["ipv6_enabled"] = !conf.Torrent.DisableIPv6
+		}
+
+		c.JSON(http.StatusOK, pref)
+	}
 }
 
 func qBitAppSetPreferencesHandler(c *gin.Context) {
@@ -113,7 +126,7 @@ func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
 
 var mockCreatedCategories = make(map[string]bool)
 
-func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats) gin.HandlerFunc {
+func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		resp := make(map[string]gin.H)
 
@@ -121,9 +134,13 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats) gin.Ha
 		if ch != nil {
 			if root, err := ch.Get(); err == nil && root != nil {
 				for _, r := range root.Routes {
+					savePath := fusePath
+					if r.Name != "" {
+						savePath = fusePath + "/" + r.Name
+					}
 					resp[r.Name] = gin.H{
 						"name":     r.Name,
-						"savePath": "",
+						"savePath": savePath,
 					}
 				}
 			}
@@ -131,18 +148,28 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats) gin.Ha
 
 		// Add dynamically mocked categories
 		for cat := range mockCreatedCategories {
+			savePath := fusePath
+			if cat != "" {
+				savePath = fusePath + "/" + cat
+			}
 			resp[cat] = gin.H{
 				"name":     cat,
-				"savePath": "",
+				"savePath": savePath,
 			}
 		}
 
 		// Also add any routes that have active torrents
 		routes := ss.RoutesStats()
 		for _, r := range routes {
-			resp[r.Name] = gin.H{
-				"name":     r.Name,
-				"savePath": "",
+			if _, exists := resp[r.Name]; !exists {
+				savePath := fusePath
+				if r.Name != "" {
+					savePath = fusePath + "/" + r.Name
+				}
+				resp[r.Name] = gin.H{
+					"name":     r.Name,
+					"savePath": savePath,
+				}
 			}
 		}
 

@@ -244,12 +244,12 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	httpfs := torrent.NewHTTPFS(cfs)
 	logFilename := filepath.Join(conf.Log.Path, dlog.FileName)
 
-	fusePath := ""
-	if conf.Fuse != nil {
+	fusePath := "/distribyted-data/mount"
+	if conf.Fuse != nil && conf.Fuse.Path != "" {
 		fusePath = conf.Fuse.Path
 	}
 
-	err = http.New(fc, ss, ts, ch, servers, httpfs, logFilename, conf.HTTPGlobal, fusePath)
+	err = http.New(fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath)
 	log.Error().Err(err).Msg("error initializing HTTP server")
 	return err
 }

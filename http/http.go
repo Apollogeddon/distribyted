@@ -14,7 +14,7 @@ import (
 	"github.com/Apollogeddon/distribyted/torrent"
 )
 
-func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, cfg *config.HTTPGlobal, fusePath string) error {
+func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string) error {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -25,8 +25,8 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		c.FileFromFS(c.Request.URL.Path, http.FS(distribyted.Assets))
 	})
 
-	if cfg.HTTPFS {
-		log.Info().Str("host", fmt.Sprintf("%s:%d/fs", cfg.IP, cfg.Port)).Msg("starting HTTPFS")
+	if conf.HTTPGlobal.HTTPFS {
+		log.Info().Str("host", fmt.Sprintf("%s:%d/fs", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting HTTPFS")
 		h := func(c *gin.Context) {
 			path := c.Param("filepath")
 			c.FileFromFS(path, fs)
@@ -66,11 +66,11 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		qbit.POST("/auth/login", qBitLoginHandler)
 		qbit.GET("/app/webapiVersion", qBitWebapiVersionHandler)
 		qbit.GET("/app/version", qBitAppVersionHandler)
-		qbit.GET("/app/preferences", qBitAppPreferencesHandler)
+		qbit.GET("/app/preferences", qBitAppPreferencesHandler(conf, fusePath))
 		qbit.POST("/app/setPreferences", qBitAppSetPreferencesHandler)
 		qbit.GET("/transfer/info", qBitTransferInfoHandler(ss))
 		qbit.GET("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
-		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(ch, ss))
+		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(ch, ss, fusePath))
 		qbit.POST("/torrents/createCategory", qBitTorrentsCreateCategoryHandler)
 		qbit.POST("/torrents/setCategory", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/addTags", qBitTorrentsMockHandler)
@@ -80,9 +80,9 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}
 
-	log.Info().Str("host", fmt.Sprintf("%s:%d", cfg.IP, cfg.Port)).Msg("starting webserver")
+	log.Info().Str("host", fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting webserver")
 
-	if err := r.Run(fmt.Sprintf("%s:%d", cfg.IP, cfg.Port)); err != nil {
+	if err := r.Run(fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)); err != nil {
 		return fmt.Errorf("error initializing server: %w", err)
 	}
 

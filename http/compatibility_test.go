@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Apollogeddon/distribyted/config"
 	"github.com/Apollogeddon/distribyted/torrent"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,13 @@ func TestQBitCompatibility(t *testing.T) {
 	router := gin.New()
 	router.GET("/api/v2/app/version", qBitAppVersionHandler)
 	router.GET("/api/v2/torrents/info", qBitTorrentsInfoHandler(ss, "/tmp/mount"))
-	router.GET("/api/v2/app/preferences", qBitAppPreferencesHandler)
+	
+	// Create a dummy config for testing
+	rootConf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{Port: 4444},
+		Torrent:    &config.TorrentGlobal{DisableIPv6: true},
+	}
+	router.GET("/api/v2/app/preferences", qBitAppPreferencesHandler(rootConf, "/tmp/mount"))
 
 	t.Run("AppVersion", func(t *testing.T) {
 		w := httptest.NewRecorder()
