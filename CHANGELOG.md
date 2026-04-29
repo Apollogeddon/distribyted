@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.2](https://github.com/Apollogeddon/distribyted/compare/v0.17.1...v0.17.2) (2026-04-29)
+
+
+### Bug Fixes
+
+* Handle root directory case in getDirFromFs to return os.ErrNotExist ([c59d158](https://github.com/Apollogeddon/distribyted/commit/c59d15869bf31cf446c7644b4175417b028e3fba))
+* Update qBitTorrent category handlers to include config handler and create category functionality ([52f4230](https://github.com/Apollogeddon/distribyted/commit/52f42301901326d96eb474690bd4ff677e2504b5))
+
 ## [0.17.1](https://github.com/Apollogeddon/distribyted/compare/v0.17.0...v0.17.1) (2026-04-29)
 
 
