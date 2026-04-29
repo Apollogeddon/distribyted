@@ -18,7 +18,6 @@ type Torrent struct {
 	mu          sync.RWMutex
 	ts          map[string]*torrent.Torrent
 	s           *storage
-	loaded      bool
 	readTimeout int
 }
 
@@ -35,18 +34,27 @@ func (fs *Torrent) AddTorrent(t *torrent.Torrent) {
 	defer fs.mu.Unlock()
 	fs.ts[t.InfoHash().HexString()] = t
 
+	if t.Info() != nil {
+		fs.addFiles(t)
+		return
+	}
+
 	go func() {
 		<-t.GotInfo()
 		fs.mu.Lock()
 		defer fs.mu.Unlock()
-		for _, file := range t.Files() {
-			_ = fs.s.Add(&torrentFile{
-				readerFunc: file.NewReader,
-				len:        file.Length(),
-				timeout:    fs.readTimeout,
-			}, file.Path())
-		}
+		fs.addFiles(t)
 	}()
+}
+
+func (fs *Torrent) addFiles(t *torrent.Torrent) {
+	for _, file := range t.Files() {
+		_ = fs.s.Add(&torrentFile{
+			readerFunc: file.NewReader,
+			len:        file.Length(),
+			timeout:    fs.readTimeout,
+		}, file.Path())
+	}
 }
 
 func (fs *Torrent) RemoveTorrent(h string) {

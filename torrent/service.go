@@ -136,9 +136,8 @@ func (s *Service) addRoute(r string) {
 	folder := path.Join("/", r)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	tfs, ok := s.fss[folder]
-	if !ok {
-		tfs = fs.NewTorrent(s.readTimeout)
+	if _, ok := s.fss[folder]; !ok {
+		tfs := fs.NewTorrent(s.readTimeout)
 		s.fss[folder] = tfs
 		for _, f := range s.routeAddedListeners {
 			f(folder, tfs)

@@ -17,6 +17,8 @@ var Cli *torrent.Client
 func TestMain(m *testing.M) {
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DataDir = os.TempDir()
+	cfg.ListenPort = 0
+	cfg.NoDHT = true
 
 	// disable webseeds to avoid a panic when closing client on tests
 	cfg.DisableWebseeds = true
@@ -41,10 +43,10 @@ func TestTorrentFilesystem(t *testing.T) {
 	to, err := Cli.AddMagnet(testMagnet)
 	require.NoError(err)
 
+	<-to.GotInfo()
+
 	tfs := NewTorrent(600)
 	tfs.AddTorrent(to)
-
-	<-to.GotInfo()
 
 	files, err := tfs.ReadDir("/")
 	require.NoError(err)
