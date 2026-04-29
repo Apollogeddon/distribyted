@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/Apollogeddon/distribyted/compare/v0.17.2...v0.18.0) (2026-04-29)
+
+
+### Features
+
+* Update config to by default allow other users access and add new test cases for handlers and webdav ([4c0c6cb](https://github.com/Apollogeddon/distribyted/commit/4c0c6cb58ece26e8ff9a253e6430c790de5c1516))
+
 ## [0.17.2](https://github.com/Apollogeddon/distribyted/compare/v0.17.1...v0.17.2) (2026-04-29)
 
 
