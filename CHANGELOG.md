@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/Apollogeddon/distribyted/compare/v0.19.0...v0.19.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* Implement Create and Remove methods for Filesystem interface ([1cfb241](https://github.com/Apollogeddon/distribyted/commit/1cfb241c1c27664e2737277ed22b0f7e072d951c))
+
 ## [0.19.0](https://github.com/Apollogeddon/distribyted/compare/v0.18.3...v0.19.0) (2026-04-29)
 
 
