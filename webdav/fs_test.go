@@ -8,7 +8,6 @@ import (
 
 	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/webdav"
 )
 
 func TestWebDAVFilesystem(t *testing.T) {
@@ -62,7 +61,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 	require.Equal(int64(18), fInfo.Size())
 }
 
-func TestErrNotImplemented(t *testing.T) {
+func TestMkdirRemoveRename(t *testing.T) {
 	t.Parallel()
 
 	require := require.New(t)
@@ -74,7 +73,7 @@ func TestErrNotImplemented(t *testing.T) {
 
 	wfs := newFS(mfs)
 
-	require.ErrorIs(wfs.Mkdir(context.Background(), "test", 0), webdav.ErrNotImplemented)
-	require.ErrorIs(wfs.RemoveAll(context.Background(), "test"), webdav.ErrNotImplemented)
-	require.ErrorIs(wfs.Rename(context.Background(), "test", "newTest"), webdav.ErrNotImplemented)
+	require.NoError(wfs.Mkdir(context.Background(), "test", 0))
+	require.NoError(wfs.Rename(context.Background(), "test", "newTest"))
+	require.NoError(wfs.RemoveAll(context.Background(), "newTest"))
 }

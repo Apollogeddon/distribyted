@@ -177,6 +177,14 @@ func (d *DummyFs) Rename(oldpath, newpath string) error {
 	return error(nil)
 }
 
+func (d *DummyFs) Mkdir(path string) error {
+	return error(nil)
+}
+
+func (d *DummyFs) Rmdir(path string) error {
+	return error(nil)
+}
+
 var _ File = &Dummy{}
 
 type Dummy struct {
