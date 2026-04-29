@@ -59,4 +59,4 @@ func TestReadDataEOF(t *testing.T) {
 	// Test Close
 	require.NoError(r.Close())
 	require.NoError(r2.Close())
-	}
+}

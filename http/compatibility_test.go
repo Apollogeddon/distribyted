@@ -16,11 +16,11 @@ import (
 func TestQBitCompatibility(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ss := torrent.NewStats()
-	
+
 	router := gin.New()
 	router.GET("/api/v2/app/version", qBitAppVersionHandler)
 	router.GET("/api/v2/torrents/info", qBitTorrentsInfoHandler(ss, "/tmp/mount"))
-	
+
 	// Create a dummy config for testing
 	rootConf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{Port: 4444},
@@ -68,16 +68,16 @@ func TestQBitCompatibility(t *testing.T) {
 func TestQBitTorrentStructSerialization(t *testing.T) {
 	// Directly test the serialization to ensure all fields are present in JSON
 	qbt := qBitTorrent{
-		Hash: "hash",
-		Name: "name",
-		Category: "cat",
-		AddedOn: 123,
+		Hash:         "hash",
+		Name:         "name",
+		Category:     "cat",
+		AddedOn:      123,
 		LastActivity: 456,
 	}
 
 	b, err := json.Marshal(qbt)
 	require.NoError(t, err)
-	
+
 	jsonStr := string(b)
 	assert.Contains(t, jsonStr, "\"hash\":\"hash\"")
 	assert.Contains(t, jsonStr, "\"category\":\"cat\"")

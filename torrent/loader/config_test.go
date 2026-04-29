@@ -28,7 +28,7 @@ func TestConfigLoader(t *testing.T) {
 	}
 
 	l := NewConfig(routes)
-	
+
 	magnets, err := l.ListMagnets()
 	require.NoError(err)
 	require.Len(magnets, 2)

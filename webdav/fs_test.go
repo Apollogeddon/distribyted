@@ -31,7 +31,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 	require.NoError(err)
 	require.Len(fi, 1)
 	require.Equal("folder", fi[0].Name())
-	
+
 	// Test Readdir count > 0 and EOF
 	fi2, err := dir.Readdir(1)
 	require.ErrorIs(err, io.EOF)
@@ -120,7 +120,7 @@ func TestMkdirRemoveRename(t *testing.T) {
 
 	require.NoError(wfs.Mkdir(context.Background(), "test", 0))
 	require.NoError(wfs.Rename(context.Background(), "test", "newTest"))
-	
+
 	// Test RemoveAll for Directory
 	require.NoError(wfs.RemoveAll(context.Background(), "newTest"))
 

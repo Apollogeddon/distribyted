@@ -20,7 +20,7 @@ func TestNewWebDAVServer(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 	http.DefaultServeMux.ServeHTTP(w, req)
-	
+
 	// Without auth
 	require.Equal(t, 401, w.Code)
 

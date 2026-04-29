@@ -53,7 +53,7 @@ func TestHandlerGet(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	confPath := filepath.Join(tmpDir, "config.yaml")
-	
+
 	// Create a valid yaml config
 	content := []byte("log:\n  debug: true\n")
 	err := os.WriteFile(confPath, content, 0644)
@@ -64,7 +64,7 @@ func TestHandlerGet(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(conf)
 	require.True(conf.Log.Debug)
-	
+
 	// Ensure defaults were added
 	require.NotNil(conf.Torrent)
 }
@@ -75,7 +75,7 @@ func TestHandlerGet_InvalidYAML(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	confPath := filepath.Join(tmpDir, "config.yaml")
-	
+
 	// Create an invalid yaml config
 	content := []byte("log:\n  level: debug\n\tinvalid_indent: true\n")
 	err := os.WriteFile(confPath, content, 0644)
