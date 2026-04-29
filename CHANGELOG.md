@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/Apollogeddon/distribyted/compare/v0.17.0...v0.17.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* Ensure root directory is added during ContainerFs initialization ([a657e7a](https://github.com/Apollogeddon/distribyted/commit/a657e7af6e1d1221c4f3f4ef4851c8ce317dc63c))
+
 ## [0.17.0](https://github.com/Apollogeddon/distribyted/compare/v0.16.2...v0.17.0) (2026-04-29)
 
 
