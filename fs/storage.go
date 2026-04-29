@@ -188,6 +188,10 @@ func (s *storage) getFileFromFs(p string) (File, error) {
 }
 
 func (s *storage) getDirFromFs(p string) (map[string]File, error) {
+	if p == "/" {
+		return nil, os.ErrNotExist
+	}
+
 	for fsp, fs := range s.filesystems {
 		if strings.HasPrefix(p, fsp) {
 			path := strings.TrimPrefix(p, fsp)
