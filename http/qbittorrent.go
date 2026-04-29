@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Apollogeddon/distribyted/config"
 	"github.com/Apollogeddon/distribyted/torrent"
 	"github.com/gin-gonic/gin"
 )
@@ -98,20 +99,51 @@ func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
 	}
 }
 
-func qBitTorrentsCategoriesHandler(ss *torrent.Stats) gin.HandlerFunc {
+var mockCreatedCategories = make(map[string]bool)
+
+func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		routes := ss.RoutesStats()
 		resp := make(map[string]gin.H)
 
+		// First, add all explicitly configured routes
+		if ch != nil {
+			if root, err := ch.Get(); err == nil && root != nil {
+				for _, r := range root.Routes {
+					resp[r.Name] = gin.H{
+						"name":     r.Name,
+						"savePath": "", 
+					}
+				}
+			}
+		}
+
+		// Add dynamically mocked categories
+		for cat := range mockCreatedCategories {
+			resp[cat] = gin.H{
+				"name":     cat,
+				"savePath": "",
+			}
+		}
+
+		// Also add any routes that have active torrents
+		routes := ss.RoutesStats()
 		for _, r := range routes {
 			resp[r.Name] = gin.H{
 				"name":     r.Name,
-				"savePath": "", // qBit can have specific save paths per category
+				"savePath": "",
 			}
 		}
 
 		c.JSON(http.StatusOK, resp)
 	}
+}
+
+func qBitTorrentsCreateCategoryHandler(c *gin.Context) {
+	category := c.PostForm("category")
+	if category != "" {
+		mockCreatedCategories[category] = true
+	}
+	c.String(http.StatusOK, "")
 }
 
 func qBitTorrentsMockHandler(c *gin.Context) {
