@@ -181,7 +181,7 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 			if info != nil {
 				size = info.TotalLength()
 				progress = 1.0 // Report 100% to satisfy Radarr
-				state = "seeding"
+				state = "uploading"
 			}
 
 			// Map distribyted torrent to qBit format

@@ -157,6 +157,7 @@ func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 	s.s.Add(r, t)
 
 	// Add to filesystems
+	s.addRoute(r)
 	folder := path.Join("/", r)
 	s.mu.Lock()
 	defer s.mu.Unlock()
