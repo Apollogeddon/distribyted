@@ -24,6 +24,8 @@ type Service struct {
 	mu  sync.Mutex
 	fss map[string]fs.Filesystem
 
+	routeAddedListeners []func(string, fs.Filesystem)
+
 	loaders []loader.Loader
 	db      loader.LoaderAdder
 
@@ -121,6 +123,12 @@ func (s *Service) addMagnet(r, m string) error {
 
 }
 
+func (s *Service) OnRouteAdded(f func(string, fs.Filesystem)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.routeAddedListeners = append(s.routeAddedListeners, f)
+}
+
 func (s *Service) addRoute(r string) {
 	s.s.AddRoute(r)
 
@@ -128,9 +136,13 @@ func (s *Service) addRoute(r string) {
 	folder := path.Join("/", r)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, ok := s.fss[folder]
+	tfs, ok := s.fss[folder]
 	if !ok {
-		s.fss[folder] = fs.NewTorrent(s.readTimeout)
+		tfs = fs.NewTorrent(s.readTimeout)
+		s.fss[folder] = tfs
+		for _, f := range s.routeAddedListeners {
+			f(folder, tfs)
+		}
 	}
 }
 
@@ -162,9 +174,14 @@ func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tfs, ok := s.fss[folder].(*fs.Torrent)
+	fs_entry, exists := s.fss[folder]
+	if !exists {
+		return fmt.Errorf("error adding torrent to filesystem: route %s not found in map", folder)
+	}
+
+	tfs, ok := fs_entry.(*fs.Torrent)
 	if !ok {
-		return errors.New("error adding torrent to filesystem")
+		return fmt.Errorf("error adding torrent to filesystem: route %s has unexpected type %T", folder, fs_entry)
 	}
 
 	tfs.AddTorrent(t)

@@ -1,30 +1,47 @@
 package fs
 
+import "sync"
+
 type ContainerFs struct {
-	s *storage
+	mu sync.RWMutex
+	s  *storage
 }
 
 func NewContainerFs(fss map[string]Filesystem) (*ContainerFs, error) {
-	s := newStorage(SupportedFactories)
-	_ = s.Add(&Dir{}, "/")
+	cfs := &ContainerFs{
+		s: newStorage(SupportedFactories),
+	}
+	_ = cfs.s.Add(&Dir{}, "/")
 	for p, fs := range fss {
-		if err := s.AddFS(fs, p); err != nil {
+		if err := cfs.AddFS(p, fs); err != nil {
 			return nil, err
 		}
 	}
 
-	return &ContainerFs{s: s}, nil
+	return cfs, nil
+}
+
+func (fs *ContainerFs) AddFS(p string, fss Filesystem) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.s.AddFS(fss, p)
 }
 
 func (fs *ContainerFs) Open(filename string) (File, error) {
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
 	return fs.s.Get(filename)
 }
 
 func (fs *ContainerFs) ReadDir(path string) (map[string]File, error) {
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
 	return fs.s.Children(path)
 }
 
 func (fs *ContainerFs) Link(oldpath, newpath string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
 		return err
@@ -34,6 +51,8 @@ func (fs *ContainerFs) Link(oldpath, newpath string) error {
 }
 
 func (fs *ContainerFs) Rename(oldpath, newpath string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
 		return err
@@ -47,9 +66,13 @@ func (fs *ContainerFs) Rename(oldpath, newpath string) error {
 }
 
 func (fs *ContainerFs) Mkdir(path string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.s.Add(&Dir{}, path)
 }
 
 func (fs *ContainerFs) Rmdir(path string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.s.Remove(path)
 }

@@ -206,12 +206,22 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error when loading torrents: %w", err)
 	}
 
+	cfs, err := fs.NewContainerFs(fss)
+	if err != nil {
+		return fmt.Errorf("error creating container filesystem: %w", err)
+	}
+
+	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
+		log.Info().Str("path", p).Msg("dynamically adding new route to filesystem")
+		_ = cfs.AddFS(p, fss)
+	})
+
 	go func() {
 		if mh == nil {
 			return
 		}
 
-		if err := mh.Mount(fss); err != nil {
+		if err := mh.Mount(cfs); err != nil {
 			log.Info().Err(err).Msg("error mounting filesystems")
 		}
 	}()
@@ -223,12 +233,6 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 				port = conf.WebDAV.Port
 			}
 
-			cfs, err := fs.NewContainerFs(fss)
-			if err != nil {
-				log.Error().Err(err).Msg("error adding files to webDAV")
-				return
-			}
-
 			if err := webdav.NewWebDAVServer(cfs, port, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
 				log.Error().Err(err).Msg("error starting webDAV")
 			}
@@ -236,11 +240,6 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 		log.Warn().Msg("webDAV configuration not found!")
 	}()
-
-	cfs, err := fs.NewContainerFs(fss)
-	if err != nil {
-		return fmt.Errorf("error when loading torrents: %w", err)
-	}
 
 	httpfs := torrent.NewHTTPFS(cfs)
 	logFilename := filepath.Join(conf.Log.Path, dlog.FileName)

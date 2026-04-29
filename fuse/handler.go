@@ -24,7 +24,7 @@ func NewHandler(fuseAllowOther bool, path string) *Handler {
 	}
 }
 
-func (s *Handler) Mount(fss map[string]fs.Filesystem) error {
+func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 	folder := s.path
 	// On windows, the folder must don't exist
 	if runtime.GOOS == "windows" {
@@ -35,11 +35,6 @@ func (s *Handler) Mount(fss map[string]fs.Filesystem) error {
 		if err := os.MkdirAll(folder, 0744); err != nil && !os.IsExist(err) {
 			return err
 		}
-	}
-
-	cfs, err := fs.NewContainerFs(fss)
-	if err != nil {
-		return err
 	}
 
 	host := fuse.NewFileSystemHost(NewFS(cfs))

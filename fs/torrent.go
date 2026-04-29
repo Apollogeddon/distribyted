@@ -33,8 +33,20 @@ func NewTorrent(readTimeout int) *Torrent {
 func (fs *Torrent) AddTorrent(t *torrent.Torrent) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	fs.loaded = false
 	fs.ts[t.InfoHash().HexString()] = t
+
+	go func() {
+		<-t.GotInfo()
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+		for _, file := range t.Files() {
+			_ = fs.s.Add(&torrentFile{
+				readerFunc: file.NewReader,
+				len:        file.Length(),
+				timeout:    fs.readTimeout,
+			}, file.Path())
+		}
+	}()
 }
 
 func (fs *Torrent) RemoveTorrent(h string) {
@@ -43,44 +55,31 @@ func (fs *Torrent) RemoveTorrent(h string) {
 
 	fs.s.Clear()
 
-	fs.loaded = false
-
 	delete(fs.ts, h)
-}
 
-func (fs *Torrent) load() {
-	if fs.loaded {
-		return
-	}
-	fs.mu.RLock()
-	defer fs.mu.RUnlock()
-
+	// Re-add remaining torrents that have info
 	for _, t := range fs.ts {
-		<-t.GotInfo()
-		for _, file := range t.Files() {
-			_ = fs.s.Add(&torrentFile{
-				readerFunc: file.NewReader,
-				len:        file.Length(),
-				timeout:    fs.readTimeout,
-			}, file.Path())
+		if t.Info() != nil {
+			for _, file := range t.Files() {
+				_ = fs.s.Add(&torrentFile{
+					readerFunc: file.NewReader,
+					len:        file.Length(),
+					timeout:    fs.readTimeout,
+				}, file.Path())
+			}
 		}
 	}
-
-	fs.loaded = true
 }
 
 func (fs *Torrent) Open(filename string) (File, error) {
-	fs.load()
 	return fs.s.Get(filename)
 }
 
 func (fs *Torrent) ReadDir(path string) (map[string]File, error) {
-	fs.load()
 	return fs.s.Children(path)
 }
 
 func (fs *Torrent) Link(oldpath, newpath string) error {
-	fs.load()
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
 		return err
@@ -90,7 +89,6 @@ func (fs *Torrent) Link(oldpath, newpath string) error {
 }
 
 func (fs *Torrent) Rename(oldpath, newpath string) error {
-	fs.load()
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
 		return err
@@ -104,12 +102,10 @@ func (fs *Torrent) Rename(oldpath, newpath string) error {
 }
 
 func (fs *Torrent) Mkdir(path string) error {
-	fs.load()
 	return fs.s.Add(&Dir{}, path)
 }
 
 func (fs *Torrent) Rmdir(path string) error {
-	fs.load()
 	f, err := fs.s.Get(path)
 	if err != nil {
 		return err

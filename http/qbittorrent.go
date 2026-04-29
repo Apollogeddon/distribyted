@@ -185,14 +185,19 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 			}
 
 			// Map distribyted torrent to qBit format
+			savePath := fusePath
+			if category != "" {
+				savePath = fusePath + "/" + category
+			}
+
 			qbt := qBitTorrent{
 				Hash:           hash,
 				Name:           name,
 				Size:           size,
 				Progress:       progress,
 				State:          state,
-				SavePath:       fusePath,
-				ContentPath:    fusePath + "/" + name,
+				SavePath:       savePath,
+				ContentPath:    savePath + "/" + name,
 				Category:       category,
 				Tracker:        "",
 				Tags:           "",

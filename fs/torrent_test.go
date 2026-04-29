@@ -44,6 +44,8 @@ func TestTorrentFilesystem(t *testing.T) {
 	tfs := NewTorrent(600)
 	tfs.AddTorrent(to)
 
+	<-to.GotInfo()
+
 	files, err := tfs.ReadDir("/")
 	require.NoError(err)
 	require.Len(files, 1)

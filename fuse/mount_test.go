@@ -46,7 +46,10 @@ func TestHandler(t *testing.T) {
 	err := mem.Storage.Add(fs.NewMemoryFile([]byte("test")), "/test.txt")
 	require.NoError(err)
 
-	err = h.Mount(map[string]fs.Filesystem{"/mem": mem})
+	cfs, err := fs.NewContainerFs(map[string]fs.Filesystem{"/mem": mem})
+	require.NoError(err)
+
+	err = h.Mount(cfs)
 	require.NoError(err)
 
 	time.Sleep(5 * time.Second)
@@ -73,7 +76,10 @@ func TestHandlerDriveLetter(t *testing.T) {
 	err := mem.Storage.Add(fs.NewMemoryFile([]byte("test")), "/test.txt")
 	require.NoError(err)
 
-	err = h.Mount(map[string]fs.Filesystem{"/mem": mem})
+	cfs, err := fs.NewContainerFs(map[string]fs.Filesystem{"/mem": mem})
+	require.NoError(err)
+
+	err = h.Mount(cfs)
 	require.NoError(err)
 
 	time.Sleep(5 * time.Second)
