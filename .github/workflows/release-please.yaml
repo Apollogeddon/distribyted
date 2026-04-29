@@ -26,3 +26,4 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: .github/release.json
+          manifest-file: .github/.release.json
