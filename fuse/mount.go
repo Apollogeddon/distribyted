@@ -67,10 +67,50 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	if file.IsDir() {
 		stat.Mode = fuse.S_IFDIR | 0777
 	} else {
-		stat.Mode = fuse.S_IFREG | 0666
+		stat.Mode = fuse.S_IFREG | 0777
 		stat.Size = file.Size()
 	}
 
+	return 0
+}
+
+func (fs *FS) Create(path string, flags int, mode uint32) (errc int, fh uint64) {
+	fs.log.Debug().Str("path", path).Msg("mocking create for sonarr/radarr")
+	return 0, 0
+}
+
+func (fs *FS) Write(path string, buf []byte, off int64, fh uint64) int {
+	fs.log.Debug().Str("path", path).Msg("mocking write for sonarr/radarr")
+	return len(buf)
+}
+
+func (fs *FS) Truncate(path string, size int64, fh uint64) int {
+	fs.log.Debug().Str("path", path).Msg("mocking truncate for sonarr/radarr")
+	return 0
+}
+
+func (fs *FS) Mknod(path string, mode uint32, dev uint64) int {
+	fs.log.Debug().Str("path", path).Msg("mocking mknod for sonarr/radarr")
+	return 0
+}
+
+func (fs *FS) Chmod(path string, mode uint32) int {
+	fs.log.Debug().Str("path", path).Msg("mocking chmod for sonarr/radarr")
+	return 0
+}
+
+func (fs *FS) Chown(path string, uid uint32, gid uint32) int {
+	fs.log.Debug().Str("path", path).Msg("mocking chown for sonarr/radarr")
+	return 0
+}
+
+func (fs *FS) Utimens(path string, tmsp []fuse.Timespec) int {
+	fs.log.Debug().Str("path", path).Msg("mocking utimens for sonarr/radarr")
+	return 0
+}
+
+func (fs *FS) Unlink(path string) int {
+	fs.log.Debug().Str("path", path).Msg("mocking unlink for sonarr/radarr")
 	return 0
 }
 
