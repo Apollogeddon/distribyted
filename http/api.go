@@ -13,6 +13,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type torrentService interface {
+	AddMagnet(r, m string) error
+	RemoveFromHash(r, h string) error
+}
+
 var apiStatusHandler = func(fc *filecache.Cache, ss *torrent.Stats) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// TODO move to a struct
@@ -27,7 +32,7 @@ var apiStatusHandler = func(fc *filecache.Cache, ss *torrent.Stats) gin.HandlerF
 
 var apiServersHandler = func(ss []*torrent.Server) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var infos []*torrent.ServerInfo
+		infos := make([]*torrent.ServerInfo, 0)
 		for _, s := range ss {
 			infos = append(infos, s.Info())
 		}
@@ -43,7 +48,7 @@ var apiRoutesHandler = func(ss *torrent.Stats) gin.HandlerFunc {
 	}
 }
 
-var apiAddTorrentHandler = func(s *torrent.Service) gin.HandlerFunc {
+var apiAddTorrentHandler = func(s torrentService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		route := ctx.Param("route")
 
@@ -62,7 +67,7 @@ var apiAddTorrentHandler = func(s *torrent.Service) gin.HandlerFunc {
 	}
 }
 
-var apiDelTorrentHandler = func(s *torrent.Service) gin.HandlerFunc {
+var apiDelTorrentHandler = func(s torrentService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		route := ctx.Param("route")
 		hash := ctx.Param("torrent_hash")

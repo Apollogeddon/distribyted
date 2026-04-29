@@ -37,6 +37,7 @@ func TestConfigLoader(t *testing.T) {
 
 	paths, err := l.ListTorrentPaths()
 	require.NoError(err)
-	require.Len(paths, 1)
+	require.Len(paths, 2)
 	require.Equal([]string{"path1"}, paths["route1"])
+	require.Equal([]string{}, paths["route2"])
 }
