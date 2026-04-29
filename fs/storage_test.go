@@ -204,6 +204,14 @@ func (d *DummyFs) Rmdir(path string) error {
 	return error(nil)
 }
 
+func (d *DummyFs) Create(path string) error {
+	return error(nil)
+}
+
+func (d *DummyFs) Remove(path string) error {
+	return error(nil)
+}
+
 var _ File = &Dummy{}
 
 type Dummy struct {

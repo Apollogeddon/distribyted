@@ -125,6 +125,18 @@ func (fs *Torrent) Rmdir(path string) error {
 	return fs.s.Remove(path)
 }
 
+func (fs *Torrent) Create(path string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.s.Add(NewMemoryFile(nil), path)
+}
+
+func (fs *Torrent) Remove(path string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.s.Remove(path)
+}
+
 type reader interface {
 	iio.Reader
 	missinggo.ReadContexter

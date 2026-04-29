@@ -48,8 +48,9 @@ func (fs *FS) Opendir(path string) (errc int, fh uint64) {
 }
 
 func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
+	stat.Mode = 0777
 	if path == "/" {
-		stat.Mode = fuse.S_IFDIR | 0777
+		stat.Mode |= fuse.S_IFDIR
 		return 0
 	}
 
@@ -65,52 +66,71 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	}
 
 	if file.IsDir() {
-		stat.Mode = fuse.S_IFDIR | 0777
+		stat.Mode |= fuse.S_IFDIR
 	} else {
-		stat.Mode = fuse.S_IFREG | 0777
+		stat.Mode |= fuse.S_IFREG
 		stat.Size = file.Size()
 	}
+
+	uid, gid, _ := fuse.Getcontext()
+	stat.Uid = uid
+	stat.Gid = gid
 
 	return 0
 }
 
 func (fs *FS) Create(path string, flags int, mode uint32) (errc int, fh uint64) {
-	fs.log.Debug().Str("path", path).Msg("mocking create for sonarr/radarr")
-	return 0, 0
+	err := fs.fh.fs.Create(path)
+	if err != nil {
+		fs.log.Error().Err(err).Str("path", path).Msg("error creating file")
+		return -fuse.EIO, fhNone
+	}
+
+	return fs.Open(path, flags)
 }
 
 func (fs *FS) Write(path string, buf []byte, off int64, fh uint64) int {
-	fs.log.Debug().Str("path", path).Msg("mocking write for sonarr/radarr")
+	// We don't really support writing data, but we return success to satisfy Sonarr/Radarr
 	return len(buf)
 }
 
 func (fs *FS) Truncate(path string, size int64, fh uint64) int {
-	fs.log.Debug().Str("path", path).Msg("mocking truncate for sonarr/radarr")
 	return 0
 }
 
 func (fs *FS) Mknod(path string, mode uint32, dev uint64) int {
-	fs.log.Debug().Str("path", path).Msg("mocking mknod for sonarr/radarr")
+	err := fs.fh.fs.Create(path)
+	if err != nil {
+		return -fuse.EIO
+	}
 	return 0
 }
 
 func (fs *FS) Chmod(path string, mode uint32) int {
-	fs.log.Debug().Str("path", path).Msg("mocking chmod for sonarr/radarr")
 	return 0
 }
 
 func (fs *FS) Chown(path string, uid uint32, gid uint32) int {
-	fs.log.Debug().Str("path", path).Msg("mocking chown for sonarr/radarr")
 	return 0
 }
 
 func (fs *FS) Utimens(path string, tmsp []fuse.Timespec) int {
-	fs.log.Debug().Str("path", path).Msg("mocking utimens for sonarr/radarr")
 	return 0
 }
 
 func (fs *FS) Unlink(path string) int {
-	fs.log.Debug().Str("path", path).Msg("mocking unlink for sonarr/radarr")
+	err := fs.fh.fs.Remove(path)
+	if os.IsNotExist(err) {
+		return -fuse.ENOENT
+	}
+	if err != nil {
+		fs.log.Error().Err(err).Str("path", path).Msg("error unlinking file")
+		return -fuse.EIO
+	}
+	return 0
+}
+
+func (fs *FS) Access(path string, mask uint32) int {
 	return 0
 }
 

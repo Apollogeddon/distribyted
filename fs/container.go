@@ -75,3 +75,15 @@ func (fs *ContainerFs) Rmdir(path string) error {
 	defer fs.mu.Unlock()
 	return fs.s.Remove(path)
 }
+
+func (fs *ContainerFs) Create(path string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.s.Add(NewMemoryFile(nil), path)
+}
+
+func (fs *ContainerFs) Remove(path string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.s.Remove(path)
+}

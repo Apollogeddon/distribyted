@@ -54,6 +54,14 @@ func (fs *Memory) Rmdir(path string) error {
 	return fs.Storage.Remove(path)
 }
 
+func (fs *Memory) Create(path string) error {
+	return fs.Storage.Add(NewMemoryFile(nil), path)
+}
+
+func (fs *Memory) Remove(path string) error {
+	return fs.Storage.Remove(path)
+}
+
 var _ File = &MemoryFile{}
 
 type MemoryFile struct {

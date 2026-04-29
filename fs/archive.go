@@ -199,6 +199,14 @@ func (fs *archive) Rmdir(path string) error {
 	return os.ErrPermission
 }
 
+func (fs *archive) Create(path string) error {
+	return fs.s.Add(NewMemoryFile(nil), path)
+}
+
+func (fs *archive) Remove(path string) error {
+	return fs.s.Remove(path)
+}
+
 var _ File = &ArchiveFile{}
 
 func NewArchiveFile(readerFunc func() (iio.Reader, error), len int64) *ArchiveFile {

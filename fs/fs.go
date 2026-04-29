@@ -36,6 +36,12 @@ type Filesystem interface {
 
 	// Rmdir removes a directory.
 	Rmdir(path string) error
+
+	// Create creates a new file.
+	Create(path string) error
+
+	// Remove removes a file.
+	Remove(path string) error
 }
 
 type fileInfo struct {
