@@ -31,12 +31,15 @@ type storage struct {
 }
 
 func newStorage(factories map[string]FsFactory) *storage {
-	return &storage{
+	s := &storage{
 		files:       make(map[string]File),
 		children:    make(map[string]map[string]File),
 		filesystems: make(map[string]Filesystem),
 		factories:   factories,
 	}
+
+	_ = s.Add(&Dir{}, separator)
+	return s
 }
 
 func (s *storage) Clear() {

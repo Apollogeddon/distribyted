@@ -11,7 +11,6 @@ func NewContainerFs(fss map[string]Filesystem) (*ContainerFs, error) {
 	cfs := &ContainerFs{
 		s: newStorage(SupportedFactories),
 	}
-	_ = cfs.s.Add(&Dir{}, "/")
 	for p, fs := range fss {
 		if err := cfs.AddFS(p, fs); err != nil {
 			return nil, err
