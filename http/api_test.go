@@ -87,7 +87,10 @@ func TestApiLogHandler(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	content := "line1\nline2\nline3\n"
-	tmpFile.WriteString(content)
+	_, err = tmpFile.WriteString(content)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tmpFile.Close()
 
 	r := gin.New()
