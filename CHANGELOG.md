@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.19.0](https://github.com/Apollogeddon/distribyted/compare/v0.18.3...v0.19.0) (2026-04-29)
+
+
+### Features
+
+* Add mock implementations for file operations in fuse mount ([bfed397](https://github.com/Apollogeddon/distribyted/commit/bfed39725ac7a51e476ad27619b7c04555d2e243))
+
+
+### Bug Fixes
+
+* Update fuse path handling in torrent categories and preferences ([4452fb7](https://github.com/Apollogeddon/distribyted/commit/4452fb7cf16e015526b9ddf6762e2ad05a76a157))
+
 ## [0.18.3](https://github.com/Apollogeddon/distribyted/compare/v0.18.2...v0.18.3) (2026-04-29)
 
 
