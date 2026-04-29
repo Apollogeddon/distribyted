@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.18.1](https://github.com/Apollogeddon/distribyted/compare/v0.18.0...v0.18.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* Handle error when writing to temporary log file in TestApiLogHandler ([30ff2da](https://github.com/Apollogeddon/distribyted/commit/30ff2da22c562cc50377f0c6f2de6d79a65fe444))
+* Implement torrentService interface and add unit tests for API handlers ([b0c796b](https://github.com/Apollogeddon/distribyted/commit/b0c796b46b0d3404464d8502e3431a21a7f700e2))
+* Update torrent state from 'seeding' to 'uploading' and add route in addTorrent method ([86ef63e](https://github.com/Apollogeddon/distribyted/commit/86ef63e516480424ad39e3e1c1f15c8e528051fd))
+
 ## [0.18.0](https://github.com/Apollogeddon/distribyted/compare/v0.17.2...v0.18.0) (2026-04-29)
 
 
