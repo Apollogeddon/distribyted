@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.0](https://github.com/Apollogeddon/distribyted/compare/v0.16.2...v0.17.0) (2026-04-29)
+
+
+### Features
+
+* Implement Mkdir and Rmdir methods for Filesystem interface and related types ([6673a47](https://github.com/Apollogeddon/distribyted/commit/6673a470efbe8798e181f4375a5eea057636c1d8))
+
+
+### Bug Fixes
+
+* Add Mkdir and Rmdir methods to DummyFs and update WebDAV tests ([cfa5426](https://github.com/Apollogeddon/distribyted/commit/cfa5426656ea7f7b0fb9a8fe9a3b72f09daf4a82))
+* Add qBittorrent API endpoint for creating categories ([95ea9c1](https://github.com/Apollogeddon/distribyted/commit/95ea9c15716c74b29014e1f98cebd6f4d3a32ffc))
+* Create a generic mock handler for extra api calls ([954831c](https://github.com/Apollogeddon/distribyted/commit/954831cc18a98bfe4b81f2eb7d23ed1ea9373a51))
+* Update job quality control job to run in parallel ([5abcd3b](https://github.com/Apollogeddon/distribyted/commit/5abcd3bab4b64c8e4faf52dc7db358def7538d54))
+
 ## [0.16.2](https://github.com/Apollogeddon/distribyted/compare/v0.16.1...v0.16.2) (2026-04-28)
 
 
