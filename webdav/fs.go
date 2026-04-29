@@ -216,10 +216,10 @@ func (wdfi *webDAVFileInfo) Size() int64 {
 
 func (wdfi *webDAVFileInfo) Mode() os.FileMode {
 	if wdfi.isDir {
-		return 0555 | os.ModeDir
+		return 0777 | os.ModeDir
 	}
 
-	return 0555
+	return 0777
 }
 
 func (wdfi *webDAVFileInfo) ModTime() time.Time {

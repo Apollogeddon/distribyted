@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"io"
 	"os"
 	"testing"
 
@@ -60,6 +61,7 @@ func TestTorrentFilesystem(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(f)
 	require.Equal(f.Size(), int64(1964275))
+	require.False(f.IsDir())
 
 	b := make([]byte, 10)
 
@@ -76,7 +78,28 @@ func TestTorrentFilesystem(t *testing.T) {
 	require.NoError(err)
 	require.Equal(10, n)
 
-	tfs.RemoveTorrent(to.InfoHash().String())
+	// Test Torrent extra methods
+	err = tfs.Mkdir("/newdir")
+	require.NoError(err)
+
+	err = tfs.Link("/The WIRED CD - Rip. Sample. Mash. Share/01 - Beastie Boys - Now Get Busy.mp3", "/linked.mp3")
+	require.NoError(err)
+
+	err = tfs.Rename("/linked.mp3", "/renamed.mp3")
+	require.NoError(err)
+
+	err = tfs.Rmdir("/newdir")
+	require.NoError(err)
+
+	// Error cases
+	require.Error(tfs.Link("/notexists", "/target"))
+	require.Error(tfs.Rename("/notexists", "/target"))
+	require.Error(tfs.Rmdir("/notexists"))
+
+	err = tfs.Rmdir("/renamed.mp3")
+	require.Error(err)
+
+	tfs.RemoveTorrent(to.InfoHash().HexString())
 	files, err = tfs.ReadDir("/")
 	require.NoError(err)
 	require.Len(files, 0)
@@ -137,4 +160,19 @@ func TestReadAtWrapper(t *testing.T) {
 	require.NoError(err)
 	require.Equal(5, n)
 	require.Equal([]byte{0x49, 0x44, 0x33, 0x3, 0x0}, toRead)
+
+	r.Close()
+	n, err = r.ReadAt(toRead, 0)
+	require.Equal(0, n)
+	require.Equal(io.EOF, err)
+}
+
+func TestReadAtLeast(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	// test short buffer error
+	n, err := readAtLeast(nil, 1, make([]byte, 1), 2)
+	require.Equal(0, n)
+	require.ErrorIs(err, io.ErrShortBuffer)
 }

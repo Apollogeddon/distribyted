@@ -58,7 +58,7 @@ fuse:
   path: ./distribyted-data/mount
   # Add this flag if you want to allow other users to access this fuse mountpoint.
   # You need to add user_allow_other flag to /etc/fuse.conf file.
-  # allow_other: true 
+  allow_other: true 
 
 log:
   path: ./distribyted-data/logs

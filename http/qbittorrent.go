@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Apollogeddon/distribyted/config"
 	"github.com/Apollogeddon/distribyted/torrent"
@@ -12,22 +13,34 @@ import (
 
 // qBitTorrent represents a torrent in qBittorrent API format
 type qBitTorrent struct {
-	Hash         string  `json:"hash"`
-	Name         string  `json:"name"`
-	Size         int64   `json:"size"`
-	Progress     float64 `json:"progress"`
-	Dlspeed      int64   `json:"dlspeed"`
-	Upspeed      int64   `json:"upspeed"`
-	Priority     int     `json:"priority"`
-	NumSeeds     int     `json:"num_seeds"`
-	NumLeechs    int     `json:"num_leechs"`
-	State        string  `json:"state"`
-	SavePath     string  `json:"save_path"`
-	ContentPath  string  `json:"content_path"`
-	Category     string  `json:"category"`
-	AddedOn      int64   `json:"added_on"`
-	CompletionOn int64   `json:"completion_on"`
-	Tracker      string  `json:"tracker"`
+	Hash           string  `json:"hash"`
+	Name           string  `json:"name"`
+	Size           int64   `json:"size"`
+	Progress       float64 `json:"progress"`
+	Dlspeed        int64   `json:"dlspeed"`
+	Upspeed        int64   `json:"upspeed"`
+	Priority       int     `json:"priority"`
+	NumSeeds       int     `json:"num_seeds"`
+	NumLeechs      int     `json:"num_leechs"`
+	State          string  `json:"state"`
+	SavePath       string  `json:"save_path"`
+	ContentPath    string  `json:"content_path"`
+	Category       string  `json:"category"`
+	AddedOn        int64   `json:"added_on"`
+	CompletionOn   int64   `json:"completion_on"`
+	Tracker        string  `json:"tracker"`
+	Tags           string  `json:"tags"`
+	AmountLeft     int64   `json:"amount_left"`
+	Completed      int64   `json:"completed"`
+	TotalSize      int64   `json:"total_size"`
+	Ratio          float64 `json:"ratio"`
+	Eta            int64   `json:"eta"`
+	Uploaded       int64   `json:"uploaded"`
+	Downloaded     int64   `json:"downloaded"`
+	Availability   float64 `json:"availability"`
+	SequentialDl   bool    `json:"seq_dl"`
+	FirstLastPiece bool    `json:"f_l_piece_prio"`
+	LastActivity   int64   `json:"last_activity"`
 }
 
 func qBitLoginHandler(c *gin.Context) {
@@ -40,20 +53,28 @@ func qBitWebapiVersionHandler(c *gin.Context) {
 	c.String(http.StatusOK, "2.8.19")
 }
 
+func qBitAppVersionHandler(c *gin.Context) {
+	// Mocked app version for compatibility
+	c.String(http.StatusOK, "v4.3.5")
+}
+
 func qBitAppPreferencesHandler(c *gin.Context) {
 	// Mocked preferences for compatibility
 	c.JSON(http.StatusOK, gin.H{
-		"save_path":              "",
-		"temp_path_enabled":      false,
-		"listen_port":            8999,
-		"upnp":                   false,
-		"dl_limit":               0,
-		"up_limit":               0,
-		"max_connecs":            500,
-		"max_connecs_per_torrent": 100,
-		"max_uploads":            -1,
-		"max_uploads_per_torrent": -1,
-		"web_ui_port":            4444,
+		"save_path":                 "",
+		"temp_path_enabled":         false,
+		"listen_port":               8999,
+		"upnp":                      false,
+		"dl_limit":                  0,
+		"up_limit":                  0,
+		"max_connecs":               500,
+		"max_connecs_per_torrent":    100,
+		"max_uploads":               -1,
+		"max_uploads_per_torrent":    -1,
+		"web_ui_port":               4444,
+		"scan_dirs":                  make(map[string]interface{}),
+		"export_dir":                "",
+		"mail_notification_enabled": false,
 	})
 }
 
@@ -70,18 +91,9 @@ func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
 
 		for _, t := range torrents {
 			st := t.Stats()
-			// Stats() returns cumulative data and current rates
-			// We can use the cumulative data for session totals
-			// and calculate speeds from deltas if we wanted, but anacrolix/torrent
-			// might not give us instant rates easily in a compatible way here
-			// For now, we'll use a simplified version.
 			totalDownloadData += st.BytesReadData.Int64()
 			totalUploadData += st.BytesWrittenData.Int64()
 		}
-
-		// Since distribyted's torrent.Stats already tracks deltas for speeds,
-		// we can leverage GlobalStats() but we need to be careful about interference.
-		// For simplicity in this mock, we'll just return the session totals.
 
 		c.JSON(http.StatusOK, gin.H{
 			"connection_status":    "connected",
@@ -111,7 +123,7 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats) gin.Ha
 				for _, r := range root.Routes {
 					resp[r.Name] = gin.H{
 						"name":     r.Name,
-						"savePath": "", 
+						"savePath": "",
 					}
 				}
 			}
@@ -154,7 +166,9 @@ func qBitTorrentsMockHandler(c *gin.Context) {
 func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		torrents := ss.GetAllTorrents()
-		var resp []qBitTorrent
+		resp := make([]qBitTorrent, 0)
+
+		now := time.Now().Unix()
 
 		for hash, t := range torrents {
 			info := t.Info()
@@ -162,6 +176,7 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 			size := int64(0)
 			progress := 0.0
 			state := "stalledDL"
+			category := ss.GetRouteFromHash(hash)
 
 			if info != nil {
 				size = info.TotalLength()
@@ -171,13 +186,29 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 
 			// Map distribyted torrent to qBit format
 			qbt := qBitTorrent{
-				Hash:        hash,
-				Name:        name,
-				Size:        size,
-				Progress:    progress,
-				State:       state,
-				SavePath:    fusePath,
-				ContentPath: fusePath + "/" + name,
+				Hash:           hash,
+				Name:           name,
+				Size:           size,
+				Progress:       progress,
+				State:          state,
+				SavePath:       fusePath,
+				ContentPath:    fusePath + "/" + name,
+				Category:       category,
+				Tracker:        "",
+				Tags:           "",
+				AddedOn:        now,
+				CompletionOn:   now,
+				AmountLeft:     0,
+				Completed:      size,
+				TotalSize:      size,
+				Ratio:          1.0,
+				Eta:            0,
+				Uploaded:       0,
+				Downloaded:     size,
+				Availability:   1.0,
+				SequentialDl:   false,
+				FirstLastPiece: false,
+				LastActivity:   now,
 			}
 			resp = append(resp, qbt)
 		}

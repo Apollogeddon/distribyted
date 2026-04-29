@@ -90,6 +90,25 @@ func TestStorage(t *testing.T) {
 	s.Clear()
 }
 
+func TestStorageRemove(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	s := newStorage(dummyFactories)
+
+	err := s.Add(&Dummy{}, "/path/to/file.txt")
+	require.NoError(err)
+	require.True(s.Has("/path/to/file.txt"))
+
+	err = s.Remove("/path/to/file.txt")
+	require.NoError(err)
+	require.False(s.Has("/path/to/file.txt"))
+
+	err = s.Remove("/non/existent")
+	require.Error(err)
+}
+
 func TestStorageWindowsPath(t *testing.T) {
 	t.Parallel()
 

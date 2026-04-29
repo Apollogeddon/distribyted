@@ -30,4 +30,14 @@ func TestSeekerWrapper(t *testing.T) {
 	require.NoError(err)
 	require.Equal(5, nn)
 	require.Equal("World", string(toRead))
+
+	// Seek Current
+	n, err = r.Seek(-5, io.SeekCurrent)
+	require.NoError(err)
+	require.Equal(int64(6), n)
+
+	// Seek End
+	n, err = r.Seek(-5, io.SeekEnd)
+	require.NoError(err)
+	require.Equal(int64(6), n)
 }

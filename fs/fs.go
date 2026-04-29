@@ -62,10 +62,10 @@ func (fi *fileInfo) Size() int64 {
 
 func (fi *fileInfo) Mode() os.FileMode {
 	if fi.isDir {
-		return 0555 | os.ModeDir
+		return 0777 | os.ModeDir
 	}
 
-	return 0555
+	return 0777
 }
 
 func (fi *fileInfo) ModTime() time.Time {

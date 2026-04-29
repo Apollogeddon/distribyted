@@ -90,6 +90,11 @@ func (s *storage) Add(f File, p string) error {
 		return nil
 	}
 
+	if p == separator {
+		s.files[p] = f
+		return nil
+	}
+
 	ext := path.Ext(p)
 	if ffs := s.factories[ext]; ffs != nil {
 		fs, err := ffs(f)

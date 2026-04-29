@@ -35,7 +35,7 @@ func DefaultConfig() *Root {
 			ContinueWhenAddTimeout: false,
 		},
 		Fuse: &FuseGlobal{
-			AllowOther: false,
+			AllowOther: true,
 			Path:       mountFolder,
 		},
 		Log: &Log{

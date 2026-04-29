@@ -47,4 +47,16 @@ func TestReadDataEOF(t *testing.T) {
 	require.Equal(io.EOF, err)
 	require.Equal(5, n)
 	require.Equal("World\x00", string(toRead))
-}
+
+	// Test Read
+	r2, _ := NewDiskTeeReader(bytes.NewReader(testData))
+	out := make([]byte, 11)
+	rn, rerr := r2.Read(out)
+	require.NoError(rerr)
+	require.Equal(11, rn)
+	require.Equal(testData, out)
+
+	// Test Close
+	require.NoError(r.Close())
+	require.NoError(r2.Close())
+	}

@@ -129,6 +129,7 @@ type reader interface {
 type readAtWrapper struct {
 	timeout int
 	mu      sync.Mutex
+	closed  bool
 
 	torrent.Reader
 	io.ReaderAt
@@ -142,6 +143,11 @@ func newReadAtWrapper(r torrent.Reader, timeout int) reader {
 func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
+
+	if rw.closed {
+		return 0, io.EOF
+	}
+
 	_, err := rw.Seek(off, io.SeekStart)
 	if err != nil {
 		return 0, err
@@ -181,6 +187,12 @@ func readAtLeast(r missinggo.ReadContexter, timeout int, buf []byte, min int) (n
 func (rw *readAtWrapper) Close() error {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
+
+	if rw.closed {
+		return nil
+	}
+
+	rw.closed = true
 	return rw.Reader.Close()
 }
 

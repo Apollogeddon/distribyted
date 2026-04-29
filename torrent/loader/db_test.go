@@ -56,6 +56,10 @@ func TestDB(t *testing.T) {
 	require.Len(l["route2"], 1)
 	require.Equal(l["route2"][0], m1)
 
+	lp, err := s.ListTorrentPaths()
+	require.NoError(err)
+	require.Nil(lp)
+
 	require.NoError(s.Close())
 	require.NoError(cs.Close())
 

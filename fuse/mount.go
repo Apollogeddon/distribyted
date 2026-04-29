@@ -49,7 +49,7 @@ func (fs *FS) Opendir(path string) (errc int, fh uint64) {
 
 func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	if path == "/" {
-		stat.Mode = fuse.S_IFDIR | 0555
+		stat.Mode = fuse.S_IFDIR | 0777
 		return 0
 	}
 
@@ -65,9 +65,9 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	}
 
 	if file.IsDir() {
-		stat.Mode = fuse.S_IFDIR | 0555
+		stat.Mode = fuse.S_IFDIR | 0777
 	} else {
-		stat.Mode = fuse.S_IFREG | 0444
+		stat.Mode = fuse.S_IFREG | 0666
 		stat.Size = file.Size()
 	}
 
