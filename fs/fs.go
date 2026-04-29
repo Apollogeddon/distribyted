@@ -30,6 +30,12 @@ type Filesystem interface {
 
 	// Rename renames a file or directory.
 	Rename(oldpath, newpath string) error
+
+	// Mkdir creates a new directory.
+	Mkdir(path string) error
+
+	// Rmdir removes a directory.
+	Rmdir(path string) error
 }
 
 type fileInfo struct {

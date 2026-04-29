@@ -46,6 +46,14 @@ func (fs *Memory) Rename(oldpath, newpath string) error {
 	return fs.Storage.Remove(oldpath)
 }
 
+func (fs *Memory) Mkdir(path string) error {
+	return fs.Storage.Add(&Dir{}, path)
+}
+
+func (fs *Memory) Rmdir(path string) error {
+	return fs.Storage.Remove(path)
+}
+
 var _ File = &MemoryFile{}
 
 type MemoryFile struct {

@@ -102,6 +102,24 @@ func (fs *Torrent) Rename(oldpath, newpath string) error {
 	return fs.s.Remove(oldpath)
 }
 
+func (fs *Torrent) Mkdir(path string) error {
+	fs.load()
+	return fs.s.Add(&Dir{}, path)
+}
+
+func (fs *Torrent) Rmdir(path string) error {
+	fs.load()
+	f, err := fs.s.Get(path)
+	if err != nil {
+		return err
+	}
+	if !f.IsDir() {
+		return os.ErrInvalid
+	}
+
+	return fs.s.Remove(path)
+}
+
 type reader interface {
 	iio.Reader
 	missinggo.ReadContexter

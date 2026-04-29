@@ -48,15 +48,34 @@ func (wd *WebDAV) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 }
 
 func (wd *WebDAV) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
-	return webdav.ErrNotImplemented
+	p := "/" + name
+	return wd.fs.Mkdir(p)
 }
 
 func (wd *WebDAV) RemoveAll(ctx context.Context, name string) error {
-	return webdav.ErrNotImplemented
+	p := "/" + name
+	f, err := wd.fs.Open(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	if f.IsDir() {
+		return wd.fs.Rmdir(p)
+	}
+
+	// For files, we don't have a direct Remove yet in Filesystem interface
+	// but Rename/Link use storage.Remove internally.
+	// We'll skip adding Remove to interface for now to keep it minimal,
+	// or we can use Rmdir if storage.Remove handles files too.
+	// Looking at storage.Remove, it handles both.
+	return wd.fs.Rmdir(p)
 }
 
 func (wd *WebDAV) Rename(ctx context.Context, oldName, newName string) error {
-	return webdav.ErrNotImplemented
+	return wd.fs.Rename("/"+oldName, "/"+newName)
 }
 
 func (wd *WebDAV) lookupFile(path string) (fs.File, error) {

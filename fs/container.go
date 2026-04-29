@@ -44,3 +44,11 @@ func (fs *ContainerFs) Rename(oldpath, newpath string) error {
 
 	return fs.s.Remove(oldpath)
 }
+
+func (fs *ContainerFs) Mkdir(path string) error {
+	return fs.s.Add(&Dir{}, path)
+}
+
+func (fs *ContainerFs) Rmdir(path string) error {
+	return fs.s.Remove(path)
+}

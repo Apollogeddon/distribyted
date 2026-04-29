@@ -141,6 +141,32 @@ func (fs *FS) Rename(oldpath string, newpath string) int {
 	return 0
 }
 
+func (fs *FS) Mkdir(path string, mode uint32) int {
+	err := fs.fh.fs.Mkdir(path)
+	if os.IsExist(err) {
+		return -fuse.EEXIST
+	}
+	if err != nil {
+		fs.log.Error().Err(err).Str("path", path).Msg("error creating directory")
+		return -fuse.EIO
+	}
+
+	return 0
+}
+
+func (fs *FS) Rmdir(path string) int {
+	err := fs.fh.fs.Rmdir(path)
+	if os.IsNotExist(err) {
+		return -fuse.ENOENT
+	}
+	if err != nil {
+		fs.log.Error().Err(err).Str("path", path).Msg("error removing directory")
+		return -fuse.EIO
+	}
+
+	return 0
+}
+
 func (fs *FS) Readdir(path string,
 	fill func(name string, stat *fuse.Stat_t, ofst int64) bool,
 	ofst int64,

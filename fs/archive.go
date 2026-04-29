@@ -191,6 +191,14 @@ func (fs *archive) Rename(oldpath, newpath string) error {
 	return os.ErrPermission
 }
 
+func (fs *archive) Mkdir(path string) error {
+	return os.ErrPermission
+}
+
+func (fs *archive) Rmdir(path string) error {
+	return os.ErrPermission
+}
+
 var _ File = &ArchiveFile{}
 
 func NewArchiveFile(readerFunc func() (iio.Reader, error), len int64) *ArchiveFile {
