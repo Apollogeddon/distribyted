@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.2](https://github.com/Apollogeddon/distribyted/compare/v0.18.1...v0.18.2) (2026-04-29)
+
+
+### Bug Fixes
+
+* Continuing to try and resolve the issues with the roues waiting for torrents to exist ([d1c7711](https://github.com/Apollogeddon/distribyted/commit/d1c7711ad1a7c1b439555b240a0e017e32be6754))
+* Streamline torrent file addition and improve route handling ([0a6836b](https://github.com/Apollogeddon/distribyted/commit/0a6836bba50c582eef7be33a158bb946c98db53e))
+
 ## [0.18.1](https://github.com/Apollogeddon/distribyted/compare/v0.18.0...v0.18.1) (2026-04-29)
 
 
