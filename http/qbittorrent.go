@@ -115,6 +115,12 @@ func qBitTorrentsCategoriesHandler(ss *torrent.Stats) gin.HandlerFunc {
 	}
 }
 
+func qBitTorrentsCreateCategoryHandler(c *gin.Context) {
+	// For now, we mock category creation.
+	// Distribyted maps categories to routes configured in its YAML.
+	c.String(http.StatusOK, "")
+}
+
 func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		torrents := ss.GetAllTorrents()

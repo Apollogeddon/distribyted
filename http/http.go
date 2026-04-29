@@ -71,6 +71,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		qbit.GET("/transfer/info", qBitTransferInfoHandler(ss))
 		qbit.GET("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
 		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(ss))
+		qbit.POST("/torrents/createCategory", qBitTorrentsCreateCategoryHandler)
 		qbit.POST("/torrents/add", qBitTorrentsAddHandler(s))
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}

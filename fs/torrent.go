@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"io"
+	"os"
 	"sync"
 	"time"
 
