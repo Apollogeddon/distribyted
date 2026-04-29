@@ -81,7 +81,6 @@ func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
 		// Since distribyted's torrent.Stats already tracks deltas for speeds,
 		// we can leverage GlobalStats() but we need to be careful about interference.
 		// For simplicity in this mock, we'll just return the session totals.
-		// Radarr/Sonarr mostly care that the response is valid.
 
 		c.JSON(http.StatusOK, gin.H{
 			"connection_status":    "connected",
@@ -115,9 +114,8 @@ func qBitTorrentsCategoriesHandler(ss *torrent.Stats) gin.HandlerFunc {
 	}
 }
 
-func qBitTorrentsCreateCategoryHandler(c *gin.Context) {
-	// For now, we mock category creation.
-	// Distribyted maps categories to routes configured in its YAML.
+func qBitTorrentsMockHandler(c *gin.Context) {
+	// A generic mock handler for endpoints like pause, resume, setCategory, addTags.
 	c.String(http.StatusOK, "")
 }
 
