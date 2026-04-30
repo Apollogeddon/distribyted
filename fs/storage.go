@@ -178,18 +178,25 @@ func (s *storage) createParent(p string, f File) error {
 func (s *storage) Children(path string) (map[string]File, error) {
 	path = clean(path)
 
+	l := make(map[string]File)
+
+	// Get children from sub-filesystems
 	files, err := s.getDirFromFs(path)
 	if err == nil {
-		return files, nil
-	}
-
-	if !os.IsNotExist(err) {
+		for n, f := range files {
+			l[n] = f
+		}
+	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
 
-	l := make(map[string]File)
+	// Merge with children from the container itself
 	for n, f := range s.children[path] {
 		l[n] = f
+	}
+
+	if len(l) == 0 && !s.Has(path) {
+		return nil, os.ErrNotExist
 	}
 
 	return l, nil

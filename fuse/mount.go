@@ -105,6 +105,7 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 }
 
 func (fs *FS) Create(path string, flags int, mode uint32) (errc int, fh uint64) {
+	fs.log.Info().Str("path", path).Msg("creating file")
 	err := fs.fh.fs.Create(path)
 	if err != nil {
 		fs.log.Error().Err(err).Str("path", path).Msg("error creating file")
@@ -144,6 +145,7 @@ func (fs *FS) Utimens(path string, tmsp []fuse.Timespec) int {
 }
 
 func (fs *FS) Unlink(path string) int {
+	fs.log.Info().Str("path", path).Msg("unlinking file")
 	err := fs.fh.fs.Remove(path)
 	if os.IsNotExist(err) {
 		return -fuse.ENOENT
@@ -201,6 +203,7 @@ func (fs *FS) Releasedir(path string, fh uint64) int {
 }
 
 func (fs *FS) Link(oldpath string, newpath string) int {
+	fs.log.Info().Str("old", oldpath).Str("new", newpath).Msg("linking file")
 	err := fs.fh.fs.Link(oldpath, newpath)
 	if os.IsNotExist(err) {
 		return -fuse.ENOENT
@@ -214,6 +217,7 @@ func (fs *FS) Link(oldpath string, newpath string) int {
 }
 
 func (fs *FS) Rename(oldpath string, newpath string) int {
+	fs.log.Info().Str("old", oldpath).Str("new", newpath).Msg("renaming file")
 	err := fs.fh.fs.Rename(oldpath, newpath)
 	if os.IsNotExist(err) {
 		return -fuse.ENOENT
@@ -227,6 +231,7 @@ func (fs *FS) Rename(oldpath string, newpath string) int {
 }
 
 func (fs *FS) Mkdir(path string, mode uint32) int {
+	fs.log.Info().Str("path", path).Msg("mkdir operation")
 	err := fs.fh.fs.Mkdir(path)
 	if os.IsExist(err) {
 		return -fuse.EEXIST
