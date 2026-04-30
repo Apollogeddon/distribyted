@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.19.4](https://github.com/Apollogeddon/distribyted/compare/v0.19.3...v0.19.4) (2026-04-30)
+
+
+### Bug Fixes
+
+* Enhance logging for filesystem operations ([835f852](https://github.com/Apollogeddon/distribyted/commit/835f852911cff12fbe13929cbc89173ab2ed7be6))
+* Implement inode generation and hashing for torrent files ([49a7557](https://github.com/Apollogeddon/distribyted/commit/49a75577a268af5f00de2d432f251022c39ec38e))
+* Restrict CodeQL analysis to Go language only ([f069e7b](https://github.com/Apollogeddon/distribyted/commit/f069e7b7002aaadbf014c3297b3c3d34c6963b5e))
+
 ## [0.19.3](https://github.com/Apollogeddon/distribyted/compare/v0.19.2...v0.19.3) (2026-04-30)
 
 
