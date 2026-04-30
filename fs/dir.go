@@ -3,6 +3,7 @@ package fs
 var _ File = &Dir{}
 
 type Dir struct {
+	BaseFile
 }
 
 func (d *Dir) Size() int64 {

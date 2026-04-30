@@ -211,6 +211,36 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error creating container filesystem: %w", err)
 	}
 
+	links, err := ts.ListLinks()
+	if err != nil {
+		log.Warn().Err(err).Msg("problem loading links from database")
+	}
+
+	for newpath, oldpath := range links {
+		if oldpath == "" {
+			_ = cfs.Mkdir(newpath)
+		} else {
+			_ = cfs.Link(oldpath, newpath)
+		}
+	}
+
+	cfs.OnLinkAdded(func(oldpath, newpath string) {
+		if err := ts.AddLink(oldpath, newpath); err != nil {
+			log.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem saving link to database")
+		}
+	})
+
+	cfs.OnLinkRemoved(func(path string) {
+		if err := ts.RemoveLink(path); err != nil {
+			log.Warn().Err(err).Str("path", path).Msg("problem removing link from database")
+		}
+	})
+
+	ts.OnTorrentRemoved(func(h string) {
+		log.Info().Str("hash", h).Msg("cascading torrent removal to virtual links")
+		cfs.RemoveByHash(h)
+	})
+
 	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
 		log.Info().Str("path", p).Msg("dynamically adding new route to filesystem")
 		_ = cfs.AddFS(p, fss)

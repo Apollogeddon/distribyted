@@ -2,10 +2,17 @@ package fs
 
 import (
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/Apollogeddon/distribyted/iio"
 )
+
+var nextIno uint64 = 1
+
+func GenerateIno() uint64 {
+	return atomic.AddUint64(&nextIno, 1)
+}
 
 type File interface {
 	IsDir() bool
@@ -13,6 +20,44 @@ type File interface {
 
 	iio.Reader
 	Close() error
+
+	Ino() uint64
+	Nlink() uint32
+	SetIno(uint64)
+	IncNlink()
+	DecNlink()
+	MatchHash(string) bool
+}
+
+type BaseFile struct {
+	ino   uint64
+	nlink uint32
+}
+
+func (b *BaseFile) Ino() uint64 {
+	return b.ino
+}
+
+func (b *BaseFile) Nlink() uint32 {
+	return atomic.LoadUint32(&b.nlink)
+}
+
+func (b *BaseFile) SetIno(ino uint64) {
+	if b.ino == 0 {
+		b.ino = ino
+	}
+}
+
+func (b *BaseFile) IncNlink() {
+	atomic.AddUint32(&b.nlink, 1)
+}
+
+func (b *BaseFile) DecNlink() {
+	atomic.AddUint32(&b.nlink, ^uint32(0))
+}
+
+func (b *BaseFile) MatchHash(hash string) bool {
+	return false
 }
 
 type Filesystem interface {

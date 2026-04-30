@@ -50,6 +50,7 @@ func (fs *Torrent) AddTorrent(t *torrent.Torrent) {
 func (fs *Torrent) addFiles(t *torrent.Torrent) {
 	for _, file := range t.Files() {
 		_ = fs.s.Add(&torrentFile{
+			hash:       t.InfoHash().HexString(),
 			readerFunc: file.NewReader,
 			len:        file.Length(),
 			timeout:    fs.readTimeout,
@@ -61,22 +62,18 @@ func (fs *Torrent) RemoveTorrent(h string) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	fs.s.Clear()
-
 	delete(fs.ts, h)
 
-	// Re-add remaining torrents that have info
-	for _, t := range fs.ts {
-		if t.Info() != nil {
-			for _, file := range t.Files() {
-				_ = fs.s.Add(&torrentFile{
-					readerFunc: file.NewReader,
-					len:        file.Length(),
-					timeout:    fs.readTimeout,
-				}, file.Path())
-			}
+	// Surgical removal: only remove files that belong to this hash
+	for p, f := range fs.s.files {
+		if f.MatchHash(h) {
+			_ = fs.s.Remove(p)
 		}
 	}
+
+	// Also cleanup directories that might have become empty or belonged to the torrent
+	// Since storage.Remove handles parent cleanup if needed, we just need to make sure 
+	// we didn't leave any top-level folders that were part of the torrent.
 }
 
 func (fs *Torrent) Open(filename string) (File, error) {
@@ -215,6 +212,8 @@ func (rw *readAtWrapper) Close() error {
 var _ File = &torrentFile{}
 
 type torrentFile struct {
+	BaseFile
+	hash       string
 	readerFunc func() torrent.Reader
 	reader     reader
 	len        int64
@@ -265,4 +264,8 @@ func (d *torrentFile) Read(p []byte) (n int, err error) {
 func (d *torrentFile) ReadAt(p []byte, off int64) (n int, err error) {
 	d.load()
 	return d.reader.ReadAt(p, off)
+}
+
+func (d *torrentFile) MatchHash(hash string) bool {
+	return d.hash == hash
 }

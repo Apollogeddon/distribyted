@@ -11,7 +11,10 @@ import (
 
 var _ LoaderAdder = &DB{}
 
-const routeRootKey = "/route/"
+const (
+	routeRootKey = "/route/"
+	linkRootKey  = "/link/"
+)
 
 type DB struct {
 	db *badger.DB
@@ -105,6 +108,44 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 
 func (l *DB) ListTorrentPaths() (map[string][]string, error) {
 	return nil, nil
+}
+
+func (l *DB) AddLink(oldpath, newpath string) error {
+	return l.db.Update(func(txn *badger.Txn) error {
+		rp := path.Join(linkRootKey, newpath)
+		return txn.Set([]byte(rp), []byte(oldpath))
+	})
+}
+
+func (l *DB) RemoveLink(targetPath string) error {
+	return l.db.Update(func(txn *badger.Txn) error {
+		rp := path.Join(linkRootKey, targetPath)
+		return txn.Delete([]byte(rp))
+	})
+}
+
+func (l *DB) ListLinks() (map[string]string, error) {
+	tx := l.db.NewTransaction(false)
+	defer tx.Discard()
+
+	it := tx.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	prefix := []byte(linkRootKey)
+	out := make(map[string]string)
+	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		k := string(item.Key())
+		newpath := k[len(linkRootKey):]
+		if err := item.Value(func(v []byte) error {
+			out[newpath] = string(v)
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	return out, nil
 }
 
 func (l *DB) Close() error {

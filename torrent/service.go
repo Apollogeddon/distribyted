@@ -24,7 +24,8 @@ type Service struct {
 	mu  sync.Mutex
 	fss map[string]fs.Filesystem
 
-	routeAddedListeners []func(string, fs.Filesystem)
+	routeAddedListeners     []func(string, fs.Filesystem)
+	torrentRemovedListeners []func(string)
 
 	loaders []loader.Loader
 	db      loader.LoaderAdder
@@ -102,6 +103,18 @@ func (s *Service) AddMagnet(r, m string) error {
 	return s.db.AddMagnet(r, m)
 }
 
+func (s *Service) ListLinks() (map[string]string, error) {
+	return s.db.ListLinks()
+}
+
+func (s *Service) AddLink(oldpath, newpath string) error {
+	return s.db.AddLink(oldpath, newpath)
+}
+
+func (s *Service) RemoveLink(path string) error {
+	return s.db.RemoveLink(path)
+}
+
 func (s *Service) addTorrentPath(r, p string) error {
 	// Add to client
 	t, err := s.c.AddTorrentFromFile(p)
@@ -127,6 +140,12 @@ func (s *Service) OnRouteAdded(f func(string, fs.Filesystem)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.routeAddedListeners = append(s.routeAddedListeners, f)
+}
+
+func (s *Service) OnTorrentRemoved(f func(string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.torrentRemovedListeners = append(s.torrentRemovedListeners, f)
 }
 
 func (s *Service) addRoute(r string) {
@@ -224,6 +243,10 @@ func (s *Service) RemoveFromHash(r, h string) error {
 	t, ok := s.c.Torrent(metainfo.NewHashFromHex(h))
 	if ok {
 		t.Drop()
+	}
+
+	for _, f := range s.torrentRemovedListeners {
+		f(h)
 	}
 
 	return nil

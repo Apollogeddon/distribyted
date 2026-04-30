@@ -34,7 +34,8 @@ func TestStorage(t *testing.T) {
 
 	file, err := s.Get("/path/to/dummy/file.txt")
 	require.NoError(err)
-	require.Equal(&Dummy{}, file)
+	require.NotNil(file)
+	require.IsType(&Dummy{}, file)
 
 	file, err = s.Get("/path/to/dummy/file3.txt")
 	require.Error(err)
@@ -70,7 +71,8 @@ func TestStorage(t *testing.T) {
 
 	file, err = s.Get("/path/special_file.test/dir/here/file1.txt")
 	require.NoError(err)
-	require.Equal(&Dummy{}, file)
+	require.NotNil(file)
+	require.IsType(&Dummy{}, file)
 
 	files, err = s.Children("/path/special_file.test")
 	require.NoError(err)
@@ -85,7 +87,8 @@ func TestStorage(t *testing.T) {
 
 	file, err = s.Get("/path/to/__special__path/file3.txt")
 	require.NoError(err)
-	require.Equal(&Dummy{}, file)
+	require.NotNil(file)
+	require.IsType(&Dummy{}, file)
 
 	s.Clear()
 }
@@ -121,11 +124,13 @@ func TestStorageWindowsPath(t *testing.T) {
 
 	file, err := s.Get("\\path\\to\\dummy\\file.txt")
 	require.NoError(err)
-	require.Equal(&Dummy{}, file)
+	require.NotNil(file)
+	require.IsType(&Dummy{}, file)
 
 	file, err = s.Get("/path/to/dummy/file.txt")
 	require.NoError(err)
-	require.Equal(&Dummy{}, file)
+	require.NotNil(file)
+	require.IsType(&Dummy{}, file)
 }
 
 func TestStorageAddFs(t *testing.T) {
@@ -215,6 +220,7 @@ func (d *DummyFs) Remove(path string) error {
 var _ File = &Dummy{}
 
 type Dummy struct {
+	BaseFile
 }
 
 func (d *Dummy) Size() int64 {

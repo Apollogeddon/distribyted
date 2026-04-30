@@ -60,6 +60,8 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	stat.Mode = 0777
 	if path == "/" {
 		stat.Mode |= fuse.S_IFDIR
+		stat.Ino = 1
+		stat.Nlink = 2
 		return 0
 	}
 
@@ -82,8 +84,12 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 		stat.Blocks = (stat.Size + 511) / 512
 	}
 
+	stat.Ino = file.Ino()
+	stat.Nlink = file.Nlink()
+	if file.IsDir() && stat.Nlink < 2 {
+		stat.Nlink = 2
+	}
 	stat.Blksize = 4096
-	stat.Nlink = 1
 
 	now := fuse.Now()
 	stat.Atim = now

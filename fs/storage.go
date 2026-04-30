@@ -95,6 +95,8 @@ func (s *storage) Add(f File, p string) error {
 
 	if p == separator {
 		s.files[p] = f
+		f.SetIno(GenerateIno())
+		f.IncNlink()
 		return nil
 	}
 
@@ -106,8 +108,12 @@ func (s *storage) Add(f File, p string) error {
 		}
 
 		s.filesystems[p] = fs
+		f.SetIno(GenerateIno())
+		f.IncNlink()
 	} else {
 		s.files[p] = f
+		f.SetIno(GenerateIno())
+		f.IncNlink()
 	}
 
 	return s.createParent(p, f)
@@ -115,8 +121,14 @@ func (s *storage) Add(f File, p string) error {
 
 func (s *storage) Remove(p string) error {
 	p = clean(p)
-	if !s.Has(p) {
-		return os.ErrNotExist
+	f, ok := s.files[p]
+	if !ok {
+		// Check filesystems
+		if _, ok := s.filesystems[p]; !ok {
+			return os.ErrNotExist
+		}
+	} else {
+		f.DecNlink()
 	}
 
 	delete(s.files, p)
@@ -127,9 +139,21 @@ func (s *storage) Remove(p string) error {
 
 	if children, ok := s.children[base]; ok {
 		delete(children, filename)
+		// Prune empty parent directory recursively
+		if len(s.children[base]) == 0 && base != separator {
+			_ = s.Remove(base)
+		}
 	}
 
 	return nil
+}
+
+func (s *storage) RemoveByHash(h string) {
+	for p, f := range s.files {
+		if f.MatchHash(h) {
+			_ = s.Remove(p)
+		}
+	}
 }
 
 func (s *storage) createParent(p string, f File) error {

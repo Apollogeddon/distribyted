@@ -217,6 +217,7 @@ func NewArchiveFile(readerFunc func() (iio.Reader, error), len int64) *ArchiveFi
 }
 
 type ArchiveFile struct {
+	BaseFile
 	readerFunc func() (iio.Reader, error)
 	reader     iio.Reader
 	len        int64

@@ -10,4 +10,8 @@ type LoaderAdder interface {
 
 	RemoveFromHash(r, h string) (bool, error)
 	AddMagnet(r, m string) error
+
+	AddLink(oldpath, newpath string) error
+	RemoveLink(path string) error
+	ListLinks() (map[string]string, error)
 }

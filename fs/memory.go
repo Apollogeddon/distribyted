@@ -65,12 +65,14 @@ func (fs *Memory) Remove(path string) error {
 var _ File = &MemoryFile{}
 
 type MemoryFile struct {
+	BaseFile
 	*bytes.Reader
 }
 
 func NewMemoryFile(data []byte) *MemoryFile {
 	return &MemoryFile{
-		Reader: bytes.NewReader(data),
+		BaseFile: BaseFile{},
+		Reader:   bytes.NewReader(data),
 	}
 }
 
