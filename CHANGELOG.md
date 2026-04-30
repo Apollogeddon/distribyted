@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.3](https://github.com/Apollogeddon/distribyted/compare/v0.19.2...v0.19.3) (2026-04-30)
+
+
+### Bug Fixes
+
+* Implement link management and enhance filesystem operations ([487dd6f](https://github.com/Apollogeddon/distribyted/commit/487dd6f66884acdaf5dddddc4eeaaaa71366d983))
+
 ## [0.19.2](https://github.com/Apollogeddon/distribyted/compare/v0.19.1...v0.19.2) (2026-04-30)
 
 
