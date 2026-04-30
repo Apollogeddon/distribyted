@@ -190,6 +190,8 @@ func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 }
 
 func (s *Service) RemoveFromHash(r, h string) error {
+	s.log.Info().Str("route", r).Str("hash", h).Msg("removing torrent")
+
 	// Remove from db
 	deleted, err := s.db.RemoveFromHash(r, h)
 	if err != nil {

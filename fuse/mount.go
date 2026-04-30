@@ -28,6 +28,15 @@ func NewFS(fs fs.Filesystem) fuse.FileSystemInterface {
 	}
 }
 
+func (fs *FS) Statfs(path string, stat *fuse.Statfs_t) int {
+	stat.Bsize = 4096
+	stat.Frsize = 4096
+	stat.Blocks = 100 * 1024 * 1024 * 1024 * 1024 / 4096 // 100TB
+	stat.Bfree = 100 * 1024 * 1024 * 1024 * 1024 / 4096  // 100TB
+	stat.Bavail = 100 * 1024 * 1024 * 1024 * 1024 / 4096 // 100TB
+	return 0
+}
+
 func (fs *FS) Open(path string, flags int) (errc int, fh uint64) {
 	fh, err := fs.fh.OpenHolder(path)
 	if os.IsNotExist(err) {
@@ -70,7 +79,17 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	} else {
 		stat.Mode |= fuse.S_IFREG
 		stat.Size = file.Size()
+		stat.Blocks = (stat.Size + 511) / 512
 	}
+
+	stat.Blksize = 4096
+	stat.Nlink = 1
+
+	now := fuse.Now()
+	stat.Atim = now
+	stat.Mtim = now
+	stat.Ctim = now
+	stat.Birthtim = now
 
 	uid, gid, _ := fuse.Getcontext()
 	stat.Uid = uid
