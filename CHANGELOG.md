@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.2](https://github.com/Apollogeddon/distribyted/compare/v0.19.1...v0.19.2) (2026-04-30)
+
+
+### Bug Fixes
+
+* Enhance filesystem stats and logging for torrent removal ([588f7b4](https://github.com/Apollogeddon/distribyted/commit/588f7b4fb5340bf6c6ceb994f2e6042ebdf52d5b))
+
 ## [0.19.1](https://github.com/Apollogeddon/distribyted/compare/v0.19.0...v0.19.1) (2026-04-29)
 
 
