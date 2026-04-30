@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"hash/fnv"
 	"os"
 	"sync/atomic"
 	"time"
@@ -8,10 +9,16 @@ import (
 	"github.com/Apollogeddon/distribyted/iio"
 )
 
-var nextIno uint64 = 1
+var nextIno uint64 = 1000 // Reserve low numbers
 
 func GenerateIno() uint64 {
 	return atomic.AddUint64(&nextIno, 1)
+}
+
+func HashIno(s string) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(s))
+	return h.Sum64()
 }
 
 type File interface {

@@ -48,13 +48,16 @@ func (fs *Torrent) AddTorrent(t *torrent.Torrent) {
 }
 
 func (fs *Torrent) addFiles(t *torrent.Torrent) {
+	ih := t.InfoHash().HexString()
 	for _, file := range t.Files() {
-		_ = fs.s.Add(&torrentFile{
-			hash:       t.InfoHash().HexString(),
+		tf := &torrentFile{
+			hash:       ih,
 			readerFunc: file.NewReader,
 			len:        file.Length(),
 			timeout:    fs.readTimeout,
-		}, file.Path())
+		}
+		tf.SetIno(HashIno(ih + file.Path()))
+		_ = fs.s.Add(tf, file.Path())
 	}
 }
 
