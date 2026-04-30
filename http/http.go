@@ -11,6 +11,7 @@ import (
 
 	"github.com/Apollogeddon/distribyted"
 	"github.com/Apollogeddon/distribyted/config"
+	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/Apollogeddon/distribyted/torrent"
 )
 
@@ -26,7 +27,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 	})
 
 	if conf.HTTPGlobal.HTTPFS {
-		log.Info().Str("host", fmt.Sprintf("%s:%d/fs", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting HTTPFS")
+		log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d/fs", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting HTTPFS")
 		h := func(c *gin.Context) {
 			path := c.Param("filepath")
 			c.FileFromFS(path, fs)
@@ -80,7 +81,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}
 
-	log.Info().Str("host", fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting webserver")
+	log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting webserver")
 
 	if err := r.Run(fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)); err != nil {
 		return fmt.Errorf("error initializing server: %w", err)
@@ -90,7 +91,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 }
 
 func Logger() gin.HandlerFunc {
-	l := log.Logger.With().Str("component", "http").Logger()
+	l := dlog.Logger("http")
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		raw := c.Request.URL.RawQuery
@@ -106,11 +107,11 @@ func Logger() gin.HandlerFunc {
 		s := c.Writer.Status()
 		switch {
 		case s >= 400 && s < 500:
-			l.Warn().Str("path", path).Int("status", s).Msg(msg)
+			l.Warn().Str(dlog.KeyPath, path).Int("status", s).Msg(msg)
 		case s >= 500:
-			l.Error().Str("path", path).Int("status", s).Msg(msg)
+			l.Error().Str(dlog.KeyPath, path).Int("status", s).Msg(msg)
 		default:
-			l.Debug().Str("path", path).Int("status", s).Msg(msg)
+			l.Debug().Str(dlog.KeyPath, path).Int("status", s).Msg(msg)
 		}
 	}
 }

@@ -13,7 +13,24 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-const FileName = "distribyted.log"
+const (
+	FileName = "distribyted.log"
+
+	// Standard log field keys
+	KeyPath      = "path"
+	KeyHash      = "hash"
+	KeyComponent = "component"
+	KeyRoute     = "route"
+	KeyHost      = "host"
+	KeyFile      = "file"
+	KeyOp        = "op"
+	KeyName      = "name"
+)
+
+// Logger returns a new logger with the specified component name attached.
+func Logger(component string) zerolog.Logger {
+	return log.With().Str(KeyComponent, component).Logger()
+}
 
 func Load(config *config.Log) {
 	var writers []io.Writer

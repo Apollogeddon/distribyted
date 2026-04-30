@@ -232,17 +232,17 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	cfs.OnLinkRemoved(func(path string) {
 		if err := ts.RemoveLink(path); err != nil {
-			log.Warn().Err(err).Str("path", path).Msg("problem removing link from database")
+			log.Warn().Err(err).Str(dlog.KeyPath, path).Msg("problem removing link from database")
 		}
 	})
 
 	ts.OnTorrentRemoved(func(h string) {
-		log.Info().Str("hash", h).Msg("cascading torrent removal to virtual links")
+		log.Info().Str(dlog.KeyHash, h).Msg("cascading torrent removal to virtual links")
 		cfs.RemoveByHash(h)
 	})
 
 	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
-		log.Info().Str("path", p).Msg("dynamically adding new route to filesystem")
+		log.Info().Str(dlog.KeyPath, p).Msg("dynamically adding new route to filesystem")
 		_ = cfs.AddFS(p, fss)
 	})
 

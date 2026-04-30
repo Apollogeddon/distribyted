@@ -14,9 +14,9 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	"github.com/fsnotify/fsnotify"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"github.com/Apollogeddon/distribyted/config"
+	dlog "github.com/Apollogeddon/distribyted/log"
 )
 
 type ServerState int
@@ -61,7 +61,7 @@ type Server struct {
 }
 
 func NewServer(c *torrent.Client, pc storage.PieceCompletion, cfg *config.Server) *Server {
-	l := log.Logger.With().Str("component", "server").Str("name", cfg.Name).Logger()
+	l := dlog.Logger("server").With().Str(dlog.KeyName, cfg.Name).Logger()
 
 	return &Server{
 		cfg: cfg,
@@ -85,7 +85,7 @@ func (s *Server) Start() error {
 	if err := filepath.Walk(s.cfg.Path,
 		func(path string, info os.FileInfo, err error) error {
 			if info.Mode().IsDir() {
-				s.log.Debug().Str("folder", path).Msg("adding new folder")
+				s.log.Debug().Str(dlog.KeyPath, path).Msg("adding new folder")
 				return w.Add(path)
 			}
 
@@ -112,7 +112,7 @@ func (s *Server) Start() error {
 					return
 				}
 
-				s.log.Info().Str("file", event.Name).Str("op", event.Op.String()).Msg("file changed inside server folder")
+				s.log.Info().Str(dlog.KeyFile, event.Name).Str(dlog.KeyOp, event.Op.String()).Msg("file changed inside server folder")
 				atomic.AddUint64(&s.eventsCount, 1)
 			case err, ok := <-w.Errors:
 				if !ok {
@@ -221,7 +221,7 @@ func (s *Server) makeMagnet() error {
 	s.mu.Unlock()
 	s.updateState(SEEDING)
 
-	s.log.Info().Str("hash", ih.HexString()).Msg("new torrent is ready")
+	s.log.Info().Str(dlog.KeyHash, ih.HexString()).Msg("new torrent is ready")
 
 	return nil
 }

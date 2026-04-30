@@ -10,9 +10,9 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"github.com/Apollogeddon/distribyted/fs"
+	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/Apollogeddon/distribyted/torrent/loader"
 )
 
@@ -36,7 +36,7 @@ type Service struct {
 }
 
 func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c *torrent.Client, addTimeout, readTimeout int, continueWhenAddTimeout bool) *Service {
-	l := log.Logger.With().Str("component", "torrent-service").Logger()
+	l := dlog.Logger("torrent-service")
 	return &Service{
 		log:                    l,
 		s:                      stats,
@@ -167,18 +167,18 @@ func (s *Service) addRoute(r string) {
 func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 	// only get info if name is not available
 	if t.Info() == nil {
-		s.log.Info().Str("hash", t.InfoHash().String()).Msg("getting torrent info")
+		s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("getting torrent info")
 		select {
 		case <-time.After(time.Duration(s.addTimeout) * time.Second):
-			s.log.Warn().Str("hash", t.InfoHash().String()).Msg("timeout getting torrent info")
+			s.log.Warn().Str(dlog.KeyHash, t.InfoHash().String()).Msg("timeout getting torrent info")
 			if !s.continueWhenAddTimeout {
 				return errors.New("timeout getting torrent info")
 			} else {
-				s.log.Info().Str("hash", t.InfoHash().String()).Msg("ignoring timeout error")
+				s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("ignoring timeout error")
 				return nil
 			}
 		case <-t.GotInfo():
-			s.log.Info().Str("hash", t.InfoHash().String()).Msg("obtained torrent info")
+			s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("obtained torrent info")
 		}
 
 	}
@@ -203,13 +203,13 @@ func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 	}
 
 	tfs.AddTorrent(t)
-	s.log.Info().Str("name", t.Info().Name).Str("route", r).Msg("torrent added")
+	s.log.Info().Str(dlog.KeyName, t.Info().Name).Str(dlog.KeyRoute, r).Msg("torrent added")
 
 	return nil
 }
 
 func (s *Service) RemoveFromHash(r, h string) error {
-	s.log.Info().Str("route", r).Str("hash", h).Msg("removing torrent")
+	s.log.Info().Str(dlog.KeyRoute, r).Str(dlog.KeyHash, h).Msg("removing torrent")
 
 	// Remove from db
 	deleted, err := s.db.RemoveFromHash(r, h)

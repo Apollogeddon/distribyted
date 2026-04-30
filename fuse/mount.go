@@ -11,6 +11,8 @@ import (
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	dlog "github.com/Apollogeddon/distribyted/log"
 )
 
 type FS struct {
@@ -21,7 +23,7 @@ type FS struct {
 }
 
 func NewFS(fs fs.Filesystem) fuse.FileSystemInterface {
-	l := log.Logger.With().Str("component", "fuse").Logger()
+	l := dlog.Logger("fuse")
 	return &FS{
 		fh:  &fileHandler{fs: fs},
 		log: l,
@@ -40,12 +42,12 @@ func (fs *FS) Statfs(path string, stat *fuse.Statfs_t) int {
 func (fs *FS) Open(path string, flags int) (errc int, fh uint64) {
 	fh, err := fs.fh.OpenHolder(path)
 	if os.IsNotExist(err) {
-		fs.log.Debug().Str("path", path).Msg("file does not exists")
+		fs.log.Debug().Str(dlog.KeyPath, path).Msg("file does not exists")
 		return -fuse.ENOENT, fhNone
 
 	}
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error opening file")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error opening file")
 		return -fuse.EIO, fhNone
 	}
 
@@ -67,12 +69,12 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 
 	file, err := fs.fh.GetFile(path, fh)
 	if os.IsNotExist(err) {
-		fs.log.Debug().Str("path", path).Msg("file does not exists")
+		fs.log.Debug().Str(dlog.KeyPath, path).Msg("file does not exists")
 		return -fuse.ENOENT
 
 	}
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error getting holder when reading file attributes")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error getting holder when reading file attributes")
 		return -fuse.EIO
 	}
 
@@ -105,10 +107,10 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 }
 
 func (fs *FS) Create(path string, flags int, mode uint32) (errc int, fh uint64) {
-	fs.log.Info().Str("path", path).Msg("creating file")
+	fs.log.Info().Str(dlog.KeyPath, path).Msg("creating file")
 	err := fs.fh.fs.Create(path)
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error creating file")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error creating file")
 		return -fuse.EIO, fhNone
 	}
 
@@ -145,13 +147,13 @@ func (fs *FS) Utimens(path string, tmsp []fuse.Timespec) int {
 }
 
 func (fs *FS) Unlink(path string) int {
-	fs.log.Info().Str("path", path).Msg("unlinking file")
+	fs.log.Info().Str(dlog.KeyPath, path).Msg("unlinking file")
 	err := fs.fh.fs.Remove(path)
 	if os.IsNotExist(err) {
 		return -fuse.ENOENT
 	}
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error unlinking file")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error unlinking file")
 		return -fuse.EIO
 	}
 	return 0
@@ -164,12 +166,12 @@ func (fs *FS) Access(path string, mask uint32) int {
 func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 	file, err := fs.fh.GetFile(path, fh)
 	if os.IsNotExist(err) {
-		fs.log.Error().Err(err).Str("path", path).Msg("file not found on READ operation")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("file not found on READ operation")
 		return -fuse.ENOENT
 
 	}
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error getting holder reading data from file")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error getting holder reading data from file")
 		return -fuse.EIO
 	}
 
@@ -182,7 +184,7 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 
 	n, err := file.ReadAt(buf, off)
 	if err != nil && err != io.EOF {
-		log.Error().Err(err).Str("path", path).Msg("error reading data")
+		log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading data")
 		return -fuse.EIO
 	}
 
@@ -191,7 +193,7 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 
 func (fs *FS) Release(path string, fh uint64) int {
 	if err := fs.fh.Remove(fh); err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error getting holder when releasing file")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error getting holder when releasing file")
 		return -fuse.EIO
 	}
 
@@ -231,13 +233,13 @@ func (fs *FS) Rename(oldpath string, newpath string) int {
 }
 
 func (fs *FS) Mkdir(path string, mode uint32) int {
-	fs.log.Info().Str("path", path).Msg("mkdir operation")
+	fs.log.Info().Str(dlog.KeyPath, path).Msg("mkdir operation")
 	err := fs.fh.fs.Mkdir(path)
 	if os.IsExist(err) {
 		return -fuse.EEXIST
 	}
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error creating directory")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error creating directory")
 		return -fuse.EIO
 	}
 
@@ -250,7 +252,7 @@ func (fs *FS) Rmdir(path string) int {
 		return -fuse.ENOENT
 	}
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error removing directory")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error removing directory")
 		return -fuse.EIO
 	}
 
@@ -267,13 +269,13 @@ func (fs *FS) Readdir(path string,
 	//TODO improve this function to make use of fh index if possible
 	paths, err := fs.fh.ListDir(path)
 	if err != nil {
-		fs.log.Error().Err(err).Str("path", path).Msg("error reading directory")
+		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading directory")
 		return -fuse.ENOSYS
 	}
 
 	for _, p := range paths {
 		if !fill(p, nil, 0) {
-			fs.log.Error().Str("path", path).Msg("error adding directory")
+			fs.log.Error().Str(dlog.KeyPath, path).Msg("error adding directory")
 			break
 		}
 	}

@@ -8,6 +8,8 @@ import (
 	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/rs/zerolog/log"
+
+	dlog "github.com/Apollogeddon/distribyted/log"
 )
 
 type Handler struct {
@@ -49,13 +51,13 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 
 		ok := host.Mount(s.path, config)
 		if !ok {
-			log.Error().Str("path", s.path).Msg("error trying to mount filesystem")
+			log.Error().Str(dlog.KeyPath, s.path).Msg("error trying to mount filesystem")
 		}
 	}()
 
 	s.host = host
 
-	log.Info().Str("path", s.path).Msg("starting FUSE mount")
+	log.Info().Str(dlog.KeyPath, s.path).Msg("starting FUSE mount")
 
 	return nil
 }
@@ -68,6 +70,6 @@ func (s *Handler) Unmount() {
 	ok := s.host.Unmount()
 	if !ok {
 		//TODO try to force unmount if possible
-		log.Error().Str("path", s.path).Msg("unmount failed")
+		log.Error().Str(dlog.KeyPath, s.path).Msg("unmount failed")
 	}
 }

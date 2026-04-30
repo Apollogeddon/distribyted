@@ -5,11 +5,12 @@ import (
 	"net/http"
 
 	"github.com/Apollogeddon/distribyted/fs"
+	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/rs/zerolog/log"
 )
 
 func NewWebDAVServer(fs fs.Filesystem, port int, user, pass string) error {
-	log.Info().Str("host", fmt.Sprintf("0.0.0.0:%d", port)).Msg("starting webDAV server")
+	log.Info().Str(dlog.KeyHost, fmt.Sprintf("0.0.0.0:%d", port)).Msg("starting webDAV server")
 
 	srv := newHandler(fs)
 
