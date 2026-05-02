@@ -1,16 +1,20 @@
 version: 2
 updates:
+  # 1. GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     groups:
-      updates:
+      actions-dependencies:
+        patterns:
+          - "*"
         update-types:
           - "major"
           - "minor"
           - "patch"
 
+  # 2. Go Modules
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -18,26 +22,36 @@ updates:
     open-pull-requests-limit: 10
     pull-request-branch-name:
       separator: "-"
+    labels:
+      - "dependencies"
+      - "go"
     groups:
-      non-major:
+      go-non-major:
         update-types:
           - "minor"
           - "patch"
 
+  # 3. Docker (Root)
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    labels:
+      - "docker"
     groups:
       non-major:
         update-types:
           - "minor"
           - "patch"
 
+  # 4. Docker (Tools)
   - package-ecosystem: "docker"
     directory: "/tools"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    labels:
+      - "docker"
+      - "tools"
     groups:
       non-major:
         update-types:
