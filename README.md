@@ -6,99 +6,113 @@
 [![GPL3 License][license-shield]][license-url]
 [![Coveralls][coveralls-shield]][coveralls-url]
 [![Docker Image][docker-pulls-shield]][docker-pulls-url]
+
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
   <a href="https://github.com/Apollogeddon/distribyted">
-    <img src="mkdocs/docs/images/distribyted_icon.png" alt="Logo" width="100">
+    <img src="docs/images/distribyted_icon.png" alt="Logo" width="100">
   </a>
 
   <h3 align="center">distribyted</h3>
 
   <p align="center">
-    Torrent client with on-demand file downloading as a filesystem.
+    <b>Access Terabytes of data instantly using minimal local disk space.</b>
+    <br />
+    Torrent client with on-demand file downloading as a virtual filesystem.
     <br />
     <br />
     <a href="https://github.com/Apollogeddon/distribyted/issues">Report a Bug</a>
     ·
     <a href="https://github.com/Apollogeddon/distribyted/issues">Request Feature</a>
+    ·
+    <a href="./docs/workflows.md">System Workflows</a>
   </p>
 </p>
 
-## About The Project
+---
 
-![Distribyted Screen Shot][product-screenshot]
+## 🚀 Use Cases
 
-Distribyted is an alternative torrent client that treats torrents as a standard filesystem. It downloads only the parts of the file that are requested by the OS or applications, allowing you to access Terabytes of data using minimal local disk space.
-
-### Core Features
-
-- **Filesystem Access:** Mount torrents via **FUSE** (Linux/Windows), **WebDAV**, or **HTTP**.
-- **On-Demand Downloading:** Only downloads the specific blocks of data being read.
-- **Routes:** Organize different sets of torrents into virtual folders.
-- **Servers:** Turn any local folder into a live torrent. It monitors the folder and updates the magnet link automatically as files change.
-- **qBitTorrent API Compatibility:** Integration with popular automation tools.
-
-## Usage
-
-### 1. Configuration
-
-The application uses a YAML configuration file. You can find an example in `examples/conf_example.yaml`.
-
-### 2. Running
-
-```bash
-./distribyted examples/conf_example.yaml
-```
-
-### 3. Accessing Files
-
-- **FUSE:** By default, files are mounted to `./distribyted-data/mount` (configurable).
-- **WebDAV:** Access via `http://localhost:36911` (Default: admin/admin).
-- **HTTP:** Browse files at `http://localhost:4444/fs/`.
-
-### 4. Integration with Radarr/Sonarr
-
-You can add `distribyted` as a qBitTorrent download client:
-
-- **Host:** `localhost`
-- **Port:** `4444`
-- **Username/Password:** Any (Authentication is currently mocked to always succeed)
-- **Category:** Use the name of one of your configured **Routes**.
-
-## qBitTorrent API (v2) Support
-
-The following endpoints are implemented under `/api/v2`:
-
-- `POST /auth/login` - Always returns OK.
-- `GET /torrents/info` - Lists torrents in a format compatible with qBitTorrent.
-- `POST /torrents/add` - Adds magnet links. The `category` parameter determines the `route`.
-- `POST /torrents/delete` - Removes torrents.
-
-## Use Cases
-
-- **Multimedia:** Stream 4K movies directly in VLC without waiting for the full download.
+- **Multimedia:** Stream 4K movies directly in VLC or Plex without waiting for the full download.
 - **Datasets:** Browse massive public datasets and only download the specific files or offsets needed for analysis.
 - **Gaming:** Access large ROM collections or game backups directly from the filesystem.
 - **Content Sharing:** Use the **Server** feature to instantly share a local folder with anyone via a magnet link.
 
-## Documentation
+![Distribyted Screen Shot][product-screenshot]
 
-Check [here][main-url] for further documentation.
+## ✨ Core Features
 
-## Contributing
+- **Filesystem Access:** Mount torrents via **FUSE** (Linux/Windows), **WebDAV**, or **HTTP**.
+- **On-Demand Downloading:** Only downloads the specific blocks of data being read.
+- **Expandable Archives:** Automatically mount and seek through `.zip`, `.rar`, and `.7z` archives inside torrents.
+- **Routes:** Organize different sets of torrents into virtual folders.
+- **Servers:** Turn any local folder into a live torrent with automatic magnet link updates.
+- **qBitTorrent API Compatibility:** Drop-in integration with **Radarr**, **Sonarr**, and **Prowlarr**.
 
-Contributions are welcome! Specifically:
+## 🛠️ How it Works
 
-- Testing and compatibility improvements for Windows and macOS.
-- Enhancements to the Web Dashboard.
-- New tutorials and use cases.
+Distribyted acts as a bridge between the BitTorrent swarm and your operating system. When a file is accessed:
 
-## License
+1. The **Virtual Filesystem (VFS)** identifies which blocks of the torrent are needed.
+2. The **Torrent Engine** requests only those specific pieces from the swarm.
+3. Data is streamed directly to the requesting application, using a local cache for performance.
+
+## 🏁 Quick Start
+
+### 1. Configuration
+
+The application uses a YAML configuration file. See `examples/conf_example.yaml` for a template.
+
+### 2. Running
+
+```bash
+./distribyted --config examples/conf_example.yaml
+```
+
+### 3. Accessing Files
+
+- **FUSE:** Mounted to `./distribyted-data/mount` (default).
+- **WebDAV:** `http://localhost:36911` (Default: admin/admin).
+- **Web UI:** `http://localhost:4444`
+
+---
+
+## 🔌 Integrations
+
+### Radarr / Sonarr
+
+Add `distribyted` as a **qBitTorrent** download client:
+
+- **Host:** `localhost` | **Port:** `4444`
+- **Category:** Use the name of one of your configured **Routes**.
+
+### Supported qBitTorrent API (v2) Endpoints
+
+- `POST /auth/login` (Mocked success)
+- `GET /torrents/info` (Compatible listing)
+- `POST /torrents/add` (Adds magnets to routes)
+- `POST /torrents/delete` (Surgical removal)
+
+## 📚 Documentation
+
+Detailed technical guides are available in the [docs](./docs/) folder:
+
+- **[Workflows](./docs/workflows.md)**: Visual guides on system interactions and data flow.
+- **[Configuration](./docs/configuration.md)**: Detailed YAML configuration guide.
+- **[Integration](./docs/integration.md)**: Setup with Radarr, Sonarr, and Plex.
+- **[Architecture](./docs/architecture.md)**: Learn how the internal VFS and Torrent engine work.
+- **[Development](./docs/development.md)**: Guide for building from source and contributing.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please check the [Development Guide](./docs/development.md) to get started.
+
+## 📄 License
 
 Distributed under the GPL3 license. See `LICENSE` for more information.
 
-[main-url]: https://distribyted.com
+<!-- Links -->
 [releases-shield]: https://img.shields.io/github/v/release/Apollogeddon/distribyted.svg?style=flat-square
 [releases-url]: https://github.com/Apollogeddon/distribyted/releases
 [docker-pulls-shield]:https://img.shields.io/docker/pulls/Apollogeddon/distribyted.svg?style=flat-square
@@ -113,6 +127,6 @@ Distributed under the GPL3 license. See `LICENSE` for more information.
 [issues-url]: https://github.com/Apollogeddon/distribyted/issues
 [license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
 [license-url]: https://github.com/Apollogeddon/distribyted/blob/master/LICENSE
-[product-screenshot]: mkdocs/docs/images/distribyted.gif
+[product-screenshot]: docs/images/distribyted.gif
 [coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
 [coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted
