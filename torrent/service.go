@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,8 +17,59 @@ import (
 	"github.com/Apollogeddon/distribyted/torrent/loader"
 )
 
+type TorrentClient interface {
+	AddTorrentFromFile(string) (fs.Torrent, error)
+	AddMagnet(string) (fs.Torrent, error)
+	Torrent(metainfo.Hash) (fs.Torrent, bool)
+	Close()
+}
+
+type TorrentWrapper struct {
+	*torrent.Torrent
+}
+
+func (tw TorrentWrapper) GotInfo() <-chan struct{} {
+	return tw.Torrent.GotInfo()
+}
+
+func (tw TorrentWrapper) InfoHash() metainfo.Hash {
+	return tw.Torrent.InfoHash()
+}
+
+type ClientWrapper struct {
+	*torrent.Client
+}
+
+func (tcw ClientWrapper) AddTorrentFromFile(p string) (fs.Torrent, error) {
+	t, err := tcw.Client.AddTorrentFromFile(p)
+	if err != nil {
+		return nil, err
+	}
+	return TorrentWrapper{t}, nil
+}
+
+func (tcw ClientWrapper) AddMagnet(m string) (fs.Torrent, error) {
+	t, err := tcw.Client.AddMagnet(m)
+	if err != nil {
+		return nil, err
+	}
+	return TorrentWrapper{t}, nil
+}
+
+func (tcw ClientWrapper) Torrent(h metainfo.Hash) (fs.Torrent, bool) {
+	t, ok := tcw.Client.Torrent(h)
+	if !ok {
+		return nil, false
+	}
+	return TorrentWrapper{t}, true
+}
+
+func (tcw ClientWrapper) Close() {
+	tcw.Client.Close()
+}
+
 type Service struct {
-	c *torrent.Client
+	c TorrentClient
 
 	s *Stats
 
@@ -26,6 +78,8 @@ type Service struct {
 
 	routeAddedListeners     []func(string, fs.Filesystem)
 	torrentRemovedListeners []func(string)
+	onLinkAdded             func(string, string)
+	onLinkRemoved           func(string)
 
 	loaders []loader.Loader
 	db      loader.LoaderAdder
@@ -35,7 +89,7 @@ type Service struct {
 	continueWhenAddTimeout  bool
 }
 
-func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c *torrent.Client, addTimeout, readTimeout int, continueWhenAddTimeout bool) *Service {
+func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c TorrentClient, addTimeout, readTimeout int, continueWhenAddTimeout bool) *Service {
 	l := dlog.Logger("torrent-service")
 	return &Service{
 		log:                    l,
@@ -61,7 +115,26 @@ func (s *Service) Load() (map[string]fs.Filesystem, error) {
 
 	// Load from DB
 	s.log.Info().Msg("adding torrents from database")
-	return s.fss, s.load(s.db)
+	if err := s.load(s.db); err != nil {
+		s.log.Error().Err(err).Msg("error loading from database")
+		return nil, err
+	}
+
+	links, err := s.db.ListLinks()
+	if err != nil {
+		s.log.Error().Err(err).Msg("error listing links from database")
+		return nil, err
+	}
+	s.log.Debug().Int("count", len(links)).Msg("found links in database")
+	for o, n := range links {
+		s.log.Debug().Str("old", o).Str("new", n).Msg("restoring link")
+		// Don't call AddLink as it writes back to DB. Call onLinkAdded directly.
+		if s.onLinkAdded != nil {
+			s.onLinkAdded(o, n)
+		}
+	}
+
+	return s.fss, nil
 }
 
 func (s *Service) load(l loader.Loader) error {
@@ -69,12 +142,17 @@ func (s *Service) load(l loader.Loader) error {
 	if err != nil {
 		return err
 	}
+	s.log.Debug().Int("routes", len(list)).Msg("found magnets in loader")
 	for r, ms := range list {
+		s.log.Debug().Str("route", r).Int("magnets", len(ms)).Msg("loading magnets for route")
 		s.addRoute(r)
 		for _, m := range ms {
-			if err := s.addMagnet(r, m); err != nil {
-				return err
-			}
+			// Run in background to avoid blocking Load()
+			go func(r, m string) {
+				if err := s.addMagnet(r, m); err != nil {
+					s.log.Error().Err(err).Str("route", r).Msg("error loading magnet in background")
+				}
+			}(r, m)
 		}
 	}
 
@@ -85,9 +163,11 @@ func (s *Service) load(l loader.Loader) error {
 	for r, ms := range list {
 		s.addRoute(r)
 		for _, p := range ms {
-			if err := s.addTorrentPath(r, p); err != nil {
-				return err
-			}
+			go func(r, p string) {
+				if err := s.addTorrentPath(r, p); err != nil {
+					s.log.Error().Err(err).Str("route", r).Msg("error loading torrent path in background")
+				}
+			}(r, p)
 		}
 	}
 
@@ -108,11 +188,32 @@ func (s *Service) ListLinks() (map[string]string, error) {
 }
 
 func (s *Service) AddLink(oldpath, newpath string) error {
+	oldpath = cleanRoute(oldpath)
+	newpath = cleanRoute(newpath)
+
+	if s.onLinkAdded != nil {
+		s.onLinkAdded(oldpath, newpath)
+	}
 	return s.db.AddLink(oldpath, newpath)
 }
 
 func (s *Service) RemoveLink(path string) error {
+	if s.onLinkRemoved != nil {
+		s.onLinkRemoved(path)
+	}
 	return s.db.RemoveLink(path)
+}
+
+func (s *Service) OnLinkAdded(f func(string, string)) {
+	s.onLinkAdded = f
+}
+
+func (s *Service) OnLinkRemoved(f func(string)) {
+	s.onLinkRemoved = f
+}
+
+func cleanRoute(r string) string {
+	return "/" + strings.Trim(r, "/")
 }
 
 func (s *Service) addTorrentPath(r, p string) error {
@@ -164,7 +265,7 @@ func (s *Service) addRoute(r string) {
 	}
 }
 
-func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
+func (s *Service) addTorrent(r string, t fs.Torrent) error {
 	// only get info if name is not available
 	if t.Info() == nil {
 		s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("getting torrent info")
@@ -195,7 +296,7 @@ func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 		return fmt.Errorf("error adding torrent to filesystem: route %s not found in map", folder)
 	}
 
-	tfs, ok := fs_entry.(*fs.Torrent)
+	tfs, ok := fs_entry.(*fs.TorrentFS)
 	if !ok {
 		return fmt.Errorf("error adding torrent to filesystem: route %s has unexpected type %T", folder, fs_entry)
 	}
@@ -230,7 +331,7 @@ func (s *Service) RemoveFromHash(r, h string) error {
 	// Remove from fs
 	folder := path.Join("/", r)
 
-	tfs, ok := s.fss[folder].(*fs.Torrent)
+	tfs, ok := s.fss[folder].(*fs.TorrentFS)
 	if !ok {
 		return errors.New("error removing torrent from filesystem")
 	}
@@ -262,4 +363,20 @@ func (s *Service) RemoveFromHashOnly(h string) error {
 	}
 
 	return s.RemoveFromHash(r, h)
+}
+
+func (s *Service) AddTorrentFromFile(r, p string) error {
+	return s.addTorrentPath(r, p)
+}
+
+func (s *Service) Torrent(h string) (fs.Torrent, bool) {
+	var mh metainfo.Hash
+	if err := mh.FromHexString(h); err != nil {
+		return nil, false
+	}
+	return s.c.Torrent(mh)
+}
+
+func (s *Service) Close() {
+	s.c.Close()
 }
