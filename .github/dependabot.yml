@@ -43,12 +43,3 @@ updates:
           - "minor"
           - "patch"
 
-  - package-ecosystem: "pip"
-    directory: "/mkdocs"
-    schedule:
-      interval: "weekly"
-    groups:
-      non-major:
-        update-types:
-          - "minor"
-          - "patch"
