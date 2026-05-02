@@ -220,7 +220,14 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		if oldpath == "" {
 			_ = cfs.Mkdir(newpath)
 		} else {
-			_ = cfs.Link(oldpath, newpath)
+			go func(op, np string) {
+				for i := 0; i < 300; i++ { // 10 minutes max for app
+					if err := cfs.Link(op, np); err == nil {
+						return
+					}
+					time.Sleep(2 * time.Second)
+				}
+			}(oldpath, newpath)
 		}
 	}
 
