@@ -81,7 +81,7 @@ func TestIntegration_P2P_Fetch(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 	require.NotNil(t, file, "Could not open file after timeout")
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// 8. Read and Verify
 	downloaded, err := io.ReadAll(file)
@@ -151,7 +151,7 @@ func TestIntegration_ArchiveTransparency(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 	require.NotNil(t, innerFile, "Could not open inner file after timeout")
-	defer innerFile.Close()
+	defer func() { _ = innerFile.Close() }()
 
 	// 9. Verify content
 	downloaded, err := io.ReadAll(innerFile)
@@ -212,12 +212,12 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 			break
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		time.Sleep(1 * time.Second)
 	}
 	require.NotNil(t, httpResp, "Could not fetch via HTTP after timeout")
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	downloadedHttp, err := io.ReadAll(httpResp.Body)
 	require.NoError(t, err)
@@ -233,7 +233,7 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	downloadedWebDav, err := io.ReadAll(resp.Body)
@@ -270,7 +270,7 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 	srv := dtorrent.NewServer(app.Client, nil, srvCfg)
 	err = srv.Start()
 	require.NoError(t, err)
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	// 4. Wait for initial magnet
 	var magnet1 string
@@ -354,7 +354,7 @@ func TestIntegration_CacheEviction(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 	require.NotNil(t, file, "Could not open file after timeout")
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	downloaded, err := io.ReadAll(file)
 	require.NoError(t, err)
@@ -411,7 +411,7 @@ func TestIntegration_P2PStall(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 	require.NotNil(t, file, "Could not open file after timeout")
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read first 1MB successfully
 	buf := make([]byte, 1024*1024)
@@ -469,7 +469,7 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 	for i := 0; i < 30; i++ {
 		f, err := app.FS.Open("/test-route/thundering.bin")
 		if err == nil {
-			f.Close()
+			_ = f.Close()
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -494,7 +494,7 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 				errCh <- fmt.Errorf("worker %d open failed: %w", workerID, err)
 				return
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			buf := make([]byte, readSize)
 			n, err := f.ReadAt(buf, offset)
@@ -574,7 +574,7 @@ func TestIntegration_DiskSpaceExhaustion(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 	require.NotNil(t, file, "Could not open file after timeout")
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Attempt to read the whole 2MB file.
 	// Since the storage is limited to 512KB, it should fail.

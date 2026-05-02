@@ -166,7 +166,7 @@ func (wdf *webDAVFile) Read(p []byte) (int, error) {
 	wdf.mup.Lock()
 	defer wdf.mup.Unlock()
 
-	n, err := wdf.Reader.ReadAt(p, wdf.pos)
+	n, err := wdf.ReadAt(p, wdf.pos)
 	wdf.pos += int64(n)
 
 	return n, err

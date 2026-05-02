@@ -77,7 +77,7 @@ func NewMemoryFile(data []byte) *MemoryFile {
 }
 
 func (d *MemoryFile) Size() int64 {
-	return int64(d.Reader.Len())
+	return int64(d.Len())
 }
 
 func (d *MemoryFile) IsDir() bool {

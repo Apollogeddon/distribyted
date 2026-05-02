@@ -17,7 +17,7 @@ func TestLogger(t *testing.T) {
 func TestLoad(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "testlogdir")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	conf := &config.Log{
 		Path:  tmpDir,
@@ -32,7 +32,7 @@ func TestLoad(t *testing.T) {
 
 func TestLoad_NoDebug(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "testlogdir2")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 	Load(&config.Log{Path: tmpDir, Debug: false})
 }
 

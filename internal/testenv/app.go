@@ -199,10 +199,10 @@ func (a *TestApp) Close() {
 	}
 	a.Client.Close()
 	if a.db != nil {
-		a.db.Close()
+		_ = a.db.Close()
 	}
 	if a.itemStore != nil {
-		a.itemStore.Close()
+		_ = a.itemStore.Close()
 	}
 	if !a.KeepTempDir {
 		os.RemoveAll(a.TempDir)

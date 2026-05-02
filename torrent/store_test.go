@@ -17,7 +17,7 @@ func TestFileItemStore(t *testing.T) {
 
 	fis, err := NewFileItemStore(tempDir, 1*time.Hour)
 	require.NoError(t, err)
-	defer fis.Close()
+	defer func() { _ = fis.Close() }()
 
 	// Create a BEP44 item
 	// For simplicity, we'll use a dummy item
@@ -46,7 +46,7 @@ func TestFileItemStore_Del(t *testing.T) {
 	tempDir, _ := os.MkdirTemp("", "item-store-del")
 	defer os.RemoveAll(tempDir)
 	fis, _ := NewFileItemStore(tempDir, 1*time.Hour)
-	defer fis.Close()
+	defer func() { _ = fis.Close() }()
 
 	var target bep44.Target
 	err := fis.Del(target)

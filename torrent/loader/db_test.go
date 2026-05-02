@@ -19,11 +19,11 @@ func TestDB(t *testing.T) {
 	require.NoError(err)
 
 	cs := storage.NewFile(tmpStorage)
-	defer cs.Close()
+	defer func() { _ = cs.Close() }()
 
 	s, err := NewDB(tmpService)
 	require.NoError(err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	err = s.AddMagnet("route1", "WRONG MAGNET")
 	require.Error(err)
@@ -69,7 +69,7 @@ func TestDB_Links(t *testing.T) {
 
 	tmpDir, err := os.MkdirTemp("", "db-links")
 	require.NoError(err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	s, err := NewDB(tmpDir)
 	require.NoError(err)
@@ -97,5 +97,5 @@ func TestDB_Links(t *testing.T) {
 	require.NotContains(links, "old/path1")
 	require.Contains(links, "old/path2")
 
-	s.Close()
+	_ = s.Close()
 }

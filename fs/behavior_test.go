@@ -95,7 +95,7 @@ func TestBehavior_ReadSeek(t *testing.T) {
 
 	f, err := tfs.Open("/test.txt")
 	require.NoError(err)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Read first 5 bytes
 	buf := make([]byte, 5)
@@ -182,7 +182,7 @@ func TestBehavior_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			f, err := tfs.Open("/large.bin")
 			require.NoError(err)
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			buf := make([]byte, 1024)
 			for j := 0; j < 100; j++ {

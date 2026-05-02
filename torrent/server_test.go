@@ -42,7 +42,7 @@ func TestServer_StartAndWatch(t *testing.T) {
 
 	err = srv.Start()
 	require.NoError(t, err)
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	// Wait for processing
 	time.Sleep(500 * time.Millisecond)

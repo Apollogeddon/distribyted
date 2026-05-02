@@ -19,7 +19,7 @@ func TestSeekerWrapper(t *testing.T) {
 	mf := fs.NewMemoryFile(testData)
 
 	r := iio.NewSeekerWrapper(mf, mf.Size())
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	n, err := r.Seek(6, io.SeekStart)
 	require.NoError(err)

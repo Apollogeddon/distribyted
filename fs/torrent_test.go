@@ -127,7 +127,7 @@ func TestReadAtTorrent(t *testing.T) {
 		timeout:    500,
 	}
 	h := tf.NewHandle()
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	toRead := make([]byte, 5)
 	n, err := h.ReadAt(toRead, 6)
@@ -153,7 +153,7 @@ func TestReadAtWrapper(t *testing.T) {
 	torrFile := to.Files()[0]
 
 	r := newReadAtWrapper(torrFile.NewReader(), 10)
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	toRead := make([]byte, 5)
 	n, err := r.ReadAt(toRead, 6)
@@ -166,7 +166,7 @@ func TestReadAtWrapper(t *testing.T) {
 	require.Equal(5, n)
 	require.Equal([]byte{0x49, 0x44, 0x33, 0x3, 0x0}, toRead)
 
-	r.Close()
+	_ = r.Close()
 	n, err = r.ReadAt(toRead, 0)
 	require.Equal(0, n)
 	require.Equal(io.EOF, err)

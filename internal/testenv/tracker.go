@@ -51,7 +51,7 @@ func (t *Tracker) Start() error {
 
 func (t *Tracker) Stop() {
 	if t.s != nil {
-		t.s.Close()
+		_ = t.s.Close()
 	}
 }
 

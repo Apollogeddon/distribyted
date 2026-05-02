@@ -18,7 +18,7 @@ func TestNewClient(t *testing.T) {
 	st := storage.NewFile(tempDir)
 	fis, err := NewFileItemStore(tempDir, 1*time.Hour)
 	require.NoError(t, err)
-	defer fis.Close()
+	defer func() { _ = fis.Close() }()
 
 	cfg := &config.TorrentGlobal{
 		DisableIPv6: true,

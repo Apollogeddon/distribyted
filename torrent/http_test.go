@@ -20,7 +20,7 @@ func TestHTTPFS_Open(t *testing.T) {
 	// Test open file
 	f, err := hfs.Open("/test.txt")
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stat, err := f.Stat()
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestHTTPFS_Open(t *testing.T) {
 	// Test open dir
 	d, err := hfs.Open("/")
 	require.NoError(t, err)
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 
 	stat, err = d.Stat()
 	require.NoError(t, err)

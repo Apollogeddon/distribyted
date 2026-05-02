@@ -26,7 +26,7 @@ func (c *Handler) createFromTemplateFile() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer t.Close()
+	defer func() { _ = t.Close() }()
 
 	tb, err := io.ReadAll(t)
 	if err != nil {

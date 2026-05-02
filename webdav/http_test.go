@@ -48,5 +48,5 @@ func TestNewWebDAVServerWithListener(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 401, resp.StatusCode)
 
-	l.Close()
+	_ = l.Close()
 }

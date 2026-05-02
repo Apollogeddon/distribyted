@@ -128,12 +128,12 @@ func (c *CloseNotifyingRecorder) CloseNotify() <-chan bool {
 func TestApiLogHandler(t *testing.T) {
 	tmpfile, err := os.CreateTemp("", "testlog")
 	assert.NoError(t, err)
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	content := "test log content"
 	_, err = tmpfile.WriteString(content)
 	assert.NoError(t, err)
-	tmpfile.Close()
+	_ = tmpfile.Close()
 
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
