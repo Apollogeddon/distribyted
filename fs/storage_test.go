@@ -151,6 +151,30 @@ func TestStorageAddFs(t *testing.T) {
 	require.Error(err)
 }
 
+func TestStorageRemoveByHash(t *testing.T) {
+	require := require.New(t)
+	s := newStorage(nil)
+	
+	f1 := &mockHashFile{hash: "h1"}
+	f2 := &mockHashFile{hash: "h2"}
+	
+	s.Add(f1, "/f1.txt")
+	s.Add(f2, "/f2.txt")
+	
+	s.RemoveByHash("h1")
+	require.False(s.Has("/f1.txt"))
+	require.True(s.Has("/f2.txt"))
+}
+
+type mockHashFile struct {
+	Dummy
+	hash string
+}
+
+func (m *mockHashFile) MatchHash(h string) bool {
+	return m.hash == h
+}
+
 func TestSupportedFactories(t *testing.T) {
 	t.Parallel()
 

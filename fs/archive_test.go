@@ -59,11 +59,47 @@ func TestZipFilesystem(t *testing.T) {
 	require.NoError(err)
 	require.True(root.IsDir())
 
-	// Test Permission errors
+	// Test invalid Open
+	_, err = zfs.Open("/notexists")
+	require.Error(err)
+
+	// Test ReadDir invalid path
+	_, err = zfs.ReadDir("/invalid/path")
+	require.Error(err)
+
+	// Test mutation operations (some should return ErrPermission, some should work as memory-backed)
 	require.Equal(os.ErrPermission, zfs.Link("", ""))
 	require.Equal(os.ErrPermission, zfs.Rename("", ""))
 	require.Equal(os.ErrPermission, zfs.Mkdir(""))
 	require.Equal(os.ErrPermission, zfs.Rmdir(""))
+	require.NoError(zfs.Create("/newfile.txt"))
+	require.NoError(zfs.Remove("/newfile.txt"))
+}
+
+func TestZipFilesystem_Empty(t *testing.T) {
+	require := require.New(t)
+	buf := bytes.NewBuffer([]byte{})
+	zWriter := zip.NewWriter(buf)
+	require.NoError(zWriter.Close())
+	
+	zfs := NewArchive(newCBR(buf.Bytes()), int64(buf.Len()), &Zip{})
+	files, err := zfs.ReadDir("/")
+	require.NoError(err)
+	require.Len(files, 0)
+}
+
+func TestArchive_Loaders(t *testing.T) {
+	require := require.New(t)
+	
+	// Test SevenZip with invalid input
+	sz := &SevenZip{}
+	_, err := sz.getFiles(newCBR([]byte("invalid")), 7)
+	require.Error(err)
+
+	// Test Rar with invalid input
+	r := &Rar{}
+	_, err = r.getFiles(newCBR([]byte("invalid")), 7)
+	require.Error(err)
 }
 
 func createTestZip(require *require.Assertions) (iio.Reader, int64) {
