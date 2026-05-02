@@ -13,7 +13,7 @@ import (
 func TestFileItemStore(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "item-store-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	fis, err := NewFileItemStore(tempDir, 1*time.Hour)
 	require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestFileItemStore(t *testing.T) {
 
 func TestFileItemStore_Del(t *testing.T) {
 	tempDir, _ := os.MkdirTemp("", "item-store-del")
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 	fis, _ := NewFileItemStore(tempDir, 1*time.Hour)
 	defer func() { _ = fis.Close() }()
 

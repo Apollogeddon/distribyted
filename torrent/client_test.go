@@ -13,7 +13,7 @@ import (
 func TestNewClient(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "client-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	st := storage.NewFile(tempDir)
 	fis, err := NewFileItemStore(tempDir, 1*time.Hour)
