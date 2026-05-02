@@ -20,7 +20,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y fuse libfuse-dev rpm pkg-config
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v1.64.8
           args: --timeout=5m
