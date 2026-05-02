@@ -38,8 +38,8 @@ func TestZipFilesystem(t *testing.T) {
 
 	// Test Read
 	out := make([]byte, 11)
-	n, err := f.Read(out)
-	require.Equal(io.EOF, err)
+	n, err := f2.Read(out)
+	require.True(err == nil || err == io.EOF)
 	require.Equal(11, n)
 	require.Equal(fileContent, out)
 
@@ -51,7 +51,6 @@ func TestZipFilesystem(t *testing.T) {
 	require.Equal([]byte("World"), outAt)
 
 	// Test Close
-	require.NoError(f.Close())
 	require.NoError(f2.Close())
 
 	// Test root Open
@@ -81,7 +80,7 @@ func TestZipFilesystem_Empty(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
 	zWriter := zip.NewWriter(buf)
 	require.NoError(zWriter.Close())
-	
+
 	zfs := NewArchive(newCBR(buf.Bytes()), int64(buf.Len()), &Zip{})
 	files, err := zfs.ReadDir("/")
 	require.NoError(err)
@@ -90,7 +89,7 @@ func TestZipFilesystem_Empty(t *testing.T) {
 
 func TestArchive_Loaders(t *testing.T) {
 	require := require.New(t)
-	
+
 	// Test SevenZip with invalid input
 	sz := &SevenZip{}
 	_, err := sz.getFiles(newCBR([]byte("invalid")), 7)

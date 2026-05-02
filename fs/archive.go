@@ -172,7 +172,16 @@ func (fs *archive) Open(filename string) (File, error) {
 		return nil, err
 	}
 
-	return fs.s.Get(filename)
+	f, err := fs.s.Get(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	if af, ok := f.(*ArchiveFile); ok {
+		return af.NewHandle(), nil
+	}
+
+	return f, nil
 }
 
 func (fs *archive) ReadDir(path string) (map[string]File, error) {
@@ -219,22 +228,13 @@ func NewArchiveFile(readerFunc func() (iio.Reader, error), len int64) *ArchiveFi
 type ArchiveFile struct {
 	BaseFile
 	readerFunc func() (iio.Reader, error)
-	reader     iio.Reader
 	len        int64
 }
 
-func (d *ArchiveFile) load() error {
-	if d.reader != nil {
-		return nil
+func (d *ArchiveFile) NewHandle() *ArchiveFileHandle {
+	return &ArchiveFileHandle{
+		ArchiveFile: d,
 	}
-	r, err := d.readerFunc()
-	if err != nil {
-		return err
-	}
-
-	d.reader = r
-
-	return nil
 }
 
 func (d *ArchiveFile) Size() int64 {
@@ -246,26 +246,66 @@ func (d *ArchiveFile) IsDir() bool {
 }
 
 func (d *ArchiveFile) Close() (err error) {
-	if d.reader != nil {
-		err = d.reader.Close()
-		d.reader = nil
-	}
-
-	return
+	return nil
 }
 
 func (d *ArchiveFile) Read(p []byte) (n int, err error) {
-	if err := d.load(); err != nil {
-		return 0, err
-	}
-
-	return d.reader.Read(p)
+	return 0, io.EOF
 }
 
 func (d *ArchiveFile) ReadAt(p []byte, off int64) (n int, err error) {
-	if err := d.load(); err != nil {
+	return 0, io.EOF
+}
+
+var _ File = &ArchiveFileHandle{}
+
+type ArchiveFileHandle struct {
+	*ArchiveFile
+	reader iio.Reader
+	mu     sync.Mutex
+}
+
+func (h *ArchiveFileHandle) load() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.reader != nil {
+		return nil
+	}
+	r, err := h.readerFunc()
+	if err != nil {
+		return err
+	}
+
+	h.reader = r
+
+	return nil
+}
+
+func (h *ArchiveFileHandle) Read(p []byte) (n int, err error) {
+	if err := h.load(); err != nil {
 		return 0, err
 	}
 
-	return d.reader.ReadAt(p, off)
+	return h.reader.Read(p)
+}
+
+func (h *ArchiveFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
+	if err := h.load(); err != nil {
+		return 0, err
+	}
+
+	return h.reader.ReadAt(p, off)
+}
+
+func (h *ArchiveFileHandle) Close() (err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.reader != nil {
+		err = h.reader.Close()
+		h.reader = nil
+	}
+
+	return
 }
