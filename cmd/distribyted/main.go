@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -289,4 +290,13 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	err = http.New(fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath)
 	log.Error().Err(err).Msg("error initializing HTTP server")
 	return err
+}
+
+func forceUnmount(mnt string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	// Try both fusermount and umount
+	_ = exec.Command("fusermount", "-uz", mnt).Run()
+	_ = exec.Command("umount", "-l", mnt).Run()
 }
