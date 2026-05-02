@@ -29,7 +29,10 @@ type TorrentGlobal struct {
 	DisableIPv6            bool   `yaml:"disable_ipv6,omitempty"`
 	DisableTCP             bool   `yaml:"disable_tcp,omitempty"`
 	DisableUTP             bool   `yaml:"disable_utp,omitempty"`
+	DisableUPnP            bool   `yaml:"disable_upnp,omitempty"`
+	DisableDHT             bool   `yaml:"disable_dht,omitempty"`
 	IP                     string `yaml:"ip,omitempty"`
+	ListenPort             int    `yaml:"listen_port,omitempty"`
 }
 
 type WebDAVGlobal struct {
