@@ -1,11 +1,6 @@
 [![Releases][releases-shield]][releases-url]
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
 [![GPL3 License][license-shield]][license-url]
 [![Coveralls][coveralls-shield]][coveralls-url]
-[![Docker Image][docker-pulls-shield]][docker-pulls-url]
 
 <!-- PROJECT LOGO -->
 <br />
@@ -115,16 +110,6 @@ Distributed under the GPL3 license. See `LICENSE` for more information.
 <!-- Links -->
 [releases-shield]: https://img.shields.io/github/v/release/Apollogeddon/distribyted.svg?style=flat-square
 [releases-url]: https://github.com/Apollogeddon/distribyted/releases
-[docker-pulls-shield]:https://img.shields.io/docker/pulls/Apollogeddon/distribyted.svg?style=flat-square
-[docker-pulls-url]:https://hub.docker.com/r/Apollogeddon/distribyted
-[contributors-shield]: https://img.shields.io/github/contributors/Apollogeddon/distribyted.svg?style=flat-square
-[contributors-url]: https://github.com/Apollogeddon/distribyted/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/Apollogeddon/distribyted.svg?style=flat-square
-[forks-url]: https://github.com/Apollogeddon/distribyted/network/members
-[stars-shield]: https://img.shields.io/github/stars/Apollogeddon/distribyted.svg?style=flat-square
-[stars-url]: https://github.com/Apollogeddon/distribyted/stargazers
-[issues-shield]: https://img.shields.io/github/issues/Apollogeddon/distribyted.svg?style=flat-square
-[issues-url]: https://github.com/Apollogeddon/distribyted/issues
 [license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
 [license-url]: https://github.com/Apollogeddon/distribyted/blob/master/LICENSE
 [product-screenshot]: docs/images/distribyted.gif
