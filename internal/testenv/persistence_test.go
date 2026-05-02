@@ -73,10 +73,16 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 		t.Logf("Session 1: found %d links in DB before close", len(links))
 
 		app.Close()
+
+		// CLEANUP: Remove torrent cache but keep database to save space
+		cacheDir := filepath.Join(workDir, "torrent-cache")
+		if err := os.RemoveAll(cacheDir); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: failed to clean torrent cache: %v", err)
+		}
 	}
 	t.Log("--- SESSION 1 CLOSED ---")
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// Disk check
 	dbPath := filepath.Join(workDir, "magnetdb")
