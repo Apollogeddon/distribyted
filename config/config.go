@@ -32,7 +32,7 @@ func DefaultConfig() *Root {
 			MetadataFolder:         metadataFolder,
 			AddTimeout:             60,
 			ReadTimeout:            120,
-			ContinueWhenAddTimeout: false,
+			ContinueWhenAddTimeout: true,
 		},
 		Fuse: &FuseGlobal{
 			AllowOther: true,

@@ -173,10 +173,8 @@ func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 			s.log.Warn().Str(dlog.KeyHash, t.InfoHash().String()).Msg("timeout getting torrent info")
 			if !s.continueWhenAddTimeout {
 				return errors.New("timeout getting torrent info")
-			} else {
-				s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("ignoring timeout error")
-				return nil
 			}
+			s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("ignoring timeout error and continuing in background")
 		case <-t.GotInfo():
 			s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("obtained torrent info")
 		}
@@ -203,7 +201,12 @@ func (s *Service) addTorrent(r string, t *torrent.Torrent) error {
 	}
 
 	tfs.AddTorrent(t)
-	s.log.Info().Str(dlog.KeyName, t.Info().Name).Str(dlog.KeyRoute, r).Msg("torrent added")
+
+	name := "unknown"
+	if t.Info() != nil {
+		name = t.Info().Name
+	}
+	s.log.Info().Str(dlog.KeyName, name).Str(dlog.KeyRoute, r).Msg("torrent added")
 
 	return nil
 }

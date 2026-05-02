@@ -36,7 +36,7 @@ torrent:
   #disable_utp: false
 
   # Do not stop distribyted if some of the torrents are not able to load the info correctly on startup.
-  continue_when_add_timeout: false
+  continue_when_add_timeout: true
 
   # Timeout in seconds when adding a magnet or a torrent.
   add_timeout: 60
