@@ -257,8 +257,8 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) Info() *ServerInfo {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.t != nil {
 		st := s.t.Stats()
 		s.si.Peers = st.TotalPeers
