@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -301,4 +302,290 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	}
 	assert.NotEmpty(t, magnet2, "Magnet did not update after adding file")
 	assert.NotEqual(t, magnet1, magnet2, "Magnet should have changed")
+}
+
+func TestIntegration_CacheEviction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
 	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	defer seeder.Stop()
+
+	// 2.5 MB content
+	content := make([]byte, 2.5*1024*1024)
+	for i := range content {
+		content[i] = byte(i % 256)
+	}
+
+	magnet, err := seeder.AddFile("large.bin", content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	app, err := NewTestApp()
+	require.NoError(t, err)
+	defer app.Close()
+
+	// Set cache to 1 MB
+	app.Cache.SetCapacity(1 * 1024 * 1024)
+
+	require.NoError(t, app.Service.AddMagnet("test-route", magnet.String()))
+
+	lt, _ := app.Client.Torrent(magnet.InfoHash)
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	fmt.Sscanf(port, "%d", &p)
+	lt.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	var file io.ReadCloser
+	for i := 0; i < 30; i++ {
+		f, err := app.FS.Open("/test-route/large.bin")
+		if err == nil {
+			file = f
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	require.NotNil(t, file, "Could not open file after timeout")
+	defer file.Close()
+
+	downloaded, err := io.ReadAll(file)
+	require.NoError(t, err)
+	assert.Equal(t, len(content), len(downloaded))
+	assert.Equal(t, content, downloaded)
+}
+
+func TestIntegration_P2PStall(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	
+	// 5 MB content
+	content := make([]byte, 5*1024*1024)
+	for i := range content {
+		content[i] = byte(i % 256)
+	}
+
+	magnet, err := seeder.AddFile("stall.bin", content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	app, err := NewTestApp()
+	require.NoError(t, err)
+	defer app.Close()
+	
+	// 2 second read timeout for faster test
+	app.Config.Torrent.ReadTimeout = 2
+	
+	require.NoError(t, app.Service.AddMagnet("test-route", magnet.String()))
+
+	lt, _ := app.Client.Torrent(magnet.InfoHash)
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	fmt.Sscanf(port, "%d", &p)
+	lt.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	var file io.ReadCloser
+	for i := 0; i < 30; i++ {
+		f, err := app.FS.Open("/test-route/stall.bin")
+		if err == nil {
+			file = f
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	require.NotNil(t, file, "Could not open file after timeout")
+	defer file.Close()
+
+	// Read first 1MB successfully
+	buf := make([]byte, 1024*1024)
+	n, err := io.ReadFull(file, buf)
+	require.NoError(t, err)
+	assert.Equal(t, 1024*1024, n)
+
+	// Drop seeder
+	seeder.Stop()
+
+	// Attempt to read the rest, it should eventually fail with an error (timeout/canceled)
+	_, err = io.ReadAll(file)
+	require.Error(t, err)
+}
+
+func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	defer seeder.Stop()
+
+	// 5 MB content
+	contentSize := 5 * 1024 * 1024
+	content := make([]byte, contentSize)
+	for i := range content {
+		content[i] = byte(i % 256)
+	}
+
+	magnet, err := seeder.AddFile("thundering.bin", content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	app, err := NewTestApp()
+	require.NoError(t, err)
+	defer app.Close()
+
+	require.NoError(t, app.Service.AddMagnet("test-route", magnet.String()))
+
+	lt, _ := app.Client.Torrent(magnet.InfoHash)
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	fmt.Sscanf(port, "%d", &p)
+	lt.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	// Wait for metadata
+	for i := 0; i < 30; i++ {
+		f, err := app.FS.Open("/test-route/thundering.bin")
+		if err == nil {
+			f.Close()
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	const numWorkers = 50
+	errCh := make(chan error, numWorkers)
+	var wg sync.WaitGroup
+
+	// All 50 workers will try to open the file, seek to the 2MB mark, and read a 1MB chunk simultaneously
+	offset := int64(2 * 1024 * 1024)
+	readSize := 1 * 1024 * 1024
+	expectedData := content[offset : offset+int64(readSize)]
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			
+			f, err := app.FS.Open("/test-route/thundering.bin")
+			if err != nil {
+				errCh <- fmt.Errorf("worker %d open failed: %w", workerID, err)
+				return
+			}
+			defer f.Close()
+
+			buf := make([]byte, readSize)
+			n, err := f.ReadAt(buf, offset)
+			if err != nil && err != io.EOF {
+				errCh <- fmt.Errorf("worker %d read failed: %w", workerID, err)
+				return
+			}
+			if n != readSize {
+				errCh <- fmt.Errorf("worker %d read short: expected %d, got %d", workerID, readSize, n)
+				return
+			}
+
+			if !bytes.Equal(buf, expectedData) {
+				errCh <- fmt.Errorf("worker %d read incorrect data", workerID)
+				return
+			}
+
+			errCh <- nil
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+}
+
+func TestIntegration_DiskSpaceExhaustion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	defer seeder.Stop()
+
+	// 2 MB content
+	contentSize := 2 * 1024 * 1024
+	content := make([]byte, contentSize)
+	for i := range content {
+		content[i] = byte(i % 256)
+	}
+
+	magnet, err := seeder.AddFile("exhaustion.bin", content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	// Limit storage to 512 KB
+	app, err := NewTestAppLimited(512 * 1024)
+	require.NoError(t, err)
+	defer app.Close()
+
+	require.NoError(t, app.Service.AddMagnet("test-route", magnet.String()))
+
+	lt, _ := app.Client.Torrent(magnet.InfoHash)
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	fmt.Sscanf(port, "%d", &p)
+	lt.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	// Wait for metadata
+	var file io.ReadCloser
+	for i := 0; i < 30; i++ {
+		f, err := app.FS.Open("/test-route/exhaustion.bin")
+		if err == nil {
+			file = f
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	require.NotNil(t, file, "Could not open file after timeout")
+	defer file.Close()
+
+	// Attempt to read the whole 2MB file. 
+	// Since the storage is limited to 512KB, it should fail.
+	_, err = io.ReadAll(file)
+	require.Error(t, err)
+	
+	// We expect either a "no space left on device" error or the torrent client disabling download
+	errMsg := err.Error()
+	assert.True(t, contains(errMsg, "no space left on device") || contains(errMsg, "downloading disabled"), "Unexpected error: %s", errMsg)
+}
+
+func contains(s, substr string) bool {
+	return bytes.Contains([]byte(s), []byte(substr))
+}
