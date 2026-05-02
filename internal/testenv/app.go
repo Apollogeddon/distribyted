@@ -54,6 +54,9 @@ func NewTestAppWithDir(tempDir string) (*TestApp, error) {
 			GlobalCacheSize:        100,
 			DisableIPv6:            true,
 			DisableUTP:             true,
+			DisableUPnP:            true,
+			DisableDHT:             true,
+			ListenPort:             -1,
 		},
 		HTTPGlobal: &config.HTTPGlobal{
 			Port:   0, // random
@@ -98,7 +101,8 @@ func NewTestAppWithDir(tempDir string) (*TestApp, error) {
 		conf.Torrent.ContinueWhenAddTimeout,
 	)
 
-	cfs, _ := fs.NewContainerFs(nil)
+	fss, _ := ts.Load()
+	cfs, _ := fs.NewContainerFs(fss)
 
 	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
 		_ = cfs.AddFS(p, fss)
@@ -110,9 +114,16 @@ func NewTestAppWithDir(tempDir string) (*TestApp, error) {
 		_ = cfs.Remove(path)
 	})
 
-	fss, _ := ts.Load()
-	for p, fs := range fss {
-		_ = cfs.AddFS(p, fs)
+	links, _ := ts.ListLinks()
+	for o, n := range links {
+		go func(oldpath, newpath string) {
+			for i := 0; i < 30; i++ { // 30 seconds max for tests
+				if err := cfs.Link(oldpath, newpath); err == nil {
+					return
+				}
+				time.Sleep(1 * time.Second)
+			}
+		}(o, n)
 	}
 
 	// Start servers
