@@ -16,6 +16,21 @@ import (
 )
 
 func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string) error {
+	r, err := NewHandler(fc, ss, s, ch, tss, fs, logPath, conf, fusePath)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting webserver")
+
+	if err := r.Run(fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)); err != nil {
+		return fmt.Errorf("error initializing server: %w", err)
+	}
+
+	return nil
+}
+
+func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string) (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -39,7 +54,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 
 	t, err := vfstemplate.ParseGlob(http.FS(distribyted.Templates), nil, "/templates/*")
 	if err != nil {
-		return fmt.Errorf("error parsing html: %w", err)
+		return nil, fmt.Errorf("error parsing html: %w", err)
 	}
 
 	r.SetHTMLTemplate(t)
@@ -73,6 +88,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		qbit.GET("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
 		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(ch, ss, fusePath))
 		qbit.POST("/torrents/createCategory", qBitTorrentsCreateCategoryHandler)
+		qbit.POST("/torrents/removeCategories", qBitTorrentsRemoveCategoriesHandler)
 		qbit.POST("/torrents/setCategory", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/addTags", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/pause", qBitTorrentsMockHandler)
@@ -81,13 +97,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}
 
-	log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting webserver")
-
-	if err := r.Run(fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)); err != nil {
-		return fmt.Errorf("error initializing server: %w", err)
-	}
-
-	return nil
+	return r, nil
 }
 
 func Logger() gin.HandlerFunc {

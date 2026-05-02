@@ -185,6 +185,22 @@ func qBitTorrentsCreateCategoryHandler(c *gin.Context) {
 	c.String(http.StatusOK, "")
 }
 
+func qBitTorrentsRemoveCategoriesHandler(c *gin.Context) {
+	categories := c.PostForm("categories")
+	catList := strings.FieldsFunc(categories, func(r rune) bool {
+		return r == '\n' || r == '|'
+	})
+	if len(catList) == 0 && categories != "" {
+		catList = []string{categories}
+	}
+
+	for _, cat := range catList {
+		cat = strings.TrimSpace(cat)
+		delete(mockCreatedCategories, cat)
+	}
+	c.String(http.StatusOK, "")
+}
+
 func qBitTorrentsMockHandler(c *gin.Context) {
 	// A generic mock handler for endpoints like pause, resume, setCategory, addTags.
 	c.String(http.StatusOK, "")
@@ -249,7 +265,7 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 	}
 }
 
-func qBitTorrentsAddHandler(s *torrent.Service) gin.HandlerFunc {
+func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		urls := c.PostForm("urls")
 		category := c.PostForm("category")
@@ -273,7 +289,7 @@ func qBitTorrentsAddHandler(s *torrent.Service) gin.HandlerFunc {
 	}
 }
 
-func qBitTorrentsDeleteHandler(s *torrent.Service) gin.HandlerFunc {
+func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		hashes := c.PostForm("hashes")
 		// qBit sends hashes separated by |

@@ -1,7 +1,6 @@
 package http
 
 import (
-	"bytes"
 	"io"
 	"math"
 	"net/http"
@@ -16,15 +15,26 @@ import (
 type torrentService interface {
 	AddMagnet(r, m string) error
 	RemoveFromHash(r, h string) error
+	RemoveFromHashOnly(h string) error
 }
 
 var apiStatusHandler = func(fc *filecache.Cache, ss *torrent.Stats) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		// TODO move to a struct
+		numItems := int64(0)
+		filled := int64(0)
+		capacity := int64(0)
+
+		if fc != nil {
+			info := fc.Info()
+			numItems = int64(info.NumItems)
+			filled = info.Filled / 1024 / 1024
+			capacity = info.Capacity / 1024 / 1024
+		}
+
 		ctx.JSON(http.StatusOK, gin.H{
-			"cacheItems":    fc.Info().NumItems,
-			"cacheFilled":   fc.Info().Filled / 1024 / 1024,
-			"cacheCapacity": fc.Info().Capacity / 1024 / 1024,
+			"cacheItems":    numItems,
+			"cacheFilled":   filled,
+			"cacheCapacity": capacity,
 			"torrentStats":  ss.GlobalStats(),
 		})
 	}
@@ -102,22 +112,11 @@ var apiLogHandler = func(path string) gin.HandlerFunc {
 			return
 		}
 
-		var b bytes.Buffer
-		ctx.Stream(func(w io.Writer) bool {
-			_, err := b.ReadFrom(f)
-			if err != nil {
-				ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return false
-			}
-
-			_, err = b.WriteTo(w)
-			if err != nil {
-				ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return false
-			}
-
-			return true
-		})
+		_, err = io.Copy(ctx.Writer, f)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
 		if err := f.Close(); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
