@@ -6,31 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/metainfo"
 	"github.com/stretchr/testify/require"
 )
 
-type mockTorrent struct {
-	Torrent
-	hash metainfo.Hash
-	info *metainfo.Info
-}
-
-func (m *mockTorrent) InfoHash() metainfo.Hash { return m.hash }
-func (m *mockTorrent) Info() *metainfo.Info    { return m.info }
-func (m *mockTorrent) GotInfo() <-chan struct{} {
-	ch := make(chan struct{})
-	close(ch)
-	return ch
-}
-func (m *mockTorrent) Files() []*torrent.File                { return nil }
-func (m *mockTorrent) Name() string                        { return "mock" }
-func (m *mockTorrent) PieceStateRuns() torrent.PieceStateRuns { return nil }
-func (m *mockTorrent) Stats() torrent.TorrentStats           { return torrent.TorrentStats{} }
-func (m *mockTorrent) Drop()                               {}
-
-func TestBehavior_TransientMutability(t *testing.T) {
+func TestBehavior_ReadSeekConsistency(t *testing.T) {
 	require := require.New(t)
 	tfs := NewTorrent(10)
 
@@ -62,7 +41,7 @@ func TestBehavior_HardLinks(t *testing.T) {
 
 	err := tfs.Create("/original.txt")
 	require.NoError(err)
-	
+
 	f, err := tfs.Open("/original.txt")
 	require.NoError(err)
 	originalIno := f.Ino()
@@ -75,14 +54,14 @@ func TestBehavior_HardLinks(t *testing.T) {
 	f2, err := tfs.Open("/linked.txt")
 	require.NoError(err)
 	require.Equal(originalIno, f2.Ino())
-	
+
 	// Verify nlink incremented
 	require.Equal(uint32(2), f2.Nlink())
-	
+
 	// Remove original, link should still exist
 	err = tfs.Remove("/original.txt")
 	require.NoError(err)
-	
+
 	files, err := tfs.ReadDir("/")
 	require.NoError(err)
 	require.Contains(files, "linked.txt")
@@ -91,7 +70,7 @@ func TestBehavior_HardLinks(t *testing.T) {
 
 func TestBehavior_RestartReset(t *testing.T) {
 	require := require.New(t)
-	
+
 	// This "simulates" a restart by creating a new TorrentFS and adding the same torrent
 	// hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	// Note: TorrentFS.AddTorrent usually handles file extraction from torrent.Files()
@@ -100,7 +79,7 @@ func TestBehavior_RestartReset(t *testing.T) {
 
 	tfs1 := NewTorrent(10)
 	_ = tfs1.Create("/manual.txt")
-	
+
 	tfs2 := NewTorrent(10)
 	files, _ := tfs2.ReadDir("/")
 	require.NotContains(files, "manual.txt")
@@ -218,7 +197,7 @@ func TestBehavior_ConcurrentAccess(t *testing.T) {
 func TestBehavior_OOM_MassiveTorrent(t *testing.T) {
 	// Create a storage that has 50,000 files
 	tfs := NewTorrent(10)
-	
+
 	const numFiles = 50000
 	for i := 0; i < numFiles; i++ {
 		err := tfs.s.Add(NewMemoryFile([]byte("test")), fmt.Sprintf("/dir/file_%d.txt", i))

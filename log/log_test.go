@@ -46,7 +46,7 @@ func TestNewRollingFile(t *testing.T) {
 	}
 	w := newRollingFile(conf)
 	assert.NotNil(t, w)
-	
+
 	w2 := newRollingFile(nil)
 	assert.Nil(t, w2)
 }

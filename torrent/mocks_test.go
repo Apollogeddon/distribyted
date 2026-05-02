@@ -17,11 +17,11 @@ type mockTorrent struct {
 	info           *metainfo.Info
 }
 
-func (m *mockTorrent) InfoHash() metainfo.Hash { return m.hash }
-func (m *mockTorrent) Info() *metainfo.Info    { return m.info }
-func (m *mockTorrent) GotInfo() <-chan struct{} { return m.gotInfo }
-func (m *mockTorrent) Name() string            { return m.name }
-func (m *mockTorrent) Drop()                   {}
+func (m *mockTorrent) InfoHash() metainfo.Hash                { return m.hash }
+func (m *mockTorrent) Info() *metainfo.Info                   { return m.info }
+func (m *mockTorrent) GotInfo() <-chan struct{}               { return m.gotInfo }
+func (m *mockTorrent) Name() string                           { return m.name }
+func (m *mockTorrent) Drop()                                  {}
 func (m *mockTorrent) PieceStateRuns() torrent.PieceStateRuns { return m.pieceStateRuns }
 func (m *mockTorrent) Stats() torrent.TorrentStats {
 	if m.statsFunc != nil {

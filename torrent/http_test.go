@@ -16,7 +16,7 @@ func TestHTTPFS_Open(t *testing.T) {
 	require.NoError(t, err)
 
 	hfs := NewHTTPFS(mfs)
-	
+
 	// Test open file
 	f, err := hfs.Open("/test.txt")
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestHTTPFS_Open(t *testing.T) {
 	files2, err := d2.Readdir(1)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(files2))
-	
+
 	files3, err := d2.Readdir(1)
 	require.Equal(t, io.EOF, err)
 	assert.Equal(t, 0, len(files3))

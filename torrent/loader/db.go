@@ -125,7 +125,7 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 		// key is /route/<hash>/<route_name>
 		// Let's slice manually: k[/route/<hash>/:]
 		r := k[len(routeRootKey)+41:] // 40 hex chars + 1 slash
-		
+
 		val, err := item.ValueCopy(nil)
 		if err != nil {
 			return nil, err
@@ -173,7 +173,7 @@ func (l *DB) ListLinks() (map[string]string, error) {
 		k := string(item.Key())
 		fmt.Printf("DB DEBUG: found link key: %s\n", k)
 		newpath := k[len(linkRootKey):]
-		
+
 		val, err := item.ValueCopy(nil)
 		if err != nil {
 			return nil, err

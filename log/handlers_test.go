@@ -17,7 +17,7 @@ func TestBadgerLogger(t *testing.T) {
 
 func TestTorrentLogger(t *testing.T) {
 	tl := &Torrent{L: zlog.Logger}
-	
+
 	levels := []log.Level{
 		log.Debug,
 		log.Info,

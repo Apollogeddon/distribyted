@@ -75,7 +75,7 @@ func TestService_Load_Full(t *testing.T) {
 	}
 
 	svc := NewService(nil, ml, stats, mockC, 1, 1, true)
-	
+
 	fss, err := svc.Load()
 	require.NoError(t, err)
 	require.Contains(t, fss, "/r1")
@@ -123,12 +123,11 @@ func TestService_Load(t *testing.T) {
 	require.Len(t, svc.fss, 2)
 }
 
-
 func TestService_addTorrent_Timeout(t *testing.T) {
 	stats := NewStats()
 	gotInfo := make(chan struct{})
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	mockT := &mockTorrent{
 		hash:    hash,
 		gotInfo: gotInfo,
@@ -141,7 +140,7 @@ func TestService_addTorrent_Timeout(t *testing.T) {
 	}
 
 	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
-	
+
 	// This should not return error even if it timeouts
 	err := svc.addMagnet("test", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	require.NoError(t, err)
@@ -150,10 +149,10 @@ func TestService_addTorrent_Timeout(t *testing.T) {
 func TestService_RemoveFromHash(t *testing.T) {
 	stats := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	mockT := &mockTorrent{
-		hash: hash,
-		name: "test",
+		hash:    hash,
+		name:    "test",
 		gotInfo: make(chan struct{}),
 	}
 	close(mockT.gotInfo)
@@ -172,10 +171,10 @@ func TestService_RemoveFromHash(t *testing.T) {
 
 	db := &MockLoaderAdder{}
 	svc := NewService(nil, db, stats, mockC, 1, 1, true)
-	
+
 	err := svc.AddMagnet("route1", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	require.NoError(t, err)
-	
+
 	err = svc.RemoveFromHash("route1", hash.HexString())
 	require.NoError(t, err)
 }
@@ -183,9 +182,9 @@ func TestService_RemoveFromHash(t *testing.T) {
 func TestService_Listeners(t *testing.T) {
 	stats := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	mockT := &mockTorrent{
-		hash: hash,
+		hash:    hash,
 		gotInfo: make(chan struct{}),
 	}
 	close(mockT.gotInfo)
@@ -200,21 +199,21 @@ func TestService_Listeners(t *testing.T) {
 	}
 
 	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
-	
+
 	routeAddedCalled := false
 	svc.OnRouteAdded(func(r string, f fs.Filesystem) {
 		routeAddedCalled = true
 	})
-	
+
 	torrentRemovedCalled := false
 	svc.OnTorrentRemoved(func(h string) {
 		torrentRemovedCalled = true
 	})
-	
+
 	err := svc.AddMagnet("route1", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	require.NoError(t, err)
 	require.True(t, routeAddedCalled)
-	
+
 	err = svc.RemoveFromHash("route1", hash.HexString())
 	require.NoError(t, err)
 	require.True(t, torrentRemovedCalled)
@@ -223,13 +222,13 @@ func TestService_Listeners(t *testing.T) {
 func TestService_AddLink(t *testing.T) {
 	db := &MockLoaderAdder{}
 	svc := NewService(nil, db, nil, nil, 1, 1, true)
-	
+
 	err := svc.AddLink("old", "new")
 	require.NoError(t, err)
-	
+
 	err = svc.RemoveLink("new")
 	require.NoError(t, err)
-	
+
 	_, err = svc.ListLinks()
 	require.NoError(t, err)
 }
@@ -237,7 +236,7 @@ func TestService_AddLink(t *testing.T) {
 func TestService_PublicMethods(t *testing.T) {
 	stats := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	mockT := &mockTorrent{hash: hash}
 	mockC := &mockTorrentClient{
 		torrentFunc: func(h metainfo.Hash) (fs.Torrent, bool) {
@@ -249,7 +248,7 @@ func TestService_PublicMethods(t *testing.T) {
 	}
 
 	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
-	
+
 	// Test AddTorrentFromFile
 	err := svc.AddTorrentFromFile("r1", "p1")
 	require.NoError(t, err)
@@ -258,7 +257,7 @@ func TestService_PublicMethods(t *testing.T) {
 	tor, ok := svc.Torrent(hash.HexString())
 	require.True(t, ok)
 	require.Equal(t, mockT, tor)
-	
+
 	_, ok = svc.Torrent("invalid")
 	require.False(t, ok)
 
@@ -268,21 +267,21 @@ func TestService_PublicMethods(t *testing.T) {
 
 func TestService_LinkCallbacks(t *testing.T) {
 	svc := NewService(nil, &MockLoaderAdder{}, nil, nil, 1, 1, true)
-	
+
 	addedOld, addedNew := "", ""
 	svc.OnLinkAdded(func(o, n string) {
 		addedOld, addedNew = o, n
 	})
-	
+
 	removedPath := ""
 	svc.OnLinkRemoved(func(p string) {
 		removedPath = p
 	})
-	
+
 	_ = svc.AddLink("o", "n")
 	require.Equal(t, "/o", addedOld)
 	require.Equal(t, "/n", addedNew)
-	
+
 	_ = svc.RemoveLink("n")
 	require.Equal(t, "n", removedPath)
 }
@@ -290,9 +289,9 @@ func TestService_LinkCallbacks(t *testing.T) {
 func TestService_RemoveFromHashOnly(t *testing.T) {
 	stats := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	mockT := &mockTorrent{
-		hash: hash,
+		hash:    hash,
 		gotInfo: make(chan struct{}),
 	}
 	close(mockT.gotInfo)
@@ -307,13 +306,13 @@ func TestService_RemoveFromHashOnly(t *testing.T) {
 	}
 
 	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
-	
+
 	// Should fail if not added yet
 	err := svc.RemoveFromHashOnly(hash.HexString())
 	require.Error(t, err)
-	
+
 	_ = svc.AddMagnet("route1", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	err = svc.RemoveFromHashOnly(hash.HexString())
 	require.NoError(t, err)
 }
@@ -322,9 +321,9 @@ func TestService_ConcurrentMagnetAdds(t *testing.T) {
 	stats := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	magnet := "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
-	
+
 	mockT := &mockTorrent{
-		hash: hash,
+		hash:    hash,
 		gotInfo: make(chan struct{}),
 	}
 	close(mockT.gotInfo)
@@ -340,7 +339,7 @@ func TestService_ConcurrentMagnetAdds(t *testing.T) {
 
 	db := &MockLoaderAdder{}
 	svc := NewService(nil, db, stats, mockC, 1, 1, true)
-	
+
 	errCh := make(chan error, 100)
 	for i := 0; i < 100; i++ {
 		go func(idx int) {
@@ -356,7 +355,7 @@ func TestService_ConcurrentMagnetAdds(t *testing.T) {
 		err := <-errCh
 		require.NoError(t, err)
 	}
-	
+
 	// Should have 2 routes in the DB
 	require.Len(t, db.AddedMagnets, 2)
 }

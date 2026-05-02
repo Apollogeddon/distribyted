@@ -154,13 +154,13 @@ func TestStorageAddFs(t *testing.T) {
 func TestStorageRemoveByHash(t *testing.T) {
 	require := require.New(t)
 	s := newStorage(nil)
-	
+
 	f1 := &mockHashFile{hash: "h1"}
 	f2 := &mockHashFile{hash: "h2"}
-	
+
 	_ = s.Add(f1, "/f1.txt")
 	_ = s.Add(f2, "/f2.txt")
-	
+
 	s.RemoveByHash("h1")
 	require.False(s.Has("/f1.txt"))
 	require.True(s.Has("/f2.txt"))

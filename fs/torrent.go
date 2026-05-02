@@ -75,12 +75,21 @@ func (fs *TorrentFS) RemoveTorrent(h string) {
 	}
 
 	// Also cleanup directories that might have become empty or belonged to the torrent
-	// Since storage.Remove handles parent cleanup if needed, we just need to make sure 
+	// Since storage.Remove handles parent cleanup if needed, we just need to make sure
 	// we didn't leave any top-level folders that were part of the torrent.
 }
 
 func (fs *TorrentFS) Open(filename string) (File, error) {
-	return fs.s.Get(filename)
+	f, err := fs.s.Get(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	if tf, ok := f.(*torrentFile); ok {
+		return tf.NewHandle(), nil
+	}
+
+	return f, nil
 }
 
 func (fs *TorrentFS) ReadDir(path string) (map[string]File, error) {
@@ -218,16 +227,14 @@ type torrentFile struct {
 	BaseFile
 	hash       string
 	readerFunc func() torrent.Reader
-	reader     reader
 	len        int64
 	timeout    int
 }
 
-func (d *torrentFile) load() {
-	if d.reader != nil {
-		return
+func (d *torrentFile) NewHandle() *torrentFileHandle {
+	return &torrentFileHandle{
+		torrentFile: d,
 	}
-	d.reader = newReadAtWrapper(d.readerFunc(), d.timeout)
 }
 
 func (d *torrentFile) Size() int64 {
@@ -239,21 +246,43 @@ func (d *torrentFile) IsDir() bool {
 }
 
 func (d *torrentFile) Close() error {
-	var err error
-	if d.reader != nil {
-		err = d.reader.Close()
-	}
-
-	d.reader = nil
-
-	return err
+	return nil
 }
 
 func (d *torrentFile) Read(p []byte) (n int, err error) {
-	d.load()
+	return 0, io.EOF
+}
+
+func (d *torrentFile) ReadAt(p []byte, off int64) (n int, err error) {
+	return 0, io.EOF
+}
+
+func (d *torrentFile) MatchHash(hash string) bool {
+	return d.hash == hash
+}
+
+var _ File = &torrentFileHandle{}
+
+type torrentFileHandle struct {
+	*torrentFile
+	reader reader
+	mu     sync.Mutex
+}
+
+func (h *torrentFileHandle) load() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.reader != nil {
+		return
+	}
+	h.reader = newReadAtWrapper(h.readerFunc(), h.timeout)
+}
+
+func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
+	h.load()
 	ctx, cancel := context.WithCancel(context.Background())
 	timer := time.AfterFunc(
-		time.Duration(d.timeout)*time.Second,
+		time.Duration(h.timeout)*time.Second,
 		func() {
 			cancel()
 		},
@@ -261,14 +290,19 @@ func (d *torrentFile) Read(p []byte) (n int, err error) {
 
 	defer timer.Stop()
 
-	return d.reader.ReadContext(ctx, p)
+	return h.reader.ReadContext(ctx, p)
 }
 
-func (d *torrentFile) ReadAt(p []byte, off int64) (n int, err error) {
-	d.load()
-	return d.reader.ReadAt(p, off)
+func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
+	h.load()
+	return h.reader.ReadAt(p, off)
 }
 
-func (d *torrentFile) MatchHash(hash string) bool {
-	return d.hash == hash
+func (h *torrentFileHandle) Close() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.reader != nil {
+		return h.reader.Close()
+	}
+	return nil
 }

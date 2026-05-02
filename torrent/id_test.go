@@ -27,7 +27,7 @@ func TestGetOrCreatePeerID(t *testing.T) {
 func TestGetOrCreatePeerID_InvalidFile(t *testing.T) {
 	tempDir := t.TempDir()
 	idPath := filepath.Join(tempDir, "peer_id")
-	
+
 	// Create a file with invalid length
 	err := os.WriteFile(idPath, []byte("too short"), 0644)
 	require.NoError(t, err)
@@ -36,4 +36,5 @@ func TestGetOrCreatePeerID_InvalidFile(t *testing.T) {
 	id, err := GetOrCreatePeerID(idPath)
 	require.NoError(t, err)
 	assert.Equal(t, 20, len(id))
+	assert.NotEmpty(t, id)
 }

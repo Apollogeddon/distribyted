@@ -38,15 +38,15 @@ func TestNewWebDAVServerWithListener(t *testing.T) {
 	mfs := fs.NewMemory()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	
+
 	go func() {
 		_ = NewWebDAVServerWithListener(l, mfs, "user", "pass")
 	}()
-	
+
 	addr := l.Addr().String()
 	resp, err := http.Get("http://" + addr)
 	require.NoError(t, err)
 	assert.Equal(t, 401, resp.StatusCode)
-	
+
 	l.Close()
 }

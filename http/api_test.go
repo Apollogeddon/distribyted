@@ -275,7 +275,7 @@ func TestQBitTorrentsCategoriesFlow(t *testing.T) {
 	req, _ = http.NewRequest("GET", "/api/v2/torrents/categories", nil)
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
-	
+
 	resp := make(map[string]interface{})
 	err = json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
@@ -311,11 +311,11 @@ func (m *mockTorrent) GotInfo() <-chan struct{} {
 	close(ch)
 	return ch
 }
-func (m *mockTorrent) Files() []*torrent.File                { return nil }
-func (m *mockTorrent) Name() string                        { return m.name }
+func (m *mockTorrent) Files() []*torrent.File                 { return nil }
+func (m *mockTorrent) Name() string                           { return m.name }
 func (m *mockTorrent) PieceStateRuns() torrent.PieceStateRuns { return nil }
-func (m *mockTorrent) Stats() torrent.TorrentStats           { return m.stats }
-func (m *mockTorrent) Drop()                               {}
+func (m *mockTorrent) Stats() torrent.TorrentStats            { return m.stats }
+func (m *mockTorrent) Drop()                                  {}
 
 func TestQBitTorrentsInfoWithData(t *testing.T) {
 	ss := dtorrent.NewStats()
@@ -350,7 +350,7 @@ func TestQBitTorrentsInfoWithData(t *testing.T) {
 func TestQBitTransferInfoWithData(t *testing.T) {
 	ss := dtorrent.NewStats()
 	hash := metainfo.NewHashFromHex("0123456789abcdef0123456789abcdef01234567")
-	
+
 	// mock anacrolix stats
 	astats := torrent.TorrentStats{}
 	// Use Add method for anacrolix/torrent.Count

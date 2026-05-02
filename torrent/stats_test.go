@@ -26,8 +26,8 @@ func TestStats(t *testing.T) {
 	}
 
 	mockT := &mockTorrent{
-		hash:           hash,
-		name:           "test-torrent",
+		hash: hash,
+		name: "test-torrent",
 		statsFunc: func() torrent.TorrentStats {
 			return st
 		},
@@ -40,7 +40,7 @@ func TestStats(t *testing.T) {
 
 	s.AddRoute("test-route")
 	s.Add("test-route", mockT)
-	
+
 	// Force gap to be passed so we don't return previous (zero) measurements
 	s.gTime = time.Now().Add(-5 * time.Second)
 
@@ -89,7 +89,7 @@ func TestStats(t *testing.T) {
 
 func TestStats_Sorting(t *testing.T) {
 	require := require.New(t)
-	
+
 	// Test ByName sorting (for RouteStats)
 	rs := ByName{
 		{Name: "b"},
@@ -114,7 +114,7 @@ func TestStats_Sorting(t *testing.T) {
 func TestStats_PieceStatus(t *testing.T) {
 	s := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	cases := []struct {
 		psr    torrent.PieceStateRuns
 		expect PieceStatus
@@ -141,11 +141,11 @@ func TestStats_PieceStatus(t *testing.T) {
 func TestStats_Measurements(t *testing.T) {
 	s := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
-	
+
 	st := torrent.TorrentStats{}
 	st.BytesReadData.Add(100)
 	st.BytesWrittenData.Add(50)
-	
+
 	mockT := &mockTorrent{
 		hash: hash,
 	}
@@ -155,20 +155,20 @@ func TestStats_Measurements(t *testing.T) {
 		st.BytesWrittenData.Add(50)
 		return st
 	}
-	
+
 	s.Add("route", mockT)
-	
+
 	// Force gap to be passed for first measurement
 	s.gTime = time.Now().Add(-5 * time.Second)
-	
+
 	// First measurement
 	ts1, _ := s.Stats(hash.String())
 	require.Equal(t, int64(100), ts1.DownloadedBytes)
 	require.Equal(t, int64(50), ts1.UploadedBytes)
-	
+
 	// Force gap to be passed
 	s.gTime = time.Now().Add(-5 * time.Second)
-	
+
 	// Second measurement with more data
 	mockT.statsFunc = func() torrent.TorrentStats {
 		st := torrent.TorrentStats{}
@@ -176,11 +176,11 @@ func TestStats_Measurements(t *testing.T) {
 		st.BytesWrittenData.Add(80)
 		return st
 	}
-	
+
 	ts2, _ := s.Stats(hash.String())
 	require.Equal(t, int64(50), ts2.DownloadedBytes)
 	require.Equal(t, int64(30), ts2.UploadedBytes)
-	
+
 	// Test returnPreviousMeasurements
 	s.gTime = time.Now() // set to now so gap is NOT passed
 	ts3, _ := s.Stats(hash.String())

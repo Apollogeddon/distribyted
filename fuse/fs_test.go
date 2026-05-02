@@ -16,8 +16,8 @@ type mockFile struct {
 	data  []byte
 }
 
-func (m *mockFile) IsDir() bool { return m.isDir }
-func (m *mockFile) Size() int64 { return m.size }
+func (m *mockFile) IsDir() bool  { return m.isDir }
+func (m *mockFile) Size() int64  { return m.size }
 func (m *mockFile) Close() error { return nil }
 func (m *mockFile) ReadAt(p []byte, off int64) (int, error) {
 	if off >= int64(len(m.data)) {
@@ -53,11 +53,11 @@ func (m *mockFilesystem) Create(path string) error {
 	m.files[path] = &mockFile{isDir: false, size: 0}
 	return nil
 }
-func (m *mockFilesystem) Remove(path string) error               { return nil }
-func (m *mockFilesystem) Mkdir(path string) error                { return nil }
-func (m *mockFilesystem) Rmdir(path string) error                { return nil }
-func (m *mockFilesystem) Link(old, new string) error             { return nil }
-func (m *mockFilesystem) Rename(old, new string) error           { return nil }
+func (m *mockFilesystem) Remove(path string) error     { return nil }
+func (m *mockFilesystem) Mkdir(path string) error      { return nil }
+func (m *mockFilesystem) Rmdir(path string) error      { return nil }
+func (m *mockFilesystem) Link(old, new string) error   { return nil }
+func (m *mockFilesystem) Rename(old, new string) error { return nil }
 
 func TestFS_Unit(t *testing.T) {
 	require := require.New(t)
@@ -126,7 +126,7 @@ func TestFS_Unit(t *testing.T) {
 		require.Equal(0, f.Unlink("/test.txt"))
 		require.Equal(0, f.Link("/test.txt", "/link.txt"))
 		require.Equal(0, f.Rename("/test.txt", "/new.txt"))
-		
+
 		errc, fh := f.Create("/newfile", 0, 0644)
 		require.Equal(0, errc)
 		f.Release("/newfile", fh)

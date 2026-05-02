@@ -19,6 +19,7 @@ func TestMain(m *testing.M) {
 	cfg.DataDir = os.TempDir()
 	cfg.ListenPort = 0
 	cfg.NoDHT = true
+	cfg.NoDefaultPortForwarding = true
 
 	// disable webseeds to avoid a panic when closing client on tests
 	cfg.DisableWebseeds = true
@@ -125,16 +126,16 @@ func TestReadAtTorrent(t *testing.T) {
 		len:        torrFile.Length(),
 		timeout:    500,
 	}
-
-	defer tf.Close()
+	h := tf.NewHandle()
+	defer h.Close()
 
 	toRead := make([]byte, 5)
-	n, err := tf.ReadAt(toRead, 6)
+	n, err := h.ReadAt(toRead, 6)
 	require.NoError(err)
 	require.Equal(5, n)
 	require.Equal([]byte{0x0, 0x0, 0x1f, 0x76, 0x54}, toRead)
 
-	n, err = tf.ReadAt(toRead, 0)
+	n, err = h.ReadAt(toRead, 0)
 	require.NoError(err)
 	require.Equal(5, n)
 	require.Equal([]byte{0x49, 0x44, 0x33, 0x3, 0x0}, toRead)

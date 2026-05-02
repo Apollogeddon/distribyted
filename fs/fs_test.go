@@ -48,15 +48,15 @@ func TestDir(t *testing.T) {
 func TestContainerFs_Mutation(t *testing.T) {
 	require := require.New(t)
 	cfs, _ := NewContainerFs(nil)
-	
+
 	// Create
 	err := cfs.Create("/test-route/file.txt")
 	require.NoError(err) // storage.Add usually handles parent creation
-	
+
 	// Remove
 	err = cfs.Remove("/test-route/file.txt")
 	require.NoError(err)
-	
+
 	// RemoveByHash
 	cfs.RemoveByHash("any-hash")
 }
@@ -64,20 +64,20 @@ func TestContainerFs_Mutation(t *testing.T) {
 func TestContainerFs_Links(t *testing.T) {
 	require := require.New(t)
 	cfs, _ := NewContainerFs(nil)
-	
+
 	linkAdded := false
 	cfs.OnLinkAdded(func(o, n string) {
 		linkAdded = true
 	})
-	
+
 	linkRemoved := false
 	cfs.OnLinkRemoved(func(p string) {
 		linkRemoved = true
 	})
-	
+
 	cfs.onLinkAdded("o", "n")
 	require.True(linkAdded)
-	
+
 	cfs.onLinkRemoved("p")
 	require.True(linkRemoved)
 }
