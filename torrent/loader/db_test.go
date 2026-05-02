@@ -62,5 +62,40 @@ func TestDB(t *testing.T) {
 
 	require.NoError(s.Close())
 	require.NoError(cs.Close())
+}
 
+func TestDB_Links(t *testing.T) {
+	require := require.New(t)
+
+	tmpDir, err := os.MkdirTemp("", "db-links")
+	require.NoError(err)
+	defer os.RemoveAll(tmpDir)
+
+	s, err := NewDB(tmpDir)
+	require.NoError(err)
+
+	// Add links
+	err = s.AddLink("old/path1", "new/path1")
+	require.NoError(err)
+	err = s.AddLink("old/path2", "new/path2")
+	require.NoError(err)
+
+	// List links
+	links, err := s.ListLinks()
+	require.NoError(err)
+	require.Len(links, 2)
+	require.Equal("new/path1", links["old/path1"])
+	require.Equal("new/path2", links["old/path2"])
+
+	// Remove link
+	err = s.RemoveLink("new/path1") // The targetPath is the NEW path (the key)
+	require.NoError(err)
+
+	links, err = s.ListLinks()
+	require.NoError(err)
+	require.Len(links, 1)
+	require.NotContains(links, "old/path1")
+	require.Contains(links, "old/path2")
+
+	s.Close()
 }

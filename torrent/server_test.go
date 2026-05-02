@@ -64,3 +64,19 @@ func TestServer_StartAndWatch(t *testing.T) {
 	info2 := srv.Info()
 	require.NotEqual(t, firstMagnet, info2.Magnet, "magnet should be updated after new file")
 }
+
+func TestServer_Trackers(t *testing.T) {
+	srv := &Server{cfg: &config.Server{Trackers: []string{"udp://tracker.com:80"}}}
+	require.Equal(t, []string{"udp://tracker.com:80"}, srv.trackers())
+}
+
+func TestServer_CloseNil(t *testing.T) {
+	srv := &Server{}
+	require.NoError(t, srv.Close())
+}
+
+func TestServer_Start_InvalidPath(t *testing.T) {
+	srv := NewServer(nil, nil, &config.Server{Path: "/non/existent/path/that/cannot/exist"})
+	err := srv.Start()
+	require.Error(t, err)
+}

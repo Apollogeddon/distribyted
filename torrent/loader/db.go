@@ -1,7 +1,8 @@
 package loader
 
 import (
-	"path"
+	"fmt"
+	"path/filepath"
 
 	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/anacrolix/torrent/metainfo"
@@ -21,25 +22,27 @@ type DB struct {
 }
 
 func NewDB(path string) (*DB, error) {
+	absPath, _ := filepath.Abs(path)
+	fmt.Printf("DB DEBUG: opening database at %s\n", absPath)
 	l := log.Logger.With().Str("component", "torrent-store").Logger()
 
 	opts := badger.DefaultOptions(path).
 		WithLogger(&dlog.Badger{L: l}).
-		WithValueLogFileSize(1<<26 - 1)
+		WithValueLogFileSize(1<<26 - 1).
+		WithSyncWrites(true)
 
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.RunValueLogGC(0.5)
-	if err != nil && err != badger.ErrNoRewrite {
-		return nil, err
-	}
-
 	return &DB{
 		db: db,
 	}, nil
+}
+
+func (l *DB) ListTorrentPaths() (map[string][]string, error) {
+	return nil, nil
 }
 
 func (l *DB) AddMagnet(r, m string) error {
@@ -51,14 +54,14 @@ func (l *DB) AddMagnet(r, m string) error {
 
 		ih := spec.InfoHash.HexString()
 
-		rp := path.Join(routeRootKey, ih, r)
+		rp := routeRootKey + ih + "/" + r
+		fmt.Printf("DB DEBUG: adding magnet key: %s\n", rp)
 		return txn.Set([]byte(rp), []byte(m))
 	})
 
 	if err != nil {
 		return err
 	}
-
 	return l.db.Sync()
 }
 
@@ -71,7 +74,7 @@ func (l *DB) RemoveFromHash(r, h string) (bool, error) {
 		return false, err
 	}
 
-	rp := path.Join(routeRootKey, h, r)
+	rp := routeRootKey + h + "/" + r
 	if _, err := tx.Get([]byte(rp)); err != nil {
 		return false, nil
 	}
@@ -93,35 +96,44 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 	prefix := []byte(routeRootKey)
 	out := make(map[string][]string)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		_, r := path.Split(string(it.Item().Key()))
-		i := it.Item()
-		if err := i.Value(func(v []byte) error {
-			out[r] = append(out[r], string(v))
-			return nil
-		}); err != nil {
+		item := it.Item()
+		k := string(item.Key())
+		fmt.Printf("DB DEBUG: found magnet key: %s\n", k)
+		// key is /route/<hash>/<route_name>
+		// Let's slice manually: k[/route/<hash>/:]
+		r := k[len(routeRootKey)+41:] // 40 hex chars + 1 slash
+		
+		val, err := item.ValueCopy(nil)
+		if err != nil {
 			return nil, err
 		}
+		out[r] = append(out[r], string(val))
 	}
 
 	return out, nil
 }
 
-func (l *DB) ListTorrentPaths() (map[string][]string, error) {
-	return nil, nil
-}
-
 func (l *DB) AddLink(oldpath, newpath string) error {
-	return l.db.Update(func(txn *badger.Txn) error {
-		rp := path.Join(linkRootKey, newpath)
-		return txn.Set([]byte(rp), []byte(oldpath))
+	err := l.db.Update(func(txn *badger.Txn) error {
+		key := linkRootKey + newpath
+		fmt.Printf("DB DEBUG: adding link key: %s\n", key)
+		return txn.Set([]byte(key), []byte(oldpath))
 	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
 }
 
 func (l *DB) RemoveLink(targetPath string) error {
-	return l.db.Update(func(txn *badger.Txn) error {
-		rp := path.Join(linkRootKey, targetPath)
-		return txn.Delete([]byte(rp))
+	err := l.db.Update(func(txn *badger.Txn) error {
+		key := linkRootKey + targetPath
+		return txn.Delete([]byte(key))
 	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
 }
 
 func (l *DB) ListLinks() (map[string]string, error) {
@@ -136,18 +148,39 @@ func (l *DB) ListLinks() (map[string]string, error) {
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		k := string(item.Key())
+		fmt.Printf("DB DEBUG: found link key: %s\n", k)
 		newpath := k[len(linkRootKey):]
-		if err := item.Value(func(v []byte) error {
-			out[newpath] = string(v)
-			return nil
-		}); err != nil {
+		
+		val, err := item.ValueCopy(nil)
+		if err != nil {
 			return nil, err
 		}
+		out[string(val)] = newpath
 	}
 
 	return out, nil
 }
 
 func (l *DB) Close() error {
+	fmt.Printf("DB DEBUG: closing database\n")
 	return l.db.Close()
+}
+
+func (l *DB) DumpAllKeys() {
+	fmt.Println("--- DB DUMP START ---")
+	tx := l.db.NewTransaction(false)
+	defer tx.Discard()
+
+	it := tx.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	count := 0
+	for it.Rewind(); it.Valid(); it.Next() {
+		item := it.Item()
+		k := item.Key()
+		val, _ := item.ValueCopy(nil)
+		fmt.Printf("KEY: %s | VAL: %s\n", string(k), string(val))
+		count++
+	}
+	fmt.Printf("--- DB DUMP END (Total: %d keys) ---\n", count)
 }
