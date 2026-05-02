@@ -1,6 +1,8 @@
 package fs
 
 import (
+	"fmt"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -97,7 +99,7 @@ func TestBehavior_RestartReset(t *testing.T) {
 	// by showing that a new TorrentFS starts clean.
 
 	tfs1 := NewTorrent(10)
-	tfs1.Create("/manual.txt")
+	_ = tfs1.Create("/manual.txt")
 	
 	tfs2 := NewTorrent(10)
 	files, _ := tfs2.ReadDir("/")
@@ -211,4 +213,29 @@ func TestBehavior_ConcurrentAccess(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestBehavior_OOM_MassiveTorrent(t *testing.T) {
+	// Create a storage that has 50,000 files
+	tfs := NewTorrent(10)
+	
+	const numFiles = 50000
+	for i := 0; i < numFiles; i++ {
+		err := tfs.s.Add(NewMemoryFile([]byte("test")), fmt.Sprintf("/dir/file_%d.txt", i))
+		require.NoError(t, err)
+	}
+
+	var m1, m2 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+
+	// Attempt to read the massive directory
+	entries, err := tfs.ReadDir("/dir")
+	require.NoError(t, err)
+	require.Len(t, entries, numFiles)
+
+	runtime.ReadMemStats(&m2)
+
+	// Ensure allocations didn't spike beyond a reasonable threshold (e.g., 50MB)
+	allocBytes := m2.TotalAlloc - m1.TotalAlloc
+	require.Less(t, allocBytes, uint64(50*1024*1024), "ReadDir triggered massive memory allocation: %d bytes", allocBytes)
 }

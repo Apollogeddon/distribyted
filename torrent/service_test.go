@@ -279,11 +279,11 @@ func TestService_LinkCallbacks(t *testing.T) {
 		removedPath = p
 	})
 	
-	svc.AddLink("o", "n")
+	_ = svc.AddLink("o", "n")
 	require.Equal(t, "/o", addedOld)
 	require.Equal(t, "/n", addedNew)
 	
-	svc.RemoveLink("n")
+	_ = svc.RemoveLink("n")
 	require.Equal(t, "n", removedPath)
 }
 

@@ -158,8 +158,8 @@ func TestStorageRemoveByHash(t *testing.T) {
 	f1 := &mockHashFile{hash: "h1"}
 	f2 := &mockHashFile{hash: "h2"}
 	
-	s.Add(f1, "/f1.txt")
-	s.Add(f2, "/f2.txt")
+	_ = s.Add(f1, "/f1.txt")
+	_ = s.Add(f2, "/f2.txt")
 	
 	s.RemoveByHash("h1")
 	require.False(s.Has("/f1.txt"))
