@@ -35,7 +35,7 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 	// Use a fixed temp dir to simulate app restart
 	workDir, err := os.MkdirTemp("", "persist-test-app")
 	require.NoError(t, err)
-	defer os.RemoveAll(workDir)
+	defer func() { _ = os.RemoveAll(workDir) }()
 
 	// --- SESSION 1: Add data ---
 	t.Log("--- STARTING SESSION 1 ---")

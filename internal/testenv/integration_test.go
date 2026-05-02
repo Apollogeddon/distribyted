@@ -248,7 +248,7 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 
 	tempDir, err := os.MkdirTemp("", "live-server-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// 1. Create initial file
 	file1 := filepath.Join(tempDir, "file1.txt")

@@ -205,6 +205,6 @@ func (a *TestApp) Close() {
 		_ = a.itemStore.Close()
 	}
 	if !a.KeepTempDir {
-		os.RemoveAll(a.TempDir)
+		_ = os.RemoveAll(a.TempDir)
 	}
 }
