@@ -2,6 +2,7 @@ package fs
 
 import (
 	"bytes"
+	"sync"
 )
 
 var _ Filesystem = &Memory{}
@@ -66,6 +67,7 @@ var _ File = &MemoryFile{}
 
 type MemoryFile struct {
 	BaseFile
+	mu sync.Mutex
 	*bytes.Reader
 }
 
@@ -74,6 +76,12 @@ func NewMemoryFile(data []byte) *MemoryFile {
 		BaseFile: BaseFile{},
 		Reader:   bytes.NewReader(data),
 	}
+}
+
+func (d *MemoryFile) Read(p []byte) (n int, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.Reader.Read(p)
 }
 
 func (d *MemoryFile) Size() int64 {

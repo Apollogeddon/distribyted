@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,20 +12,43 @@ import (
 )
 
 type mockHost struct {
+	mu            sync.Mutex
 	mountCalled   bool
 	unmountCalled bool
 	path          string
 }
 
 func (m *mockHost) Mount(path string, args []string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.mountCalled = true
 	m.path = path
 	return true
 }
 
 func (m *mockHost) Unmount() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.unmountCalled = true
 	return true
+}
+
+func (m *mockHost) wasMountCalled() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.mountCalled
+}
+
+func (m *mockHost) getPath() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.path
+}
+
+func (m *mockHost) wasUnmountCalled() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.unmountCalled
 }
 
 func TestHandler_Lifecycle(t *testing.T) {
@@ -42,11 +66,11 @@ func TestHandler_Lifecycle(t *testing.T) {
 
 	// Wait a bit for the goroutine
 	time.Sleep(100 * time.Millisecond)
-	assert.True(t, m.mountCalled)
-	assert.Equal(t, tempDir, m.path)
+	assert.True(t, m.wasMountCalled())
+	assert.Equal(t, tempDir, m.getPath())
 
 	h.Unmount()
-	assert.True(t, m.unmountCalled)
+	assert.True(t, m.wasUnmountCalled())
 }
 
 func TestHandler_Unmount_Nil(t *testing.T) {

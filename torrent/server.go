@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -50,6 +49,7 @@ type Server struct {
 
 	fw *fsnotify.Watcher
 
+	muEvents    sync.Mutex
 	eventsCount uint64
 
 	c  *torrent.Client
@@ -113,7 +113,7 @@ func (s *Server) Start() error {
 				}
 
 				s.log.Info().Str(dlog.KeyFile, event.Name).Str(dlog.KeyOp, event.Op.String()).Msg("file changed inside server folder")
-				atomic.AddUint64(&s.eventsCount, 1)
+				s.addEvent(1)
 			case err, ok := <-w.Errors:
 				if !ok {
 					return
@@ -133,17 +133,15 @@ func (s *Server) Start() error {
 func (s *Server) watch() {
 	s.log.Info().Msg("starting watcher")
 	for range time.Tick(time.Second * 5) {
-		if s.eventsCount == 0 {
+		ec := s.popEvents()
+		if ec == 0 {
 			continue
 		}
 
-		ec := s.eventsCount
 		if err := s.makeMagnet(); err != nil {
 			s.updateState(ERROR)
 			s.log.Error().Err(err).Msg("error generating magnet")
 		}
-
-		atomic.AddUint64(&s.eventsCount, -ec)
 	}
 }
 
@@ -230,6 +228,20 @@ func (s *Server) updateState(ss ServerState) {
 	s.mu.Lock()
 	s.si.State = ss.String()
 	s.mu.Unlock()
+}
+
+func (s *Server) addEvent(n uint64) {
+	s.muEvents.Lock()
+	defer s.muEvents.Unlock()
+	s.eventsCount += n
+}
+
+func (s *Server) popEvents() uint64 {
+	s.muEvents.Lock()
+	defer s.muEvents.Unlock()
+	ec := s.eventsCount
+	s.eventsCount = 0
+	return ec
 }
 
 func (s *Server) trackers() []string {
