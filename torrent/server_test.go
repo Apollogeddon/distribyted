@@ -17,6 +17,7 @@ func TestServer_StartAndWatch(t *testing.T) {
 	cfg.DataDir = t.TempDir()
 	cfg.ListenPort = 0
 	cfg.NoDHT = true
+	cfg.NoDefaultPortForwarding = true
 	cfg.DisableWebseeds = true
 
 	client, err := torrent.NewClient(cfg)
@@ -76,7 +77,12 @@ func TestServer_CloseNil(t *testing.T) {
 }
 
 func TestServer_Start_InvalidPath(t *testing.T) {
-	srv := NewServer(nil, nil, &config.Server{Path: "/non/existent/path/that/cannot/exist"})
+	// Create a file and try to use it as a base directory to guarantee MkdirAll fails
+	dummyFile := filepath.Join(t.TempDir(), "dummy")
+	require.NoError(t, os.WriteFile(dummyFile, []byte("test"), 0644))
+	invalidPath := filepath.Join(dummyFile, "nested")
+
+	srv := NewServer(nil, nil, &config.Server{Path: invalidPath})
 	err := srv.Start()
 	require.Error(t, err)
 }

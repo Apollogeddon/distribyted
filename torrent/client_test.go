@@ -23,7 +23,10 @@ func TestNewClient(t *testing.T) {
 	cfg := &config.TorrentGlobal{
 		DisableIPv6: true,
 		DisableUTP:  true,
+		DisableUPnP: true,
+		DisableDHT:  true,
 		IP:          "127.0.0.1",
+		ListenPort:  -1,
 	}
 	var id [20]byte
 	copy(id[:], "test-peer-id-1234567")

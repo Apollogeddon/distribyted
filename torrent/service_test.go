@@ -78,7 +78,7 @@ func TestService_Load_Full(t *testing.T) {
 	
 	fss, err := svc.Load()
 	require.NoError(t, err)
-	require.Contains(t, fss, "r1")
+	require.Contains(t, fss, "/r1")
 }
 
 func TestService_Load(t *testing.T) {
@@ -86,6 +86,7 @@ func TestService_Load(t *testing.T) {
 	cfg.DataDir = t.TempDir()
 	cfg.ListenPort = 0
 	cfg.NoDHT = true
+	cfg.NoDefaultPortForwarding = true
 	cfg.DisableWebseeds = true
 
 	client, err := torrent.NewClient(cfg)
@@ -279,8 +280,8 @@ func TestService_LinkCallbacks(t *testing.T) {
 	})
 	
 	svc.AddLink("o", "n")
-	require.Equal(t, "o", addedOld)
-	require.Equal(t, "n", addedNew)
+	require.Equal(t, "/o", addedOld)
+	require.Equal(t, "/n", addedNew)
 	
 	svc.RemoveLink("n")
 	require.Equal(t, "n", removedPath)
@@ -315,4 +316,47 @@ func TestService_RemoveFromHashOnly(t *testing.T) {
 	
 	err = svc.RemoveFromHashOnly(hash.HexString())
 	require.NoError(t, err)
+}
+
+func TestService_ConcurrentMagnetAdds(t *testing.T) {
+	stats := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	magnet := "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
+	
+	mockT := &mockTorrent{
+		hash: hash,
+		gotInfo: make(chan struct{}),
+	}
+	close(mockT.gotInfo)
+
+	mockC := &mockTorrentClient{
+		addMagnetFunc: func(s string) (fs.Torrent, error) {
+			return mockT, nil
+		},
+		torrentFunc: func(h metainfo.Hash) (fs.Torrent, bool) {
+			return mockT, true
+		},
+	}
+
+	db := &MockLoaderAdder{}
+	svc := NewService(nil, db, stats, mockC, 1, 1, true)
+	
+	errCh := make(chan error, 100)
+	for i := 0; i < 100; i++ {
+		go func(idx int) {
+			route := "route" // Add to same route
+			if idx%2 == 0 {
+				route = "route2" // Or multiple routes
+			}
+			errCh <- svc.AddMagnet(route, magnet)
+		}(i)
+	}
+
+	for i := 0; i < 100; i++ {
+		err := <-errCh
+		require.NoError(t, err)
+	}
+	
+	// Should have 2 routes in the DB
+	require.Len(t, db.AddedMagnets, 2)
 }
