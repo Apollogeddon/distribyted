@@ -3,6 +3,7 @@ package loader
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/anacrolix/torrent/metainfo"
@@ -18,7 +19,8 @@ const (
 )
 
 type DB struct {
-	db *badger.DB
+	db    *badger.DB
+	close chan struct{}
 }
 
 func NewDB(path string) (*DB, error) {
@@ -36,9 +38,30 @@ func NewDB(path string) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{
-		db: db,
-	}, nil
+	d := &DB{
+		db:    db,
+		close: make(chan struct{}),
+	}
+	go d.runGC()
+
+	return d, nil
+}
+
+func (l *DB) runGC() {
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			for {
+				if err := l.db.RunValueLogGC(0.5); err != nil {
+					break
+				}
+			}
+		case <-l.close:
+			return
+		}
+	}
 }
 
 func (l *DB) ListTorrentPaths() (map[string][]string, error) {

@@ -14,8 +14,9 @@ import (
 var _ bep44.Store = &FileItemStore{}
 
 type FileItemStore struct {
-	ttl time.Duration
-	db  *badger.DB
+	ttl       time.Duration
+	db        *badger.DB
+	closeChan chan struct{}
 }
 
 func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, error) {
@@ -35,10 +36,31 @@ func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, erro
 		return nil, err
 	}
 
-	return &FileItemStore{
-		db:  db,
-		ttl: itemsTTL,
-	}, nil
+	fis := &FileItemStore{
+		db:        db,
+		ttl:       itemsTTL,
+		closeChan: make(chan struct{}),
+	}
+	go fis.runGC()
+
+	return fis, nil
+}
+
+func (fis *FileItemStore) runGC() {
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			for {
+				if err := fis.db.RunValueLogGC(0.5); err != nil {
+					break
+				}
+			}
+		case <-fis.closeChan:
+			return
+		}
+	}
 }
 
 func (fis *FileItemStore) Put(i *bep44.Item) error {
@@ -93,5 +115,6 @@ func (fis *FileItemStore) Del(t bep44.Target) error {
 }
 
 func (fis *FileItemStore) Close() error {
+	close(fis.closeChan)
 	return fis.db.Close()
 }
