@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -26,11 +27,14 @@ func (m *MockLoader) ListTorrentPaths() (map[string][]string, error) {
 
 type MockLoaderAdder struct {
 	MockLoader
+	mu           sync.Mutex
 	Links        map[string]string
 	AddedMagnets map[string]string
 }
 
 func (m *MockLoaderAdder) AddMagnet(r, magnet string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.AddedMagnets == nil {
 		m.AddedMagnets = make(map[string]string)
 	}
