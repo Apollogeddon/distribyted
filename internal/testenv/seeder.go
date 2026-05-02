@@ -1,8 +1,10 @@
 package testenv
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
@@ -58,7 +60,7 @@ func (s *Seeder) AddFile(name string, content []byte, announceURL string) (metai
 	mi := metainfo.MetaInfo{
 		AnnounceList: [][]string{{announceURL}},
 	}
-	
+
 	info := metainfo.Info{
 		PieceLength: 256 * 1024,
 		Name:        name,
@@ -66,16 +68,22 @@ func (s *Seeder) AddFile(name string, content []byte, announceURL string) (metai
 	if err := info.BuildFromFilePath(path); err != nil {
 		return metainfo.Magnet{}, err
 	}
-	
+
 	mi.InfoBytes, _ = bencode.Marshal(info)
-	
+
 	t, err := s.client.AddTorrent(&mi)
 	if err != nil {
 		return metainfo.Magnet{}, err
 	}
 
-	t.VerifyData()
-	
+	if err := t.VerifyDataContext(context.Background()); err != nil {
+		return metainfo.Magnet{}, err
+	}
+	// Wait for hash check to finish (simple way)
+	for !t.Seeding() && t.Stats().PiecesComplete < t.NumPieces() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	return metainfo.Magnet{
 		InfoHash:    t.InfoHash(),
 		DisplayName: name,

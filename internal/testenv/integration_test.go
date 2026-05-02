@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Apollogeddon/distribyted/config"
 	dtorrent "github.com/Apollogeddon/distribyted/torrent"
 	"github.com/anacrolix/torrent"
-	"github.com/Apollogeddon/distribyted/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +59,7 @@ func TestIntegration_P2P_Fetch(t *testing.T) {
 		// Parse seeder addr
 		host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 		var p uint16
-		fmt.Sscanf(port, "%d", &p)
+		_, _ = fmt.Sscanf(port, "%d", &p)
 		lt.AddPeers([]torrent.PeerInfo{{
 			Addr: &net.TCPAddr{
 				IP:   net.ParseIP(host),
@@ -133,7 +133,7 @@ func TestIntegration_ArchiveTransparency(t *testing.T) {
 	lt, _ := app.Client.Torrent(magnet.InfoHash)
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
-	fmt.Sscanf(port, "%d", &p)
+	_, _ = fmt.Sscanf(port, "%d", &p)
 	lt.AddPeers([]torrent.PeerInfo{{
 		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
 	}})
@@ -194,7 +194,7 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	lt, _ := app.Client.Torrent(magnet.InfoHash)
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
-	fmt.Sscanf(port, "%d", &p)
+	_, _ = fmt.Sscanf(port, "%d", &p)
 	lt.AddPeers([]torrent.PeerInfo{{
 		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
 	}})
@@ -241,7 +241,7 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	assert.Equal(t, content, downloadedWebDav)
 }
 
-	func TestIntegration_LiveServerUpdates(t *testing.T) {
+func TestIntegration_LiveServerUpdates(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -339,7 +339,7 @@ func TestIntegration_CacheEviction(t *testing.T) {
 	lt, _ := app.Client.Torrent(magnet.InfoHash)
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
-	fmt.Sscanf(port, "%d", &p)
+	_, _ = fmt.Sscanf(port, "%d", &p)
 	lt.AddPeers([]torrent.PeerInfo{{
 		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
 	}})
@@ -373,7 +373,7 @@ func TestIntegration_P2PStall(t *testing.T) {
 
 	seeder, err := NewSeeder()
 	require.NoError(t, err)
-	
+
 	// 5 MB content
 	content := make([]byte, 5*1024*1024)
 	for i := range content {
@@ -387,16 +387,16 @@ func TestIntegration_P2PStall(t *testing.T) {
 	app, err := NewTestApp()
 	require.NoError(t, err)
 	defer app.Close()
-	
+
 	// 2 second read timeout for faster test
 	app.Config.Torrent.ReadTimeout = 2
-	
+
 	require.NoError(t, app.Service.AddMagnet("test-route", magnet.String()))
 
 	lt, _ := app.Client.Torrent(magnet.InfoHash)
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
-	fmt.Sscanf(port, "%d", &p)
+	_, _ = fmt.Sscanf(port, "%d", &p)
 	lt.AddPeers([]torrent.PeerInfo{{
 		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
 	}})
@@ -460,7 +460,7 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 	lt, _ := app.Client.Torrent(magnet.InfoHash)
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
-	fmt.Sscanf(port, "%d", &p)
+	_, _ = fmt.Sscanf(port, "%d", &p)
 	lt.AddPeers([]torrent.PeerInfo{{
 		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
 	}})
@@ -488,7 +488,7 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			f, err := app.FS.Open("/test-route/thundering.bin")
 			if err != nil {
 				errCh <- fmt.Errorf("worker %d open failed: %w", workerID, err)
@@ -558,7 +558,7 @@ func TestIntegration_DiskSpaceExhaustion(t *testing.T) {
 	lt, _ := app.Client.Torrent(magnet.InfoHash)
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
-	fmt.Sscanf(port, "%d", &p)
+	_, _ = fmt.Sscanf(port, "%d", &p)
 	lt.AddPeers([]torrent.PeerInfo{{
 		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
 	}})
@@ -576,11 +576,11 @@ func TestIntegration_DiskSpaceExhaustion(t *testing.T) {
 	require.NotNil(t, file, "Could not open file after timeout")
 	defer file.Close()
 
-	// Attempt to read the whole 2MB file. 
+	// Attempt to read the whole 2MB file.
 	// Since the storage is limited to 512KB, it should fail.
 	_, err = io.ReadAll(file)
 	require.Error(t, err)
-	
+
 	// We expect either a "no space left on device" error or the torrent client disabling download
 	errMsg := err.Error()
 	assert.True(t, contains(errMsg, "no space left on device") || contains(errMsg, "downloading disabled"), "Unexpected error: %s", errMsg)

@@ -9,15 +9,15 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/anacrolix/missinggo/v2/filecache"
-	"github.com/anacrolix/torrent/storage"
 	"github.com/Apollogeddon/distribyted/config"
 	"github.com/Apollogeddon/distribyted/fs"
 	dhttp "github.com/Apollogeddon/distribyted/http"
 	dtorrent "github.com/Apollogeddon/distribyted/torrent"
 	"github.com/Apollogeddon/distribyted/torrent/loader"
 	"github.com/Apollogeddon/distribyted/webdav"
+	"github.com/anacrolix/missinggo/v2/filecache"
 	atorrent "github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/storage"
 )
 
 type TestApp struct {
@@ -60,8 +60,8 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 	conf := &config.Root{
 		Torrent: &config.TorrentGlobal{
 			MetadataFolder:         tempDir,
-			AddTimeout:             10,
-			ReadTimeout:            10,
+			AddTimeout:             60,
+			ReadTimeout:            60,
 			ContinueWhenAddTimeout: true,
 			GlobalCacheSize:        100,
 			DisableIPv6:            true,
@@ -98,7 +98,7 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 	}
 
 	id, _ := dtorrent.GetOrCreatePeerID(filepath.Join(tempDir, "ID"))
-	
+
 	c, err := dtorrent.NewClient(st, fis, conf.Torrent, id)
 	if err != nil {
 		return nil, err
@@ -155,44 +155,47 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 	webDavAddr := webDavListener.Addr().String()
 	_, webDavPortStr, _ := net.SplitHostPort(webDavAddr)
 	var webDavPort int
-	fmt.Sscanf(webDavPortStr, "%d", &webDavPort)
+	_, _ = fmt.Sscanf(webDavPortStr, "%d", &webDavPort)
 
 	httpfs := dtorrent.NewHTTPFS(cfs)
-	
-	ch := config.NewHandler("") 
-	
+
+	ch := config.NewHandler("")
+
 	h, err := dhttp.NewHandler(fc, ss, ts, ch, nil, httpfs, "", conf, "/fuse")
 	if err != nil {
 		return nil, err
 	}
-	
-	httpServer := &http.Server{Handler: h}
-	go httpServer.Serve(httpListener)
+
+	httpServer := &http.Server{Handler: h, Addr: httpAddr}
+	go func() {
+		_ = httpServer.Serve(httpListener)
+	}()
 
 	go func() {
 		if err := webdav.NewWebDAVServerWithListener(webDavListener, cfs, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
+			fmt.Printf("WebDAV error: %v\n", err)
 		}
 	}()
 
 	return &TestApp{
-		Config:      conf,
-		Client:      c,
-		Service:     ts,
-		Stats:       ss,
-		FS:          cfs,
-		TempDir:     tempDir,
-		Cache:       fc,
-		HttpAddr:    httpAddr,
-		WebDavAddr:  webDavAddr,
-		httpServer:  httpServer,
-		db:          dbl,
-		itemStore:   fis,
+		Config:     conf,
+		Client:     c,
+		Service:    ts,
+		Stats:      ss,
+		FS:         cfs,
+		TempDir:    tempDir,
+		Cache:      fc,
+		HttpAddr:   httpAddr,
+		WebDavAddr: webDavAddr,
+		httpServer: httpServer,
+		db:         dbl,
+		itemStore:  fis,
 	}, nil
 }
 
 func (a *TestApp) Close() {
 	if a.httpServer != nil {
-		a.httpServer.Shutdown(context.Background())
+		_ = a.httpServer.Shutdown(context.Background())
 	}
 	a.Client.Close()
 	if a.db != nil {

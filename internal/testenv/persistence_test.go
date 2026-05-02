@@ -42,15 +42,15 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 	{
 		app := setupAppWithDir(t, workDir)
 		app.KeepTempDir = true
-		
+
 		// Add magnet
 		require.NoError(t, app.Service.AddMagnet("unique-p-route", magnet.String()))
-		
+
 		// Proactively add seeder
 		lt, _ := app.Client.Torrent(magnet.InfoHash)
 		host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 		var p uint16
-		fmt.Sscanf(port, "%d", &p)
+		_, _ = fmt.Sscanf(port, "%d", &p)
 		lt.AddPeers([]torrent.PeerInfo{{Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)}}})
 
 		// Wait for info to ensure it's fully registered
@@ -58,7 +58,7 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 
 		// Add hard link
 		require.NoError(t, app.Service.AddLink("/unique-p-route/persist.txt", "/unique-manual-link.txt"))
-		
+
 		// Manual file creation
 		err = os.WriteFile(filepath.Join(workDir, "session1_marker.txt"), []byte("session1"), 0644)
 		require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 		mags, err := app.db.ListMagnets()
 		require.NoError(t, err)
 		t.Logf("Session 1: found %d routes in DB before close", len(mags))
-		
+
 		links, err := app.db.ListLinks()
 		require.NoError(t, err)
 		t.Logf("Session 1: found %d links in DB before close", len(links))
@@ -99,7 +99,7 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 		if ok {
 			host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 			var p uint16
-			fmt.Sscanf(port, "%d", &p)
+			_, _ = fmt.Sscanf(port, "%d", &p)
 			lt.AddPeers([]torrent.PeerInfo{{Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)}}})
 		}
 

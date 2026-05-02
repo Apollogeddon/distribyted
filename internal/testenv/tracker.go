@@ -20,7 +20,7 @@ type Tracker struct {
 	l    net.Listener
 	s    *http.Server
 
-	mu      sync.Mutex
+	mu       sync.Mutex
 	torrents map[metainfo.Hash][]string // hash -> list of peer addresses
 }
 
@@ -42,7 +42,9 @@ func (t *Tracker) Start() error {
 	mux.HandleFunc("/announce", t.handleAnnounce)
 
 	t.s = &http.Server{Handler: mux}
-	go t.s.Serve(l)
+	go func() {
+		_ = t.s.Serve(l)
+	}()
 
 	return nil
 }
@@ -89,8 +91,8 @@ func (t *Tracker) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		var port uint16
-		fmt.Sscanf(portStr, "%d", &port)
-		
+		_, _ = fmt.Sscanf(portStr, "%d", &port)
+
 		compactPeers = append(compactPeers, ip...)
 		compactPeers = append(compactPeers, byte(port>>8), byte(port&0xff))
 	}
@@ -101,5 +103,5 @@ func (t *Tracker) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	bencode.NewEncoder(w).Encode(resp)
+	_ = bencode.NewEncoder(w).Encode(resp)
 }
