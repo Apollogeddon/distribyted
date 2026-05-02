@@ -161,7 +161,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error starting magnet database: %w", err)
 	}
 
-	ts := torrent.NewService([]loader.Loader{cl, fl}, dbl, ss, torrent.ClientWrapper{c},
+	ts := torrent.NewService([]loader.Loader{cl, fl}, dbl, ss, torrent.ClientWrapper{Client: c},
 		conf.Torrent.AddTimeout,
 		conf.Torrent.ReadTimeout,
 		conf.Torrent.ContinueWhenAddTimeout,
@@ -189,9 +189,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 			}
 		}
 		log.Info().Msg("closing items database...")
-		fis.Close()
+		_ = fis.Close()
 		log.Info().Msg("closing magnet database...")
-		dbl.Close()
+		_ = dbl.Close()
 		log.Info().Msg("closing torrent client...")
 		c.Close()
 
@@ -259,6 +259,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 			return
 		}
 
+		forceUnmount(conf.Fuse.Path)
 		if err := mh.Mount(cfs); err != nil {
 			log.Info().Err(err).Msg("error mounting filesystems")
 		}

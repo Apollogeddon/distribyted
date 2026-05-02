@@ -118,6 +118,7 @@ func (fs *FS) getContext() (uint32, uint32, int) {
 	defer func() {
 		if r := recover(); r != nil {
 			// Recover from panic in fuse.Getcontext (likely DLL issue in tests)
+			_ = r
 		}
 	}()
 
