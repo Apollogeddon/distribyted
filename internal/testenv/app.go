@@ -41,10 +41,22 @@ func NewTestApp() (*TestApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewTestAppWithDir(tempDir)
+	return newTestApp(tempDir, nil)
+}
+
+func NewTestAppLimited(limit int64) (*TestApp, error) {
+	tempDir, err := os.MkdirTemp("", "distribyted-test-limited")
+	if err != nil {
+		return nil, err
+	}
+	return newTestApp(tempDir, &limit)
 }
 
 func NewTestAppWithDir(tempDir string) (*TestApp, error) {
+	return newTestApp(tempDir, nil)
+}
+
+func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 	conf := &config.Root{
 		Torrent: &config.TorrentGlobal{
 			MetadataFolder:         tempDir,
@@ -75,7 +87,10 @@ func NewTestAppWithDir(tempDir string) (*TestApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	st := storage.NewFile(cf)
+	var st storage.ClientImpl = storage.NewFile(cf)
+	if limit != nil {
+		st = &limitStorage{ClientImpl: st, limitBytes: *limit}
+	}
 
 	fis, err := dtorrent.NewFileItemStore(filepath.Join(tempDir, "items"), 2*time.Hour)
 	if err != nil {
