@@ -34,7 +34,7 @@ func NewSeeder() (*Seeder, error) {
 
 	client, err := torrent.NewClient(cfg)
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return nil, err
 	}
 
@@ -48,7 +48,7 @@ func (s *Seeder) Stop() {
 	if s.client != nil {
 		s.client.Close()
 	}
-	os.RemoveAll(s.tmpDir)
+	_ = os.RemoveAll(s.tmpDir)
 }
 
 func (s *Seeder) AddFile(name string, content []byte, announceURL string) (metainfo.Magnet, error) {
