@@ -3,17 +3,18 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     groups:
-      non-major:
+      updates:
         update-types:
+          - "major"
           - "minor"
           - "patch"
 
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     open-pull-requests-limit: 10
     pull-request-branch-name:
       separator: "-"
@@ -26,7 +27,7 @@ updates:
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     groups:
       non-major:
         update-types:
@@ -34,12 +35,11 @@ updates:
           - "patch"
 
   - package-ecosystem: "docker"
-    directory: "/build_tools"
+    directory: "/tools"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     groups:
       non-major:
         update-types:
           - "minor"
           - "patch"
-
