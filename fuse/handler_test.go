@@ -30,7 +30,7 @@ func (m *mockHost) Unmount() bool {
 func TestHandler_Lifecycle(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "fuse-handler-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	h := NewHandler(true, tempDir)
 	m := &mockHost{}

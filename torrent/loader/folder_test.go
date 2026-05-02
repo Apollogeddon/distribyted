@@ -13,7 +13,7 @@ import (
 func TestFolder_ListTorrentPaths(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "distribyted-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	route1Dir := filepath.Join(tmpDir, "route1")
 	err = os.MkdirAll(route1Dir, 0755)
@@ -57,7 +57,7 @@ func TestFolder_ListTorrentPaths(t *testing.T) {
 func TestFolder_ListMagnets(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "distribyted-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	route1Dir := filepath.Join(tmpDir, "route1")
 	err = os.MkdirAll(route1Dir, 0755)

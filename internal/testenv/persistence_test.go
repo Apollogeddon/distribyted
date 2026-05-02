@@ -133,7 +133,7 @@ func waitForFile(t *testing.T, app *TestApp, path string) {
 	for i := 0; i < maxRetries; i++ {
 		f, err := app.FS.Open(path)
 		if err == nil {
-			f.Close()
+			_ = f.Close()
 			return
 		}
 		time.Sleep(1 * time.Second)
@@ -146,6 +146,6 @@ func readFile(t *testing.T, app *TestApp, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return io.ReadAll(f)
 }
