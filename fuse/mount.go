@@ -20,6 +20,8 @@ type FS struct {
 	fh *fileHandler
 
 	log zerolog.Logger
+	uid uint32
+	gid uint32
 }
 
 func NewFS(fs fs.Filesystem) fuse.FileSystemInterface {
@@ -99,11 +101,27 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	stat.Ctim = now
 	stat.Birthtim = now
 
-	uid, gid, _ := fuse.Getcontext()
+	uid, gid, _ := fs.getContext()
 	stat.Uid = uid
 	stat.Gid = gid
 
 	return 0
+}
+
+func (fs *FS) getContext() (uint32, uint32, int) {
+	if fs.uid != 0 || fs.gid != 0 {
+		return fs.uid, fs.gid, 0
+	}
+
+	// Only call fuse.Getcontext if we are likely in a real fuse mount
+	// This is a bit of a hack but avoids panics in unit tests on Windows
+	defer func() {
+		if r := recover(); r != nil {
+			// Recover from panic in fuse.Getcontext (likely DLL issue in tests)
+		}
+	}()
+
+	return fuse.Getcontext()
 }
 
 func (fs *FS) Create(path string, flags int, mode uint32) (errc int, fh uint64) {

@@ -12,24 +12,24 @@ import (
 	"github.com/anacrolix/torrent"
 )
 
-var _ Filesystem = &Torrent{}
+var _ Filesystem = &TorrentFS{}
 
-type Torrent struct {
-	mu          sync.RWMutex
-	ts          map[string]*torrent.Torrent
+type TorrentFS struct {
+	mu          sync.Mutex
 	s           *storage
+	ts          map[string]Torrent
 	readTimeout int
 }
 
-func NewTorrent(readTimeout int) *Torrent {
-	return &Torrent{
+func NewTorrent(readTimeout int) *TorrentFS {
+	return &TorrentFS{
 		s:           newStorage(SupportedFactories),
-		ts:          make(map[string]*torrent.Torrent),
+		ts:          make(map[string]Torrent),
 		readTimeout: readTimeout,
 	}
 }
 
-func (fs *Torrent) AddTorrent(t *torrent.Torrent) {
+func (fs *TorrentFS) AddTorrent(t Torrent) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	fs.ts[t.InfoHash().HexString()] = t
@@ -47,7 +47,7 @@ func (fs *Torrent) AddTorrent(t *torrent.Torrent) {
 	}()
 }
 
-func (fs *Torrent) addFiles(t *torrent.Torrent) {
+func (fs *TorrentFS) addFiles(t Torrent) {
 	ih := t.InfoHash().HexString()
 	for _, file := range t.Files() {
 		tf := &torrentFile{
@@ -61,7 +61,7 @@ func (fs *Torrent) addFiles(t *torrent.Torrent) {
 	}
 }
 
-func (fs *Torrent) RemoveTorrent(h string) {
+func (fs *TorrentFS) RemoveTorrent(h string) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -79,15 +79,15 @@ func (fs *Torrent) RemoveTorrent(h string) {
 	// we didn't leave any top-level folders that were part of the torrent.
 }
 
-func (fs *Torrent) Open(filename string) (File, error) {
+func (fs *TorrentFS) Open(filename string) (File, error) {
 	return fs.s.Get(filename)
 }
 
-func (fs *Torrent) ReadDir(path string) (map[string]File, error) {
+func (fs *TorrentFS) ReadDir(path string) (map[string]File, error) {
 	return fs.s.Children(path)
 }
 
-func (fs *Torrent) Link(oldpath, newpath string) error {
+func (fs *TorrentFS) Link(oldpath, newpath string) error {
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (fs *Torrent) Link(oldpath, newpath string) error {
 	return fs.s.Add(f, newpath)
 }
 
-func (fs *Torrent) Rename(oldpath, newpath string) error {
+func (fs *TorrentFS) Rename(oldpath, newpath string) error {
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
 		return err
@@ -109,11 +109,11 @@ func (fs *Torrent) Rename(oldpath, newpath string) error {
 	return fs.s.Remove(oldpath)
 }
 
-func (fs *Torrent) Mkdir(path string) error {
+func (fs *TorrentFS) Mkdir(path string) error {
 	return fs.s.Add(&Dir{}, path)
 }
 
-func (fs *Torrent) Rmdir(path string) error {
+func (fs *TorrentFS) Rmdir(path string) error {
 	f, err := fs.s.Get(path)
 	if err != nil {
 		return err
@@ -125,13 +125,13 @@ func (fs *Torrent) Rmdir(path string) error {
 	return fs.s.Remove(path)
 }
 
-func (fs *Torrent) Create(path string) error {
+func (fs *TorrentFS) Create(path string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	return fs.s.Add(NewMemoryFile(nil), path)
 }
 
-func (fs *Torrent) Remove(path string) error {
+func (fs *TorrentFS) Remove(path string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	return fs.s.Remove(path)

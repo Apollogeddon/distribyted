@@ -7,7 +7,28 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/iio"
+	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/metainfo"
 )
+
+type Torrent interface {
+	InfoHash() metainfo.Hash
+	Info() *metainfo.Info
+	GotInfo() <-chan struct{}
+	Files() []*torrent.File
+	Name() string
+	PieceStateRuns() torrent.PieceStateRuns
+	Stats() torrent.TorrentStats
+	Drop()
+}
+
+type TorrentWrapper struct {
+	*torrent.Torrent
+}
+
+func (tw TorrentWrapper) GotInfo() <-chan struct{} {
+	return tw.Torrent.GotInfo()
+}
 
 var nextIno uint64 = 1000 // Reserve low numbers
 

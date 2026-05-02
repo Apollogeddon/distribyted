@@ -12,11 +12,16 @@ import (
 	dlog "github.com/Apollogeddon/distribyted/log"
 )
 
+type FileSystemHost interface {
+	Mount(path string, args []string) bool
+	Unmount() bool
+}
+
 type Handler struct {
 	fuseAllowOther bool
 	path           string
 
-	host *fuse.FileSystemHost
+	host FileSystemHost
 }
 
 func NewHandler(fuseAllowOther bool, path string) *Handler {
@@ -39,7 +44,9 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 		}
 	}
 
-	host := fuse.NewFileSystemHost(NewFS(cfs))
+	if s.host == nil {
+		s.host = fuse.NewFileSystemHost(NewFS(cfs))
+	}
 
 	// TODO improve error handling here
 	go func() {
@@ -49,13 +56,11 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 			config = append(config, "-o", "allow_other")
 		}
 
-		ok := host.Mount(s.path, config)
+		ok := s.host.Mount(s.path, config)
 		if !ok {
 			log.Error().Str(dlog.KeyPath, s.path).Msg("error trying to mount filesystem")
 		}
 	}()
-
-	s.host = host
 
 	log.Info().Str(dlog.KeyPath, s.path).Msg("starting FUSE mount")
 

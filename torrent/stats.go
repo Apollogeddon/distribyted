@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anacrolix/torrent"
+	"github.com/Apollogeddon/distribyted/fs"
 )
 
 var ErrTorrentNotFound = errors.New("torrent not found")
@@ -74,8 +74,8 @@ type stat struct {
 
 type Stats struct {
 	mut             sync.Mutex
-	torrents        map[string]*torrent.Torrent
-	torrentsByRoute map[string]map[string]*torrent.Torrent
+	torrents        map[string]fs.Torrent
+	torrentsByRoute map[string]map[string]fs.Torrent
 	previousStats   map[string]*stat
 
 	gTime time.Time
@@ -84,20 +84,22 @@ type Stats struct {
 func NewStats() *Stats {
 	return &Stats{
 		gTime:           time.Now(),
-		torrents:        make(map[string]*torrent.Torrent),
-		torrentsByRoute: make(map[string]map[string]*torrent.Torrent),
+		torrents:        make(map[string]fs.Torrent),
+		torrentsByRoute: make(map[string]map[string]fs.Torrent),
 		previousStats:   make(map[string]*stat),
 	}
 }
 
 func (s *Stats) AddRoute(route string) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
 	_, ok := s.torrentsByRoute[route]
 	if !ok {
-		s.torrentsByRoute[route] = make(map[string]*torrent.Torrent)
+		s.torrentsByRoute[route] = make(map[string]fs.Torrent)
 	}
 }
 
-func (s *Stats) Add(route string, t *torrent.Torrent) {
+func (s *Stats) Add(route string, t fs.Torrent) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
@@ -108,7 +110,7 @@ func (s *Stats) Add(route string, t *torrent.Torrent) {
 
 	_, ok := s.torrentsByRoute[route]
 	if !ok {
-		s.torrentsByRoute[route] = make(map[string]*torrent.Torrent)
+		s.torrentsByRoute[route] = make(map[string]fs.Torrent)
 	}
 
 	s.torrentsByRoute[route][h] = t
@@ -127,11 +129,11 @@ func (s *Stats) Del(route, hash string) {
 	delete(ts, hash)
 }
 
-func (s *Stats) GetAllTorrents() map[string]*torrent.Torrent {
+func (s *Stats) GetAllTorrents() map[string]fs.Torrent {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	out := make(map[string]*torrent.Torrent)
+	out := make(map[string]fs.Torrent)
 	for h, t := range s.torrents {
 		out[h] = t
 	}
@@ -214,7 +216,7 @@ func (s *Stats) GlobalStats() *GlobalTorrentStats {
 	}
 }
 
-func (s *Stats) stats(now time.Time, t *torrent.Torrent, chunks bool) *TorrentStats {
+func (s *Stats) stats(now time.Time, t fs.Torrent, chunks bool) *TorrentStats {
 	ts := &TorrentStats{}
 	prev, ok := s.previousStats[t.InfoHash().String()]
 	if !ok {
