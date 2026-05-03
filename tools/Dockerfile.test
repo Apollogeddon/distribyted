@@ -1,0 +1,14 @@
+FROM golang:1.25-bookworm
+RUN apt-get update && apt-get install -y gcc fuse libfuse-dev rpm pkg-config
+WORKDIR /app
+
+# Set Go cache directories
+ENV GOCACHE=/go-cache
+ENV GOMODCACHE=/go-mod-cache
+
+# Copy only dependency files first to cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Set entry point
+CMD ["go", "test", "-cover", "-race", "./..."]

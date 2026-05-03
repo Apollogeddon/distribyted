@@ -1,0 +1,13 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: tools/Dockerfile.test
+    volumes:
+      - .:/app
+      - go-cache:/go-cache
+      - go-mod-cache:/go-mod-cache
+
+volumes:
+  go-cache:
+  go-mod-cache:

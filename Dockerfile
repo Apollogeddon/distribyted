@@ -29,14 +29,23 @@ RUN BIN_OUTPUT=/bin/distribyted make build \
 
 FROM alpine:3
 
-RUN apk add --no-cache gcc libc-dev fuse-dev
+# Install only runtime dependencies
+RUN apk add --no-cache fuse
+
+# Create a non-root user
+RUN addgroup -S distribyted && adduser -S distribyted -G distribyted
 
 COPY --from=builder /bin/distribyted /bin/distribyted
-RUN chmod -v +x /bin/distribyted
+RUN chmod +x /bin/distribyted
 
-RUN mkdir -v /distribyted-data
+# FUSE configuration
+RUN echo "user_allow_other" >> /etc/fuse.conf && \
+    chmod 644 /etc/fuse.conf
 
-RUN echo "user_allow_other" | tee /etc/fuse.conf
+# Set up data directory with correct permissions
+RUN mkdir -p /distribyted-data && chown distribyted:distribyted /distribyted-data
+
+USER distribyted
 ENV DISTRIBYTED_FUSE_ALLOW_OTHER=true
 
 ENTRYPOINT [ "/bin/distribyted" ]
