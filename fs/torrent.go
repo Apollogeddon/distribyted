@@ -23,7 +23,7 @@ type TorrentFS struct {
 
 func NewTorrent(readTimeout int) *TorrentFS {
 	return &TorrentFS{
-		s:           newStorage(SupportedFactories),
+		s:           newStorage(GetSupportedFactories()),
 		ts:          make(map[string]Torrent),
 		readTimeout: readTimeout,
 	}

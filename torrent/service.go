@@ -110,6 +110,12 @@ func (s *Service) SetReadTimeout(t int) {
 	s.readTimeout = t
 }
 
+func (s *Service) SetAddTimeout(t int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.addTimeout = t
+}
+
 func (s *Service) Load() (map[string]fs.Filesystem, error) {
 	// Load from config
 	s.log.Info().Msg("adding torrents from configuration")

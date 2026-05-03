@@ -24,7 +24,7 @@ func (fs *ContainerFs) OnLinkRemoved(f func(path string)) {
 
 func NewContainerFs(fss map[string]Filesystem) (*ContainerFs, error) {
 	cfs := &ContainerFs{
-		s: newStorage(SupportedFactories),
+		s: newStorage(GetSupportedFactories()),
 	}
 	for p, fs := range fss {
 		if err := cfs.AddFS(p, fs); err != nil {

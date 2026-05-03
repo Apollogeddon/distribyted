@@ -3,12 +3,14 @@ package testenv
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +18,8 @@ import (
 	"github.com/Apollogeddon/distribyted/config"
 	dtorrent "github.com/Apollogeddon/distribyted/torrent"
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -545,6 +549,226 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 	for err := range errCh {
 		require.NoError(t, err)
 	}
+}
+
+func TestIntegration_RemoteSeeding(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	// 1. App A acts as a Server
+	dirA, _ := os.MkdirTemp("", "appA")
+	defer func() { _ = os.RemoveAll(dirA) }()
+	appA, err := NewTestAppWithDir(dirA)
+	require.NoError(t, err)
+	defer appA.Close()
+
+	// 2. App B acts as a Leecher
+	dirB, _ := os.MkdirTemp("", "appB")
+	defer func() { _ = os.RemoveAll(dirB) }()
+	appB, err := NewTestAppWithDir(dirB)
+	require.NoError(t, err)
+	defer appB.Close()
+
+	t.Logf("App A PeerID: %q", appA.Client.PeerID())
+	t.Logf("App B PeerID: %q", appB.Client.PeerID())
+
+	serverDir, err := os.MkdirTemp("", "distribyted-server-dir")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(serverDir) }()
+
+	content := []byte("remote seeding test data")
+	fileName := "served_file.txt"
+	err = os.WriteFile(filepath.Join(serverDir, fileName), content, 0644)
+	require.NoError(t, err)
+
+	pc := storage.NewMapPieceCompletion()
+	server := dtorrent.NewServer(appA.Client, pc, &config.Server{
+		Name:     "test-server",
+		Path:     serverDir,
+		Trackers: []string{tracker.AnnounceURL()},
+	})
+	require.NoError(t, server.Start())
+
+	// Wait for magnet
+	var magnetURI string
+	for i := 0; i < 50; i++ {
+		magnetURI = server.GetMagnet()
+		if magnetURI != "" {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	require.NotEmpty(t, magnetURI, "Server did not generate magnet URI")
+
+	// Proactively register peer in tracker
+	m, _ := metainfo.ParseMagnetUri(magnetURI)
+	_, portA, _ := net.SplitHostPort(appA.Client.ListenAddrs()[0].String())
+	tracker.RegisterPeer(m.InfoHash, net.JoinHostPort("127.0.0.1", portA))
+
+	// Add seeder peer manually to speed up
+	tB, err := appB.Client.AddMagnet(magnetURI)
+	require.NoError(t, err)
+	var p uint16
+	_, _ = fmt.Sscanf(portA, "%d", &p)
+	tB.AddPeers([]torrent.PeerInfo{{Addr: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: int(p)}}})
+
+	require.NoError(t, appB.Service.AddMagnet("leecher-route", magnetURI))
+
+	// 3. Verify transfer
+	// The file might be at /leecher-route/<torrent-name>/served_file.txt
+	// Let's find it by listing the directory
+	var vfsPath string
+	for i := 0; i < 100; i++ {
+		entries, err := appB.FS.ReadDir("/leecher-route")
+		if err == nil && len(entries) > 0 {
+			// Find the entry that contains served_file.txt (recursively or directly)
+			for name := range entries {
+				path := "/leecher-route/" + name
+				// Try directly
+				if name == fileName {
+					vfsPath = path
+					break
+				}
+				// Try one level deeper
+				subEntries, err := appB.FS.ReadDir(path)
+				if err == nil {
+					for subName := range subEntries {
+						if subName == fileName {
+							vfsPath = path + "/" + subName
+							break
+						}
+					}
+				}
+				if vfsPath != "" {
+					break
+				}
+			}
+		}
+		if vfsPath != "" {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	require.NotEmpty(t, vfsPath, "Could not find file in Leecher VFS")
+
+	var file io.ReadCloser
+	for i := 0; i < 50; i++ {
+		f, err := appB.FS.Open(vfsPath)
+		if err == nil {
+			file = f
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	require.NotNil(t, file, "Could not open file via Leecher VFS")
+	defer func() { _ = file.Close() }()
+
+	downloaded, err := io.ReadAll(file)
+	require.NoError(t, err)
+	assert.Equal(t, content, downloaded)
+}
+
+func TestIntegration_ArrWorkflow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	defer seeder.Stop()
+
+	content := []byte("arr workflow test data")
+	fileName := "arr_test.txt"
+	magnet, err := seeder.AddFile(fileName, content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	app, err := NewTestApp()
+	require.NoError(t, err)
+	defer app.Close()
+
+	// 1. Add torrent via qBit API
+	category := "movies"
+	apiURL := fmt.Sprintf("http://%s/api/v2/torrents/add", app.HttpAddr)
+	formData := fmt.Sprintf("urls=%s&category=%s", magnet.String(), category)
+
+	resp, err := http.Post(apiURL, "application/x-www-form-urlencoded", strings.NewReader(formData))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	_ = resp.Body.Close()
+
+	// 2. Manually add peers so it can get info (discovery might be slow)
+	var ttor *torrent.Torrent
+	for i := 0; i < 50; i++ {
+		ttor, _ = app.Client.Torrent(magnet.InfoHash)
+		if ttor != nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	require.NotNil(t, ttor, "Torrent did not appear in client after API add")
+
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	_, _ = fmt.Sscanf(port, "%d", &p)
+	ttor.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	// 3. Poll API until torrent appears and has info
+	infoURL := fmt.Sprintf("http://%s/api/v2/torrents/info", app.HttpAddr)
+	var torrentFound bool
+	for i := 0; i < 50; i++ {
+		resp, err := http.Get(infoURL)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			var torrents []map[string]interface{}
+			if err := json.NewDecoder(resp.Body).Decode(&torrents); err == nil {
+				for _, tor := range torrents {
+					if tor["hash"] == magnet.InfoHash.HexString() {
+						// In our mock, progress is 1.0 if info is obtained
+						if tor["progress"].(float64) == 1.0 {
+							torrentFound = true
+							break
+						}
+					}
+				}
+			}
+			_ = resp.Body.Close()
+		}
+		if torrentFound {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	require.True(t, torrentFound, "Torrent did not appear in API with 100% progress")
+
+	// 3. Verify accessibility via VFS mount
+	// The path should be /<category>/<filename>
+	vfsPath := "/" + category + "/" + fileName
+	var file io.ReadCloser
+	for i := 0; i < 50; i++ {
+		f, err := app.FS.Open(vfsPath)
+		if err == nil {
+			file = f
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	require.NotNil(t, file, "Could not open file via VFS after API add")
+	defer func() { _ = file.Close() }()
+
+	downloaded, err := io.ReadAll(file)
+	require.NoError(t, err)
+	assert.Equal(t, content, downloaded)
 }
 
 func TestIntegration_DiskSpaceExhaustion(t *testing.T) {

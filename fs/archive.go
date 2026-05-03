@@ -137,7 +137,7 @@ type archive struct {
 func NewArchive(r iio.Reader, size int64, l loader) *archive {
 	return &archive{
 		r:    r,
-		s:    newStorage(nil),
+		s:    newStorage(GetSupportedFactories()),
 		size: size,
 		l:    l,
 	}

@@ -177,25 +177,26 @@ func (m *mockHashFile) MatchHash(h string) bool {
 
 func TestSupportedFactories(t *testing.T) {
 	t.Parallel()
-
 	require := require.New(t)
 
-	require.Contains(SupportedFactories, ".zip")
-	require.Contains(SupportedFactories, ".rar")
-	require.Contains(SupportedFactories, ".7z")
+	factories := GetSupportedFactories()
+	require.Contains(factories, ".zip")
+	require.Contains(factories, ".rar")
+	require.Contains(factories, ".7z")
 
-	fs, err := SupportedFactories[".zip"](&Dummy{})
+	fs, err := factories[".zip"](&Dummy{})
 	require.NoError(err)
 	require.NotNil(fs)
 
-	fs, err = SupportedFactories[".rar"](&Dummy{})
+	fs, err = factories[".rar"](&Dummy{})
 	require.NoError(err)
 	require.NotNil(fs)
 
-	fs, err = SupportedFactories[".7z"](&Dummy{})
+	fs, err = factories[".7z"](&Dummy{})
 	require.NoError(err)
 	require.NotNil(fs)
 }
+
 
 var _ Filesystem = &DummyFs{}
 

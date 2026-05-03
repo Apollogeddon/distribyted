@@ -87,18 +87,40 @@ func TestZipFilesystem_Empty(t *testing.T) {
 	require.Len(files, 0)
 }
 
-func TestArchive_Loaders(t *testing.T) {
+func TestRecursiveZipFilesystem(t *testing.T) {
 	require := require.New(t)
 
-	// Test SevenZip with invalid input
-	sz := &SevenZip{}
-	_, err := sz.getFiles(newCBR([]byte("invalid")), 7)
-	require.Error(err)
+	// 1. Create inner ZIP
+	innerBuf := bytes.NewBuffer([]byte{})
+	innerWriter := zip.NewWriter(innerBuf)
+	f1, err := innerWriter.Create("inner.txt")
+	require.NoError(err)
+	_, err = f1.Write([]byte("inner content"))
+	require.NoError(err)
+	require.NoError(innerWriter.Close())
 
-	// Test Rar with invalid input
-	r := &Rar{}
-	_, err = r.getFiles(newCBR([]byte("invalid")), 7)
-	require.Error(err)
+	// 2. Create outer ZIP containing inner ZIP
+	outerBuf := bytes.NewBuffer([]byte{})
+	outerWriter := zip.NewWriter(outerBuf)
+	f2, err := outerWriter.Create("inner.zip")
+	require.NoError(err)
+	_, err = f2.Write(innerBuf.Bytes())
+	require.NoError(err)
+	require.NoError(outerWriter.Close())
+
+	// 3. Mount outer ZIP
+	zfs := NewArchive(newCBR(outerBuf.Bytes()), int64(outerBuf.Len()), &Zip{})
+
+	// 4. Try to navigate into inner.zip
+	// If recursion works, /inner.zip should be a directory (or mount point)
+	// and we should be able to read /inner.zip/inner.txt
+	f, err := zfs.Open("/inner.zip/inner.txt")
+	require.NoError(err, "Recursive mounting should allow opening inner file")
+	defer func() { _ = f.Close() }()
+
+	data, err := io.ReadAll(f)
+	require.NoError(err)
+	require.Equal([]byte("inner content"), data)
 }
 
 func createTestZip(require *require.Assertions) (iio.Reader, int64) {
