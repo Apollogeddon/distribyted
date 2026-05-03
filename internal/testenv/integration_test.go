@@ -434,15 +434,17 @@ func TestIntegration_P2PStall(t *testing.T) {
 	// Because of readTimeout=2, it should take at least 2 seconds
 	errCh := make(chan error, 1)
 	go func() {
-		buf := make([]byte, 1024)
-		_, err := file.Read(buf)
+		// Read a larger chunk to ensure we cross any internal buffer boundaries
+		// and actually trigger a network request that will stall.
+		buf := make([]byte, 2*1024*1024)
+		_, err := io.ReadFull(file, buf)
 		errCh <- err
 	}()
 
 	select {
 	case err := <-errCh:
 		require.Error(t, err, "Expected an error after seeder stopped")
-	case <-time.After(30 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("Timeout waiting for read to fail after seeder was stopped")
 	}
 }
