@@ -67,13 +67,15 @@ var _ File = &MemoryFile{}
 
 type MemoryFile struct {
 	BaseFile
-	mu sync.Mutex
+	mu   sync.Mutex
+	size int64
 	*bytes.Reader
 }
 
 func NewMemoryFile(data []byte) *MemoryFile {
 	return &MemoryFile{
 		BaseFile: BaseFile{},
+		size:     int64(len(data)),
 		Reader:   bytes.NewReader(data),
 	}
 }
@@ -85,7 +87,7 @@ func (d *MemoryFile) Read(p []byte) (n int, err error) {
 }
 
 func (d *MemoryFile) Size() int64 {
-	return int64(d.Len())
+	return d.size
 }
 
 func (d *MemoryFile) IsDir() bool {
