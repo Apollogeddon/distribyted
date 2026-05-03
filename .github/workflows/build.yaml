@@ -99,7 +99,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          CGO_ENABLED=1 GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} GOARM=${{ matrix.go_arm }} make build
+          CGO_ENABLED=1 GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} make build
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
