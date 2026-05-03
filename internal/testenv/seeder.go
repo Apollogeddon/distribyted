@@ -9,6 +9,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/storage"
 )
 
 type Seeder struct {
@@ -23,7 +24,9 @@ func NewSeeder() (*Seeder, error) {
 	}
 
 	cfg := torrent.NewDefaultClientConfig()
-	cfg.DataDir = tmpDir
+	cfg.HeaderObfuscationPolicy.Preferred = false
+	cfg.HeaderObfuscationPolicy.RequirePreferred = true
+	cfg.DefaultStorage = storage.NewMMap(tmpDir)
 	cfg.NoUpload = false
 	cfg.Seed = true
 	cfg.ListenPort = 0 // random port
@@ -31,6 +34,10 @@ func NewSeeder() (*Seeder, error) {
 	cfg.DisableIPv6 = true
 	cfg.DisableTCP = false
 	cfg.DisableUTP = true // often causes issues on Windows with many instances
+	cfg.EstablishedConnsPerTorrent = 500
+	cfg.HalfOpenConnsPerTorrent = 250
+	cfg.HeaderObfuscationPolicy.Preferred = false
+	cfg.HeaderObfuscationPolicy.RequirePreferred = true
 
 	client, err := torrent.NewClient(cfg)
 	if err != nil {

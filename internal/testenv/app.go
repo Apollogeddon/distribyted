@@ -34,14 +34,12 @@ type TestApp struct {
 	db          *loader.DB
 	itemStore   *dtorrent.FileItemStore
 	KeepTempDir bool
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func NewTestApp() (*TestApp, error) {
-	tempDir, err := os.MkdirTemp("", "distribyted-test")
-	if err != nil {
-		return nil, err
-	}
-	return newTestApp(tempDir, nil)
+	return newTestApp("", nil, true)
 }
 
 func NewTestAppLimited(limit int64) (*TestApp, error) {
@@ -49,17 +47,26 @@ func NewTestAppLimited(limit int64) (*TestApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newTestApp(tempDir, &limit)
+	return newTestApp(tempDir, &limit, false)
 }
 
 func NewTestAppWithDir(tempDir string) (*TestApp, error) {
-	return newTestApp(tempDir, nil)
+	return newTestApp(tempDir, nil, false)
 }
 
-func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
+func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
+	actualTempDir := tempDir
+	if actualTempDir == "" {
+		var err error
+		actualTempDir, err = os.MkdirTemp("", "distribyted-test-auto")
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	conf := &config.Root{
 		Torrent: &config.TorrentGlobal{
-			MetadataFolder:         tempDir,
+			MetadataFolder:         actualTempDir,
 			AddTimeout:             120,
 			ReadTimeout:            120,
 			ContinueWhenAddTimeout: true,
@@ -82,22 +89,39 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 		},
 	}
 
-	cf := filepath.Join(tempDir, "cache")
-	fc, err := filecache.NewCache(cf)
-	if err != nil {
-		return nil, err
+	var st storage.ClientImpl
+	var fc *filecache.Cache
+	if inMemory {
+		// Pure in-memory storage for torrent data
+		st = NewMapClientImpl()
+	} else {
+		cf := filepath.Join(actualTempDir, "cache")
+		var err error
+		fc, err = filecache.NewCache(cf)
+		if err != nil {
+			return nil, err
+		}
+		st = storage.NewFile(cf)
 	}
-	var st storage.ClientImpl = storage.NewFile(cf)
+
 	if limit != nil {
 		st = &limitStorage{ClientImpl: st, limitBytes: *limit}
 	}
 
-	fis, err := dtorrent.NewFileItemStore(filepath.Join(tempDir, "items"), 2*time.Hour)
+	itemPath := ""
+	if !inMemory {
+		itemPath = filepath.Join(actualTempDir, "items")
+	}
+	fis, err := dtorrent.NewFileItemStore(itemPath, 2*time.Hour)
 	if err != nil {
 		return nil, err
 	}
 
-	id, _ := dtorrent.GetOrCreatePeerID(filepath.Join(tempDir, "ID"))
+	idPath := ""
+	if !inMemory {
+		idPath = filepath.Join(actualTempDir, "ID")
+	}
+	id, _ := dtorrent.GetOrCreatePeerID(idPath)
 
 	c, err := dtorrent.NewClient(st, fis, conf.Torrent, id)
 	if err != nil {
@@ -105,7 +129,11 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 	}
 
 	ss := dtorrent.NewStats()
-	dbl, err := loader.NewDB(filepath.Join(tempDir, "magnetdb"))
+	dbPath := ""
+	if !inMemory {
+		dbPath = filepath.Join(actualTempDir, "magnetdb")
+	}
+	dbl, err := loader.NewDB(dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -129,14 +157,27 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 		_ = cfs.Remove(path)
 	})
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		if err != nil {
+			cancel()
+		}
+	}()
+
 	links, _ := ts.ListLinks()
 	for o, n := range links {
 		go func(oldpath, newpath string) {
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
 			for i := 0; i < 30; i++ { // 30 seconds max for tests
-				if err := cfs.Link(oldpath, newpath); err == nil {
+				select {
+				case <-ctx.Done():
 					return
+				case <-ticker.C:
+					if err := cfs.Link(oldpath, newpath); err == nil {
+						return
+					}
 				}
-				time.Sleep(1 * time.Second)
 			}
 		}(o, n)
 	}
@@ -183,17 +224,22 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 		Service:    ts,
 		Stats:      ss,
 		FS:         cfs,
-		TempDir:    tempDir,
+		TempDir:    actualTempDir,
 		Cache:      fc,
 		HttpAddr:   httpAddr,
 		WebDavAddr: webDavAddr,
 		httpServer: httpServer,
 		db:         dbl,
 		itemStore:  fis,
+		ctx:        ctx,
+		cancel:     cancel,
 	}, nil
 }
 
 func (a *TestApp) Close() {
+	if a.cancel != nil {
+		a.cancel()
+	}
 	if a.httpServer != nil {
 		_ = a.httpServer.Shutdown(context.Background())
 	}
@@ -204,7 +250,7 @@ func (a *TestApp) Close() {
 	if a.itemStore != nil {
 		_ = a.itemStore.Close()
 	}
-	if !a.KeepTempDir {
+	if a.TempDir != "" && !a.KeepTempDir {
 		_ = os.RemoveAll(a.TempDir)
 	}
 }
