@@ -52,6 +52,7 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 	for _, file := range t.Files() {
 		tf := &torrentFile{
 			hash:       ih,
+			file:       file,
 			readerFunc: file.NewReader,
 			len:        file.Length(),
 			timeout:    fs.readTimeout,
@@ -156,13 +157,17 @@ type readAtWrapper struct {
 	mu      sync.Mutex
 	closed  bool
 
+	file    *torrent.File
+	lastOff int64
+	lastLen int
+
 	torrent.Reader
 	io.ReaderAt
 	io.Closer
 }
 
-func newReadAtWrapper(r torrent.Reader, timeout int) reader {
-	return &readAtWrapper{Reader: r, timeout: timeout}
+func newReadAtWrapper(r torrent.Reader, file *torrent.File, timeout int) reader {
+	return &readAtWrapper{Reader: r, file: file, timeout: timeout}
 }
 
 func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
@@ -173,12 +178,43 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
+	// Predictive prefetching: if sequential read is detected, prefetch next region
+	if off == rw.lastOff+int64(rw.lastLen) && rw.file != nil {
+		t := rw.file.Torrent()
+		if info := t.Info(); info != nil {
+			pieceLength := info.PieceLength
+			absOff := rw.file.Offset() + off + int64(len(p))
+			beginPiece := absOff / pieceLength
+			endPiece := (absOff + 10*1024*1024) / pieceLength // 10MB prefetch
+
+			// Limit to file boundaries
+			fileEndPiece := int64(rw.file.EndPieceIndex())
+			if endPiece > fileEndPiece {
+				endPiece = fileEndPiece
+			}
+
+			if beginPiece < endPiece {
+				t.DownloadPieces(int(beginPiece), int(endPiece))
+			}
+		}
+	}
+	rw.lastOff = off
+	rw.lastLen = len(p)
+
 	_, err := rw.Seek(off, io.SeekStart)
 	if err != nil {
 		return 0, err
 	}
 
 	return readAtLeast(rw, rw.timeout, p, len(p))
+}
+
+var timerPool = sync.Pool{
+	New: func() interface{} {
+		t := time.NewTimer(time.Hour)
+		t.Stop()
+		return t
+	},
 }
 
 func readAtLeast(r missinggo.ReadContexter, timeout int, buf []byte, min int) (n int, err error) {
@@ -189,17 +225,29 @@ func readAtLeast(r missinggo.ReadContexter, timeout int, buf []byte, min int) (n
 		var nn int
 
 		ctx, cancel := context.WithCancel(context.Background())
-		timer := time.AfterFunc(
-			time.Duration(timeout)*time.Second,
-			func() {
+
+		timer := timerPool.Get().(*time.Timer)
+		timer.Reset(time.Duration(timeout) * time.Second)
+
+		go func() {
+			select {
+			case <-timer.C:
 				cancel()
-			},
-		)
+			case <-ctx.Done():
+			}
+		}()
 
 		nn, err = r.ReadContext(ctx, buf[n:])
 		n += nn
 
-		timer.Stop()
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timerPool.Put(timer)
+		cancel()
 	}
 	if n >= min {
 		err = nil
@@ -226,6 +274,7 @@ var _ File = &torrentFile{}
 type torrentFile struct {
 	BaseFile
 	hash       string
+	file       *torrent.File
 	readerFunc func() torrent.Reader
 	len        int64
 	timeout    int
@@ -275,20 +324,34 @@ func (h *torrentFileHandle) load() {
 	if h.reader != nil {
 		return
 	}
-	h.reader = newReadAtWrapper(h.readerFunc(), h.timeout)
+	h.reader = newReadAtWrapper(h.readerFunc(), h.file, h.timeout)
 }
 
 func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	h.load()
 	ctx, cancel := context.WithCancel(context.Background())
-	timer := time.AfterFunc(
-		time.Duration(h.timeout)*time.Second,
-		func() {
-			cancel()
-		},
-	)
 
-	defer timer.Stop()
+	timer := timerPool.Get().(*time.Timer)
+	timer.Reset(time.Duration(h.timeout) * time.Second)
+
+	go func() {
+		select {
+		case <-timer.C:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	defer func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timerPool.Put(timer)
+		cancel()
+	}()
 
 	return h.reader.ReadContext(ctx, p)
 }

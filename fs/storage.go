@@ -152,35 +152,11 @@ func (s *storage) Remove(p string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	p = clean(p)
-	f, ok := s.files[p]
-	if !ok {
-		// Check filesystems
-		if _, ok := s.filesystems[p]; !ok {
-			return os.ErrNotExist
-		}
-	} else {
-		f.DecNlink()
-	}
-
-	delete(s.files, p)
-	delete(s.filesystems, p)
-
-	base, filename := path.Split(p)
-	base = clean(base)
-
-	if children, ok := s.children[base]; ok {
-		delete(children, filename)
-		// Prune empty parent directory recursively
-		if len(s.children[base]) == 0 && base != separator {
-			_ = s.removeLocked(base)
-		}
-	}
-
-	return nil
+	return s.removeLocked(p)
 }
 
 func (s *storage) removeLocked(p string) error {
+	p = clean(p)
 	f, ok := s.files[p]
 	if !ok {
 		// Check filesystems

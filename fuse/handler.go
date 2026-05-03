@@ -56,6 +56,10 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 			config = append(config, "-o", "allow_other")
 		}
 
+		// Enable kernel-level caching for attributes and entries to improve performance
+		config = append(config, "-o", "attr_timeout=60")
+		config = append(config, "-o", "entry_timeout=60")
+
 		ok := s.host.Mount(s.path, config)
 		if !ok {
 			log.Error().Str(dlog.KeyPath, s.path).Msg("error trying to mount filesystem")

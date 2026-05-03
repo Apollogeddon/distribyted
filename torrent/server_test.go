@@ -18,6 +18,8 @@ func TestServer_StartAndWatch(t *testing.T) {
 	cfg.ListenPort = 0
 	cfg.NoDHT = true
 	cfg.NoDefaultPortForwarding = true
+	cfg.DisableIPv6 = true
+	cfg.DisableUTP = true
 	cfg.DisableWebseeds = true
 
 	client, err := torrent.NewClient(cfg)

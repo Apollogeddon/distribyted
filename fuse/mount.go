@@ -363,7 +363,6 @@ func (fh *fileHandler) get(fhi uint64) (fs.File, error) {
 	if int(fhi) >= len(fh.opened) {
 		return nil, ErrBadHolderIndex
 	}
-	// TODO check opened slice to avoid panics
 	h := fh.opened[int(fhi)]
 	if h == nil {
 		return nil, ErrHolderEmpty
@@ -380,7 +379,9 @@ func (fh *fileHandler) Remove(fhi uint64) error {
 		return nil
 	}
 
-	// TODO check opened slice to avoid panics
+	if int(fhi) >= len(fh.opened) {
+		return ErrBadHolderIndex
+	}
 	f := fh.opened[int(fhi)]
 	if f == nil {
 		return ErrHolderEmpty

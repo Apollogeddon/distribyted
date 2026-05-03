@@ -66,12 +66,7 @@ func (wd *WebDAV) RemoveAll(ctx context.Context, name string) error {
 		return wd.fs.Rmdir(p)
 	}
 
-	// For files, we don't have a direct Remove yet in Filesystem interface
-	// but Rename/Link use storage.Remove internally.
-	// We'll skip adding Remove to interface for now to keep it minimal,
-	// or we can use Rmdir if storage.Remove handles files too.
-	// Looking at storage.Remove, it handles both.
-	return wd.fs.Rmdir(p)
+	return wd.fs.Remove(p)
 }
 
 func (wd *WebDAV) Rename(ctx context.Context, oldName, newName string) error {

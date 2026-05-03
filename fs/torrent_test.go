@@ -20,6 +20,8 @@ func TestMain(m *testing.M) {
 	cfg.ListenPort = 0
 	cfg.NoDHT = true
 	cfg.NoDefaultPortForwarding = true
+	cfg.DisableIPv6 = true
+	cfg.DisableUTP = true
 
 	// disable webseeds to avoid a panic when closing client on tests
 	cfg.DisableWebseeds = true
@@ -152,7 +154,7 @@ func TestReadAtWrapper(t *testing.T) {
 	<-to.GotInfo()
 	torrFile := to.Files()[0]
 
-	r := newReadAtWrapper(torrFile.NewReader(), 10)
+	r := newReadAtWrapper(torrFile.NewReader(), torrFile, 10)
 	defer func() { _ = r.Close() }()
 
 	toRead := make([]byte, 5)

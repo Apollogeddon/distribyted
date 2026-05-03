@@ -370,8 +370,6 @@ func TestIntegration_CacheEviction(t *testing.T) {
 }
 
 func TestIntegration_P2PStall(t *testing.T) {
-	t.Skip("skipping P2PStall: timeout does not trigger immediately due to internal retries in torrent client")
-	
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -383,8 +381,8 @@ func TestIntegration_P2PStall(t *testing.T) {
 	seeder, err := NewSeeder()
 	require.NoError(t, err)
 
-	// 5 MB content
-	content := make([]byte, 5*1024*1024)
+	// 20 MB content to ensure we don't prefetch/cache everything immediately
+	content := make([]byte, 20*1024*1024)
 	for i := range content {
 		content[i] = byte(i % 256)
 	}
@@ -399,6 +397,7 @@ func TestIntegration_P2PStall(t *testing.T) {
 
 	// 2 second read timeout for faster test
 	app.Config.Torrent.ReadTimeout = 2
+	app.Service.SetReadTimeout(2)
 
 	tMagnet, _ := app.Client.AddMagnet(magnet.String())
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
