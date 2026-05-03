@@ -148,7 +148,7 @@ func (fi *fileInfo) Mode() os.FileMode {
 }
 
 func (fi *fileInfo) ModTime() time.Time {
-	// TODO fix it
+	// Virtual files return current time as they don't have a persistent modification date
 	return time.Now()
 }
 

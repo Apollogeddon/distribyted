@@ -223,7 +223,7 @@ func (wdfi *webDAVFileInfo) Mode() os.FileMode {
 }
 
 func (wdfi *webDAVFileInfo) ModTime() time.Time {
-	// TODO fix it
+	// Virtual files return current time as they don't have a persistent modification date
 	return time.Now()
 }
 

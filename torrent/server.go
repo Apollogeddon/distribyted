@@ -132,7 +132,11 @@ func (s *Server) Start() error {
 
 func (s *Server) watch() {
 	s.log.Info().Msg("starting watcher")
-	for range time.Tick(time.Second * 5) {
+	interval := time.Duration(s.cfg.WatcherInterval) * time.Second
+	if interval == 0 {
+		interval = 5 * time.Second
+	}
+	for range time.Tick(interval) {
 		ec := s.popEvents()
 		if ec == 0 {
 			continue

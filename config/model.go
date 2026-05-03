@@ -59,10 +59,11 @@ type Route struct {
 }
 
 type Server struct {
-	Name       string   `yaml:"name"`
-	Path       string   `yaml:"path"`
-	Trackers   []string `yaml:"trackers"`
-	TrackerURL string   `yaml:"tracker_url"`
+	Name            string   `yaml:"name"`
+	Path            string   `yaml:"path"`
+	Trackers        []string `yaml:"trackers"`
+	TrackerURL      string   `yaml:"tracker_url"`
+	WatcherInterval int      `yaml:"watcher_interval,omitempty"`
 }
 
 type Torrent struct {
