@@ -44,7 +44,8 @@ var apiServersHandler = func(ss []*torrent.Server) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		infos := make([]*torrent.ServerInfo, 0)
 		for _, s := range ss {
-			infos = append(infos, s.Info())
+			info := s.Info()
+			infos = append(infos, &info)
 		}
 		ctx.JSON(http.StatusOK, infos)
 	}

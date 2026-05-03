@@ -275,7 +275,8 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 	// 4. Wait for initial magnet
 	var magnet1 string
 	for i := 0; i < 10; i++ {
-		magnet1 = srv.GetMagnet()
+		info := srv.Info()
+		magnet1 = info.Magnet
 		if magnet1 != "" {
 			break
 		}
@@ -292,7 +293,8 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 	// The server polls every 5 seconds
 	var magnet2 string
 	for i := 0; i < 15; i++ {
-		magnet2 = srv.GetMagnet()
+		info := srv.Info()
+		magnet2 = info.Magnet
 		if magnet2 != "" && magnet2 != magnet1 {
 			break
 		}

@@ -262,7 +262,7 @@ func (s *Server) GetMagnet() string {
 	return s.si.Magnet
 }
 
-func (s *Server) Info() *ServerInfo {
+func (s *Server) Info() ServerInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.t != nil {
@@ -271,5 +271,5 @@ func (s *Server) Info() *ServerInfo {
 		s.si.Seeds = st.ConnectedSeeders
 	}
 
-	return &s.si
+	return s.si
 }
