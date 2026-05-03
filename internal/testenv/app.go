@@ -60,8 +60,8 @@ func newTestApp(tempDir string, limit *int64) (*TestApp, error) {
 	conf := &config.Root{
 		Torrent: &config.TorrentGlobal{
 			MetadataFolder:         tempDir,
-			AddTimeout:             60,
-			ReadTimeout:            60,
+			AddTimeout:             120,
+			ReadTimeout:            120,
 			ContinueWhenAddTimeout: true,
 			GlobalCacheSize:        100,
 			DisableIPv6:            true,

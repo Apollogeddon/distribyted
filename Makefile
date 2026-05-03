@@ -22,15 +22,15 @@ build: go-generate go-build
 
 ## test-race: execute all tests with race enabled.
 test-race:
-	go test -v --race -coverprofile=coverage.out ./...
+	go test --race -coverprofile=coverage.out ./...
 
 ## test: execute all tests
 test:
-	go test -v -coverprofile=coverage.out ./...
+	go test -coverprofile=coverage.out ./...
 
 go-build:
 	@echo "  >  Building binary on $(BIN_OUTPUT)..."
-	go build -v -o $(BIN_OUTPUT) -tags "release" -ldflags='$(LDFLAGS)' cmd/distribyted/main.go
+	go build -o $(BIN_OUTPUT) -tags "release" -ldflags='$(LDFLAGS)' cmd/distribyted/main.go
 
 go-generate:
 	@echo "  >  Generating code files..."
