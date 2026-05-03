@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.20.1](https://github.com/Apollogeddon/distribyted/compare/v0.20.0...v0.20.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* Add missing runtime dependencies for FUSE support ([a70a71d](https://github.com/Apollogeddon/distribyted/commit/a70a71dc10bfc01b2661dfbd453c2caebef246fb))
+* Increase buffer size in TestIntegration_P2PStall to trigger network request stall ([7ccb5aa](https://github.com/Apollogeddon/distribyted/commit/7ccb5aa3b3d70743a9101f1f10c69f078434f82e))
+* Reduce read timeout for integration tests and restore commented-out persistence test ([c49aba8](https://github.com/Apollogeddon/distribyted/commit/c49aba8292a02dff6a657965e8926f3e0610811c))
+* Streamline file removal process and enhance read wrapper functionality ([ac65276](https://github.com/Apollogeddon/distribyted/commit/ac65276e2b5f1a88e6ba9cb0d0c20460fb1aceb5))
+
 ## [0.20.0](https://github.com/Apollogeddon/distribyted/compare/v0.19.4...v0.20.0) (2026-05-03)
 
 
