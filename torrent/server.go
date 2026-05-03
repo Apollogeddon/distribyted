@@ -256,6 +256,12 @@ func (s *Server) Close() error {
 	return s.fw.Close()
 }
 
+func (s *Server) GetMagnet() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.si.Magnet
+}
+
 func (s *Server) Info() *ServerInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
