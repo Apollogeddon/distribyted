@@ -13,12 +13,21 @@ type FsFactory func(f File) (Filesystem, error)
 
 var SupportedFactories = map[string]FsFactory{
 	".zip": func(f File) (Filesystem, error) {
+		if tf, ok := f.(*torrentFile); ok {
+			f = tf.NewHandle()
+		}
 		return NewArchive(f, f.Size(), &Zip{}), nil
 	},
 	".rar": func(f File) (Filesystem, error) {
+		if tf, ok := f.(*torrentFile); ok {
+			f = tf.NewHandle()
+		}
 		return NewArchive(f, f.Size(), &Rar{}), nil
 	},
 	".7z": func(f File) (Filesystem, error) {
+		if tf, ok := f.(*torrentFile); ok {
+			f = tf.NewHandle()
+		}
 		return NewArchive(f, f.Size(), &SevenZip{}), nil
 	},
 }

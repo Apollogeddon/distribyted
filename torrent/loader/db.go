@@ -3,6 +3,7 @@ package loader
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	dlog "github.com/Apollogeddon/distribyted/log"
@@ -19,18 +20,28 @@ const (
 )
 
 type DB struct {
-	db    *badger.DB
-	close chan struct{}
+	db        *badger.DB
+	close     chan struct{}
+	inMemory  bool
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func NewDB(path string) (*DB, error) {
-	absPath, _ := filepath.Abs(path)
-	fmt.Printf("DB DEBUG: opening database at %s\n", absPath)
 	l := log.Logger.With().Str("component", "torrent-store").Logger()
+	var opts badger.Options
+	if path == "" {
+		fmt.Printf("DB DEBUG: opening in-memory database\n")
+		opts = badger.DefaultOptions("").WithInMemory(true)
+	} else {
+		absPath, _ := filepath.Abs(path)
+		fmt.Printf("DB DEBUG: opening database at %s\n", absPath)
+		opts = badger.DefaultOptions(path)
+	}
 
-	opts := badger.DefaultOptions(path).
-		WithLogger(&dlog.Badger{L: l}).
+	opts = opts.WithLogger(&dlog.Badger{L: l}).
 		WithValueLogFileSize(1<<26 - 1).
+		WithValueThreshold(1024).
 		WithSyncWrites(true)
 
 	db, err := badger.Open(opts)
@@ -39,15 +50,19 @@ func NewDB(path string) (*DB, error) {
 	}
 
 	d := &DB{
-		db:    db,
-		close: make(chan struct{}),
+		db:       db,
+		close:    make(chan struct{}),
+		inMemory: path == "",
 	}
-	go d.runGC()
+	if !d.inMemory {
+		go d.runGC()
+	}
 
 	return d, nil
 }
 
 func (l *DB) runGC() {
+	stop := l.close
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 	for {
@@ -58,7 +73,7 @@ func (l *DB) runGC() {
 					break
 				}
 			}
-		case <-l.close:
+		case <-stop:
 			return
 		}
 	}
@@ -185,8 +200,14 @@ func (l *DB) ListLinks() (map[string]string, error) {
 }
 
 func (l *DB) Close() error {
-	fmt.Printf("DB DEBUG: closing database\n")
-	return l.db.Close()
+	l.closeOnce.Do(func() {
+		fmt.Printf("DB DEBUG: closing database\n")
+		if l.close != nil {
+			close(l.close)
+		}
+		l.closeErr = l.db.Close()
+	})
+	return l.closeErr
 }
 
 func (l *DB) DumpAllKeys() {

@@ -3,6 +3,7 @@ package torrent
 import (
 	"bytes"
 	"encoding/gob"
+	"sync"
 	"time"
 
 	dlog "github.com/Apollogeddon/distribyted/log"
@@ -17,22 +18,26 @@ type FileItemStore struct {
 	ttl       time.Duration
 	db        *badger.DB
 	closeChan chan struct{}
+	inMemory  bool
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, error) {
 	l := log.Logger.With().Str("component", "item-store").Logger()
+	var opts badger.Options
+	if path == "" {
+		opts = badger.DefaultOptions("").WithInMemory(true)
+	} else {
+		opts = badger.DefaultOptions(path)
+	}
 
-	opts := badger.DefaultOptions(path).
-		WithLogger(&dlog.Badger{L: l}).
-		WithValueLogFileSize(1<<26 - 1)
+	opts = opts.WithLogger(&dlog.Badger{L: l}).
+		WithValueLogFileSize(1<<26 - 1).
+		WithValueThreshold(1024)
 
 	db, err := badger.Open(opts)
 	if err != nil {
-		return nil, err
-	}
-
-	err = db.RunValueLogGC(0.5)
-	if err != nil && err != badger.ErrNoRewrite {
 		return nil, err
 	}
 
@@ -40,13 +45,18 @@ func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, erro
 		db:        db,
 		ttl:       itemsTTL,
 		closeChan: make(chan struct{}),
+		inMemory:  path == "",
 	}
-	go fis.runGC()
+	if !fis.inMemory {
+		_ = db.RunValueLogGC(0.5)
+		go fis.runGC()
+	}
 
 	return fis, nil
 }
 
 func (fis *FileItemStore) runGC() {
+	stop := fis.closeChan
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 	for {
@@ -57,7 +67,7 @@ func (fis *FileItemStore) runGC() {
 					break
 				}
 			}
-		case <-fis.closeChan:
+		case <-stop:
 			return
 		}
 	}
@@ -115,6 +125,9 @@ func (fis *FileItemStore) Del(t bep44.Target) error {
 }
 
 func (fis *FileItemStore) Close() error {
-	close(fis.closeChan)
-	return fis.db.Close()
+	fis.closeOnce.Do(func() {
+		close(fis.closeChan)
+		fis.closeErr = fis.db.Close()
+	})
+	return fis.closeErr
 }

@@ -217,9 +217,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		log.Warn().Err(err).Msg("problem loading links from database")
 	}
 
-	for newpath, oldpath := range links {
-		if oldpath == "" {
-			_ = cfs.Mkdir(newpath)
+	for op, np := range links {
+		if op == "" {
+			_ = cfs.Mkdir(np)
 		} else {
 			go func(op, np string) {
 				for i := 0; i < 300; i++ { // 10 minutes max for app
@@ -228,7 +228,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 					}
 					time.Sleep(2 * time.Second)
 				}
-			}(oldpath, newpath)
+			}(op, np)
 		}
 	}
 
