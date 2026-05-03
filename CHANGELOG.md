@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.20.0](https://github.com/Apollogeddon/distribyted/compare/v0.19.4...v0.20.0) (2026-05-03)
+
+
+### Features
+
+* Add DHT, UPnP, and ListenPort configuration options ([0ab8798](https://github.com/Apollogeddon/distribyted/commit/0ab879842a27bd74e157adc714d46eb5401f4da7))
+* Expand qBitTorrent API v2 compatibility ([66646e1](https://github.com/Apollogeddon/distribyted/commit/66646e1264dd4b0cffff38ea8cda0348b188623e))
+* Implement configurable watcher interval and fix VFS modtime TODOs ([621ed3d](https://github.com/Apollogeddon/distribyted/commit/621ed3d25f9519b4ecf1e7b26bb6e69e3144e4f3))
+* Modularize WebDAV server and handler ([16c92ea](https://github.com/Apollogeddon/distribyted/commit/16c92ea43633ef8722e08479fa1168f76c7cf969))
+
+
+### Bug Fixes
+
+* Add force unmount helper for Unix systems ([3a1e36b](https://github.com/Apollogeddon/distribyted/commit/3a1e36b35035b66a7c609f388bac969ecbdedf44))
+* Add mutex locking to MemoryFile and mockHost for thread safety ([a94894e](https://github.com/Apollogeddon/distribyted/commit/a94894eda70d930ffc2b9b64a117ee21fb402ab4))
+* Add mutex locking to MockLoaderAdder for thread safety ([df72fc7](https://github.com/Apollogeddon/distribyted/commit/df72fc750583887551a20f9a54be0a9a694f9f46))
+* Add mutex locking to storage methods for thread safety ([93ebd65](https://github.com/Apollogeddon/distribyted/commit/93ebd65d6e8aa70cdcf7e35c8eb8666fc469809b))
+* Change read lock to write lock in Server Info method for thread safety ([0fb6c6d](https://github.com/Apollogeddon/distribyted/commit/0fb6c6d75a723267ab779b79f1d5c66ed4d01208))
+* Correct MemoryFile size calculation and improve struct formatting ([2daafe9](https://github.com/Apollogeddon/distribyted/commit/2daafe996777dd451e8401b55c44b7c44cbe26e5))
+* Enable continue on add timeout and improve logging for torrent addition ([ba9268f](https://github.com/Apollogeddon/distribyted/commit/ba9268f9eae6e2152681e3be20b9ea7826b03f85))
+* Ensure proper closure of resources with error handling in tests and handlers ([38ac3e2](https://github.com/Apollogeddon/distribyted/commit/38ac3e2b67151bdf9b619d6ffa3b70f9a3ab6737))
+* Handle errors during temporary directory cleanup in tests ([e1aa08a](https://github.com/Apollogeddon/distribyted/commit/e1aa08abed71903db22a5eb8c441ff8b870db969))
+* Handle errors on resource cleanup in tests ([fc7b3fb](https://github.com/Apollogeddon/distribyted/commit/fc7b3fba04c9fc9101bf15d49fda7710d4075683))
+* Implement background retry logic for VFS virtual links ([4f28d83](https://github.com/Apollogeddon/distribyted/commit/4f28d8358da1ef68faa0d4a02acdf6c61cbdc375))
+* Implement periodic BadgerDB garbage collection ([1858207](https://github.com/Apollogeddon/distribyted/commit/18582072891ad9293cfb0c78459f087818191795))
+* Improve cleanup process by adding warning for failed torrent cache removal ([50ce152](https://github.com/Apollogeddon/distribyted/commit/50ce15232f16640a0324cfe4f54c6b08ffd80006))
+* Improve logging safety and test environment reliability ([e3b7d59](https://github.com/Apollogeddon/distribyted/commit/e3b7d59e5433d0040c54712e4c76b6d9776a17a1))
+* Improve mount stability and error handling ([b357cbc](https://github.com/Apollogeddon/distribyted/commit/b357cbc836789a8e173c0b35d93d3f704b649c11))
+* Improve resource cleanup in tests by handling errors on closure ([69c740e](https://github.com/Apollogeddon/distribyted/commit/69c740e6b37db682019742098a7031373bd09290))
+* Refactor magnet retrieval in LiveServerUpdates test for clarity and efficiency ([c480bb2](https://github.com/Apollogeddon/distribyted/commit/c480bb241197b0d09b9845798274509e9f8eb7ae))
+* Remove undefined GOARM variable from build workflow ([98a1262](https://github.com/Apollogeddon/distribyted/commit/98a12628fafffefe7f0c870a4e29fdff71c66353))
+* Resolve data races and optimize database metadata storage ([4adcc6e](https://github.com/Apollogeddon/distribyted/commit/4adcc6ef82a3acfa06d4019f4a6e6f073dc86ada))
+* Suppress error on temporary directory removal in seeder ([f8a8385](https://github.com/Apollogeddon/distribyted/commit/f8a8385a429163b89a1f5bc0023f3840819565c5))
+* Update Info method to return ServerInfo by value and refactor magnet retrieval in integration tests ([f330361](https://github.com/Apollogeddon/distribyted/commit/f330361eec940c3c4307dc01af53c343873df03b))
+* Update timeout settings in TestApp configuration for improved performance ([30d614e](https://github.com/Apollogeddon/distribyted/commit/30d614e60c4af39255d99b4b382f53238806ccc2))
+
 ## [0.19.4](https://github.com/Apollogeddon/distribyted/compare/v0.19.3...v0.19.4) (2026-04-30)
 
 
