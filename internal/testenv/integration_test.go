@@ -370,7 +370,7 @@ func TestIntegration_CacheEviction(t *testing.T) {
 }
 
 func TestIntegration_P2PStall(t *testing.T) {
-	t.Skip("skipping P2PStall due to upstream panic on forceful file closure during read stall")
+	t.Skip("skipping P2PStall: timeout does not trigger immediately due to internal retries in torrent client")
 	
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -435,20 +435,15 @@ func TestIntegration_P2PStall(t *testing.T) {
 	// Because of readTimeout=2, it should take at least 2 seconds
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := io.ReadAll(file)
+		buf := make([]byte, 1024)
+		_, err := file.Read(buf)
 		errCh <- err
-	}()
-
-	// Forcefully close the file after 5 seconds to prevent indefinite blocking if the client gets stuck retrying
-	go func() {
-		time.Sleep(5 * time.Second)
-		_ = file.Close()
 	}()
 
 	select {
 	case err := <-errCh:
 		require.Error(t, err, "Expected an error after seeder stopped")
-	case <-time.After(15 * time.Second):
+	case <-time.After(30 * time.Second):
 		t.Fatal("Timeout waiting for read to fail after seeder was stopped")
 	}
 }

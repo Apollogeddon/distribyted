@@ -34,8 +34,9 @@ func TestServer_StartAndWatch(t *testing.T) {
 	require.NoError(t, err)
 
 	serverCfg := &config.Server{
-		Name: "test-server",
-		Path: serverFolder,
+		Name:            "test-server",
+		Path:            serverFolder,
+		WatcherInterval: 1,
 	}
 
 	srv := NewServer(client, pc, serverCfg)
@@ -59,8 +60,8 @@ func TestServer_StartAndWatch(t *testing.T) {
 	err = os.WriteFile(dummyFile2, []byte("hello world 2"), 0644)
 	require.NoError(t, err)
 
-	// wait for watcher to trigger magnet recreation (runs every 5 seconds)
-	time.Sleep(6 * time.Second)
+	// wait for watcher to trigger magnet recreation
+	time.Sleep(2 * time.Second)
 
 	info2 := srv.Info()
 	require.NotEqual(t, firstMagnet, info2.Magnet, "magnet should be updated after new file")

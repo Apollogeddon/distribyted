@@ -31,6 +31,16 @@ func checkWinFsp(t *testing.T) {
 	t.Skip("WinFsp not found, skipping FUSE tests")
 }
 
+func waitForFile(t *testing.T, path string) {
+	for i := 0; i < 50; i++ {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("timeout waiting for file: %s", path)
+}
+
 func TestHandler(t *testing.T) {
 	checkWinFsp(t)
 
@@ -52,9 +62,10 @@ func TestHandler(t *testing.T) {
 	err = h.Mount(cfs)
 	require.NoError(err)
 
-	time.Sleep(5 * time.Second)
+	target := filepath.Join(p, "mem", "test.txt")
+	waitForFile(t, target)
 
-	fi, err := os.Stat(filepath.Join(p, "mem", "test.txt"))
+	fi, err := os.Stat(target)
 	require.NoError(err)
 
 	require.False(fi.IsDir())
@@ -82,9 +93,10 @@ func TestHandlerDriveLetter(t *testing.T) {
 	err = h.Mount(cfs)
 	require.NoError(err)
 
-	time.Sleep(5 * time.Second)
+	target := filepath.Join(p, "mem", "test.txt")
+	waitForFile(t, target)
 
-	fi, err := os.Stat(filepath.Join(p, "mem", "test.txt"))
+	fi, err := os.Stat(target)
 	require.NoError(err)
 
 	require.False(fi.IsDir())
