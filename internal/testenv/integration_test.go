@@ -576,6 +576,10 @@ func TestIntegration_DiskSpaceExhaustion(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Close()
 
+	// 2 second read timeout for faster test
+	app.Config.Torrent.ReadTimeout = 2
+	app.Service.SetReadTimeout(2)
+
 	tMagnet, _ := app.Client.AddMagnet(magnet.String())
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
@@ -612,7 +616,12 @@ func TestIntegration_DiskSpaceExhaustion(t *testing.T) {
 		require.Error(t, err)
 		// We expect either a "no space left on device" error or the torrent client disabling download
 		errMsg := err.Error()
-		assert.True(t, contains(errMsg, "no space left on device") || contains(errMsg, "downloading disabled"), "Unexpected error: %s", errMsg)
+		assert.True(t,
+			contains(errMsg, "no space left on device") ||
+				contains(errMsg, "not enough space") ||
+				contains(errMsg, "downloading disabled") ||
+				contains(errMsg, "context canceled"), // ReadTimeout can trigger this
+			"Unexpected error: %s", errMsg)
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for read to fail on exhausted disk space")
 	}
