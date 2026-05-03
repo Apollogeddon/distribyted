@@ -30,7 +30,7 @@ RUN BIN_OUTPUT=/bin/distribyted make build \
 FROM alpine:3
 
 # Install only runtime dependencies
-RUN apk add --no-cache fuse
+RUN apk add --no-cache fuse libstdc++ libgcc
 
 # Create a non-root user
 RUN addgroup -S distribyted && adduser -S distribyted -G distribyted
