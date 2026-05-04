@@ -13,7 +13,7 @@ require (
 	github.com/bodgit/sevenzip v1.6.2
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.5
-	github.com/fsnotify/fsnotify v1.10.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.1 // indirect
 	github.com/goccy/go-yaml v1.19.2
