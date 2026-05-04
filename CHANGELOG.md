@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.1](https://github.com/Apollogeddon/distribyted/compare/v0.21.0...v0.21.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* Correct link mapping in TestDB_Links to ensure accurate path associations ([d2d92c8](https://github.com/Apollogeddon/distribyted/commit/d2d92c8a1ec1ca48a75bfc81ad84ba1ae1406005))
+* Correct order of parameters in loops and ensure proper handling of links and hashes ([2e6a943](https://github.com/Apollogeddon/distribyted/commit/2e6a94301adc113a9bbcbcb109aa41e3581830da))
+* Reverse order of parameters in link processing loop for correct path handling ([b5a96b1](https://github.com/Apollogeddon/distribyted/commit/b5a96b15127fd21a46566d48cc855a45dadb6bcd))
+
 ## [0.21.0](https://github.com/Apollogeddon/distribyted/compare/v0.20.1...v0.21.0) (2026-05-04)
 
 
