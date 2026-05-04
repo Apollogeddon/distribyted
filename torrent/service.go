@@ -36,6 +36,10 @@ func (tw TorrentWrapper) InfoHash() metainfo.Hash {
 	return tw.Torrent.InfoHash()
 }
 
+func (tw TorrentWrapper) SetPriority(index int, prio torrent.PiecePriority) {
+	tw.Torrent.Piece(index).SetPriority(prio)
+}
+
 type ClientWrapper struct {
 	*torrent.Client
 }

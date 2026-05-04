@@ -316,6 +316,8 @@ func (m *mockTorrent) Name() string                           { return m.name }
 func (m *mockTorrent) PieceStateRuns() torrent.PieceStateRuns { return nil }
 func (m *mockTorrent) Stats() torrent.TorrentStats            { return m.stats }
 func (m *mockTorrent) Drop()                                  {}
+func (m *mockTorrent) DownloadPieces(int, int)                {}
+func (m *mockTorrent) SetPriority(int, torrent.PiecePriority) {}
 
 func TestQBitTorrentsInfoWithData(t *testing.T) {
 	ss := dtorrent.NewStats()

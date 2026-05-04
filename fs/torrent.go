@@ -178,23 +178,34 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
-	// Predictive prefetching: if sequential read is detected, prefetch next region
-	if off == rw.lastOff+int64(rw.lastLen) && rw.file != nil {
+	if rw.file != nil {
 		t := rw.file.Torrent()
 		if info := t.Info(); info != nil {
 			pieceLength := info.PieceLength
-			absOff := rw.file.Offset() + off + int64(len(p))
+			absOff := rw.file.Offset() + off
 			beginPiece := absOff / pieceLength
-			endPiece := (absOff + 10*1024*1024) / pieceLength // 10MB prefetch
+			endPiece := (absOff + int64(len(p)) + pieceLength - 1) / pieceLength
 
-			// Limit to file boundaries
-			fileEndPiece := int64(rw.file.EndPieceIndex())
-			if endPiece > fileEndPiece {
-				endPiece = fileEndPiece
+			// Set high priority for currently requested pieces
+			for i := int(beginPiece); i < int(endPiece); i++ {
+				t.Piece(i).SetPriority(torrent.PiecePriorityNow)
 			}
 
-			if beginPiece < endPiece {
-				t.DownloadPieces(int(beginPiece), int(endPiece))
+			// Predictive prefetching: if sequential read is detected, prefetch next region
+			if off == rw.lastOff+int64(rw.lastLen) {
+				prefetchAbsOff := absOff + int64(len(p))
+				prefetchBeginPiece := prefetchAbsOff / pieceLength
+				prefetchEndPiece := (prefetchAbsOff + 10*1024*1024) / pieceLength // 10MB prefetch
+
+				// Limit to file boundaries
+				fileEndPiece := int64(rw.file.EndPieceIndex())
+				if prefetchEndPiece > fileEndPiece {
+					prefetchEndPiece = fileEndPiece
+				}
+
+				if prefetchBeginPiece < prefetchEndPiece {
+					t.DownloadPieces(int(prefetchBeginPiece), int(prefetchEndPiece))
+				}
 			}
 		}
 	}

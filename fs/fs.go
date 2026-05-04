@@ -20,6 +20,9 @@ type Torrent interface {
 	PieceStateRuns() torrent.PieceStateRuns
 	Stats() torrent.TorrentStats
 	Drop()
+
+	DownloadPieces(int, int)
+	SetPriority(int, torrent.PiecePriority)
 }
 
 type TorrentWrapper struct {
@@ -28,6 +31,10 @@ type TorrentWrapper struct {
 
 func (tw TorrentWrapper) GotInfo() <-chan struct{} {
 	return tw.Torrent.GotInfo()
+}
+
+func (tw TorrentWrapper) SetPriority(index int, prio torrent.PiecePriority) {
+	tw.Torrent.Piece(index).SetPriority(prio)
 }
 
 var nextIno uint64 = 1000 // Reserve low numbers
