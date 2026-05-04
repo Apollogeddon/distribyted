@@ -142,7 +142,7 @@ func (s *Service) Load() (map[string]fs.Filesystem, error) {
 		return nil, err
 	}
 	s.log.Debug().Int("count", len(links)).Msg("found links in database")
-	for o, n := range links {
+	for n, o := range links {
 		s.log.Debug().Str("old", o).Str("new", n).Msg("restoring link")
 		// Don't call AddLink as it writes back to DB. Call onLinkAdded directly.
 		if s.onLinkAdded != nil {

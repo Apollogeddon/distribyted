@@ -188,7 +188,10 @@ func (s *storage) removeLocked(p string) error {
 		delete(children, filename)
 		// Prune empty parent directory recursively
 		if len(s.children[base]) == 0 && base != separator {
-			_ = s.removeLocked(base)
+			// Don't prune if it's a mountpoint
+			if _, isMount := s.filesystems[base]; !isMount {
+				_ = s.removeLocked(base)
+			}
 		}
 	}
 

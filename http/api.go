@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/Apollogeddon/distribyted/torrent"
 	"github.com/anacrolix/missinggo/v2/filecache"
@@ -81,7 +82,7 @@ var apiAddTorrentHandler = func(s torrentService) gin.HandlerFunc {
 var apiDelTorrentHandler = func(s torrentService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		route := ctx.Param("route")
-		hash := ctx.Param("torrent_hash")
+		hash := strings.ToLower(ctx.Param("torrent_hash"))
 
 		if err := s.RemoveFromHash(route, hash); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

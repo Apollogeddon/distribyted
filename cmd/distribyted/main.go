@@ -217,7 +217,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		log.Warn().Err(err).Msg("problem loading links from database")
 	}
 
-	for op, np := range links {
+	for np, op := range links {
 		if op == "" {
 			_ = cfs.Mkdir(np)
 		} else {

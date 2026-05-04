@@ -296,7 +296,7 @@ func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 		hashList := strings.Split(hashes, "|")
 
 		for _, h := range hashList {
-			h = strings.TrimSpace(h)
+			h = strings.ToLower(strings.TrimSpace(h))
 			if h == "" {
 				continue
 			}

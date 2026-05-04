@@ -193,7 +193,7 @@ func (l *DB) ListLinks() (map[string]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		out[string(val)] = newpath
+		out[newpath] = string(val)
 	}
 
 	return out, nil
