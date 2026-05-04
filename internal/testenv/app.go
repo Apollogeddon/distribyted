@@ -165,7 +165,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 	}()
 
 	links, _ := ts.ListLinks()
-	for o, n := range links {
+	for n, o := range links {
 		go func(oldpath, newpath string) {
 			ticker := time.NewTicker(1 * time.Second)
 			defer ticker.Stop()
