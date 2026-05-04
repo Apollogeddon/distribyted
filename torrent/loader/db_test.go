@@ -84,8 +84,8 @@ func TestDB_Links(t *testing.T) {
 	links, err := s.ListLinks()
 	require.NoError(err)
 	require.Len(links, 2)
-	require.Equal("new/path1", links["old/path1"])
-	require.Equal("new/path2", links["old/path2"])
+	require.Equal("old/path1", links["new/path1"])
+	require.Equal("old/path2", links["new/path2"])
 
 	// Remove link
 	err = s.RemoveLink("new/path1") // The targetPath is the NEW path (the key)
@@ -94,8 +94,8 @@ func TestDB_Links(t *testing.T) {
 	links, err = s.ListLinks()
 	require.NoError(err)
 	require.Len(links, 1)
-	require.NotContains(links, "old/path1")
-	require.Contains(links, "old/path2")
+	require.NotContains(links, "new/path1")
+	require.Contains(links, "new/path2")
 
 	_ = s.Close()
 }
