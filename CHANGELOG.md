@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.0](https://github.com/Apollogeddon/distribyted/compare/v0.20.1...v0.21.0) (2026-05-04)
+
+
+### Features
+
+* Add DownloadPieces and SetPriority methods to Torrent interface and implement in TorrentWrapper ([c571b96](https://github.com/Apollogeddon/distribyted/commit/c571b968f872c15ab1c137112101c9b53feddad6))
+* Refactor storage factories and enhance integration tests for concurrency and persistence ([d8242c1](https://github.com/Apollogeddon/distribyted/commit/d8242c1c31eebf7049b863502b7726fbc1bca5c4))
+
 ## [0.20.1](https://github.com/Apollogeddon/distribyted/compare/v0.20.0...v0.20.1) (2026-05-03)
 
 
