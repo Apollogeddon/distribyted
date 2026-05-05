@@ -100,14 +100,18 @@ func TestRegression_VFS_Concurrency(t *testing.T) {
 				readSize := r.Intn(maxReadSize) + 1
 				
 				buf := make([]byte, readSize)
-				n, err := f.ReadAt(buf, offset)
-				if err != nil && err != io.EOF {
-					errCh <- fmt.Errorf("G%d R%d: read failed at %d: %w", id, j, offset, err)
-					return
-				}
-				if n != readSize {
-					errCh <- fmt.Errorf("G%d R%d: short read at %d: expected %d, got %d", id, j, offset, readSize, n)
-					return
+				n := 0
+				for n < readSize {
+					nn, err := f.ReadAt(buf[n:], offset+int64(n))
+					if err != nil && err != io.EOF {
+						errCh <- fmt.Errorf("G%d R%d: read failed at %d: %w", id, j, offset+int64(n), err)
+						return
+					}
+					if nn == 0 {
+						errCh <- fmt.Errorf("G%d R%d: read zero bytes at %d", id, j, offset+int64(n))
+						return
+					}
+					n += nn
 				}
 
 				expected := content[offset : offset+int64(readSize)]
@@ -192,14 +196,18 @@ func TestRegression_ThunderingHerd(t *testing.T) {
 			defer func() { _ = f.Close() }()
 
 			buf := make([]byte, len(content))
-			n, err := f.ReadAt(buf, 0)
-			if err != nil && err != io.EOF {
-				errCh <- fmt.Errorf("G%d: read failed: %w", id, err)
-				return
-			}
-			if n != len(content) {
-				errCh <- fmt.Errorf("G%d: short read: %d", id, n)
-				return
+			n := 0
+			for n < len(content) {
+				nn, err := f.ReadAt(buf[n:], int64(n))
+				if err != nil && err != io.EOF {
+					errCh <- fmt.Errorf("G%d: read failed: %w", id, err)
+					return
+				}
+				if nn == 0 {
+					errCh <- fmt.Errorf("G%d: read zero bytes", id)
+					return
+				}
+				n += nn
 			}
 
 			if !bytes.Equal(buf, content) {

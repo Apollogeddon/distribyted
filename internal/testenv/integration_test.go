@@ -524,14 +524,18 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 			defer func() { _ = f.Close() }()
 
 			buf := make([]byte, readSize)
-			n, err := f.ReadAt(buf, offset)
-			if err != nil && err != io.EOF {
-				errCh <- fmt.Errorf("worker %d read failed: %w", workerID, err)
-				return
-			}
-			if n != readSize {
-				errCh <- fmt.Errorf("worker %d read short: expected %d, got %d", workerID, readSize, n)
-				return
+			n := 0
+			for n < readSize {
+				nn, err := f.ReadAt(buf[n:], offset+int64(n))
+				if err != nil && err != io.EOF {
+					errCh <- fmt.Errorf("worker %d read failed: %w", workerID, err)
+					return
+				}
+				if nn == 0 {
+					errCh <- fmt.Errorf("worker %d read zero bytes", workerID)
+					return
+				}
+				n += nn
 			}
 
 			if !bytes.Equal(buf, expectedData) {

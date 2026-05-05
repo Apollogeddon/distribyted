@@ -2,6 +2,7 @@ package loader
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"sync"
 	"time"
@@ -15,8 +16,8 @@ import (
 var _ LoaderAdder = &DB{}
 
 const (
-	routeRootKey = "/route/"
-	linkRootKey  = "/link/"
+	routeRootKey = "/route"
+	linkRootKey  = "/link"
 )
 
 type DB struct {
@@ -92,7 +93,7 @@ func (l *DB) AddMagnet(r, m string) error {
 
 		ih := spec.InfoHash.HexString()
 
-		rp := routeRootKey + ih + "/" + r
+		rp := path.Join(routeRootKey, ih, r)
 		fmt.Printf("DB DEBUG: adding magnet key: %s\n", rp)
 		return txn.Set([]byte(rp), []byte(m))
 	})
@@ -112,7 +113,7 @@ func (l *DB) RemoveFromHash(r, h string) (bool, error) {
 		return false, err
 	}
 
-	rp := routeRootKey + h + "/" + r
+	rp := path.Join(routeRootKey, h, r)
 	if _, err := tx.Get([]byte(rp)); err != nil {
 		return false, nil
 	}
@@ -131,15 +132,15 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 	it := tx.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	prefix := []byte(routeRootKey)
+	prefix := []byte(path.Join(routeRootKey, ""))
 	out := make(map[string][]string)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		k := string(item.Key())
 		fmt.Printf("DB DEBUG: found magnet key: %s\n", k)
 		// key is /route/<hash>/<route_name>
-		// Let's slice manually: k[/route/<hash>/:]
-		r := k[len(routeRootKey)+41:] // 40 hex chars + 1 slash
+		// routeRootKey + "/" + hash(40) + "/"
+		r := k[len(routeRootKey)+42:] 
 
 		val, err := item.ValueCopy(nil)
 		if err != nil {
@@ -153,7 +154,7 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 
 func (l *DB) AddLink(oldpath, newpath string) error {
 	err := l.db.Update(func(txn *badger.Txn) error {
-		key := linkRootKey + newpath
+		key := path.Join(linkRootKey, newpath)
 		fmt.Printf("DB DEBUG: adding link key: %s\n", key)
 		return txn.Set([]byte(key), []byte(oldpath))
 	})
@@ -165,7 +166,7 @@ func (l *DB) AddLink(oldpath, newpath string) error {
 
 func (l *DB) RemoveLink(targetPath string) error {
 	err := l.db.Update(func(txn *badger.Txn) error {
-		key := linkRootKey + targetPath
+		key := path.Join(linkRootKey, targetPath)
 		return txn.Delete([]byte(key))
 	})
 	if err != nil {
@@ -181,17 +182,21 @@ func (l *DB) ListLinks() (map[string]string, error) {
 	it := tx.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	prefix := []byte(linkRootKey)
+	prefix := []byte(path.Join(linkRootKey, ""))
 	out := make(map[string]string)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		k := string(item.Key())
 		fmt.Printf("DB DEBUG: found link key: %s\n", k)
-		newpath := k[len(linkRootKey):]
 
 		val, err := item.ValueCopy(nil)
 		if err != nil {
 			return nil, err
+		}
+
+		newpath := k[len(linkRootKey)+1:]
+		if newpath == "" {
+			continue
 		}
 		out[newpath] = string(val)
 	}

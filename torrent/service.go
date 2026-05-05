@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -229,7 +228,7 @@ func (s *Service) OnLinkRemoved(f func(string)) {
 }
 
 func cleanRoute(r string) string {
-	return "/" + strings.Trim(r, "/")
+	return path.Clean("/" + r)
 }
 
 func (s *Service) addTorrentPath(r, p string) error {

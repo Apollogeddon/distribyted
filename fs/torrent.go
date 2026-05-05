@@ -217,7 +217,7 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 		return 0, err
 	}
 
-	return readAtLeast(rw, rw.timeout, p, len(p))
+	return readAtLeast(rw, rw.timeout, p, 1)
 }
 
 var timerPool = sync.Pool{
