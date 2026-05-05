@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.3](https://github.com/Apollogeddon/distribyted/compare/v0.21.2...v0.21.3) (2026-05-05)
+
+
+### Bug Fixes
+
+* Enhance logging and context management in torrent service and file handling ([9bdde95](https://github.com/Apollogeddon/distribyted/commit/9bdde95988e1e8cd298c253ec879e1d737b64ad5))
+
 ## [0.21.2](https://github.com/Apollogeddon/distribyted/compare/v0.21.1...v0.21.2) (2026-05-05)
 
 
