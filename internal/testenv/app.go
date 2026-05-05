@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/Apollogeddon/distribyted/config"
@@ -33,6 +34,7 @@ type TestApp struct {
 	httpServer  *http.Server
 	db          *loader.DB
 	itemStore   *dtorrent.FileItemStore
+	pc          storage.PieceCompletion
 	KeepTempDir bool
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -91,6 +93,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 
 	var st storage.ClientImpl
 	var fc *filecache.Cache
+	var pc storage.PieceCompletion
 	if inMemory {
 		// Pure in-memory storage for torrent data
 		st = NewMapClientImpl()
@@ -101,7 +104,20 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		if err != nil {
 			return nil, err
 		}
-		st = storage.NewFile(cf)
+
+		pcp := filepath.Join(actualTempDir, "piece-completion")
+		if err := os.MkdirAll(pcp, 0744); err != nil {
+			return nil, err
+		}
+		pc, err = storage.NewBoltPieceCompletion(pcp)
+		if err != nil {
+			return nil, err
+		}
+		
+		st = storage.NewResourcePieces(fc.AsResourceProvider())
+		if runtime.GOOS == "windows" {
+			st = storage.NewFileWithCompletion(cf, pc)
+		}
 	}
 
 	if limit != nil {
@@ -231,6 +247,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		httpServer: httpServer,
 		db:         dbl,
 		itemStore:  fis,
+		pc:         pc,
 		ctx:        ctx,
 		cancel:     cancel,
 	}, nil
@@ -244,6 +261,9 @@ func (a *TestApp) Close() {
 		_ = a.httpServer.Shutdown(context.Background())
 	}
 	a.Client.Close()
+	if a.pc != nil {
+		_ = a.pc.Close()
+	}
 	if a.db != nil {
 		_ = a.db.Close()
 	}

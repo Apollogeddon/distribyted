@@ -188,40 +188,6 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 
 	rw.log.Debug().Int64("off", off).Int("len", len(p)).Msg("ReadAt request")
 
-	if rw.file != nil {
-		t := rw.file.Torrent()
-		if t.Info() != nil {
-			info := t.Info()
-			pieceLength := info.PieceLength
-			absOff := rw.file.Offset() + off
-			beginPiece := absOff / pieceLength
-			endPiece := (absOff + int64(len(p)) + pieceLength - 1) / pieceLength
-
-			// Set high priority for currently requested pieces
-			rw.log.Debug().Int64("begin", beginPiece).Int64("end", endPiece).Msg("prioritizing pieces")
-			for i := int(beginPiece); i < int(endPiece); i++ {
-				t.Piece(i).SetPriority(torrent.PiecePriorityNow)
-			}
-
-			// Predictive prefetching: if sequential read is detected, prefetch next region
-			if off == rw.lastOff+int64(rw.lastLen) {
-				prefetchAbsOff := absOff + int64(len(p))
-				prefetchBeginPiece := prefetchAbsOff / pieceLength
-				prefetchEndPiece := (prefetchAbsOff + 10*1024*1024) / pieceLength // 10MB prefetch
-
-				// Limit to file boundaries
-				fileEndPiece := int64(rw.file.EndPieceIndex())
-				if prefetchEndPiece > fileEndPiece {
-					prefetchEndPiece = fileEndPiece
-				}
-
-				if prefetchBeginPiece < prefetchEndPiece {
-					rw.log.Debug().Int64("begin", prefetchBeginPiece).Int64("end", prefetchEndPiece).Msg("prefetching next region")
-					t.DownloadPieces(int(prefetchBeginPiece), int(prefetchEndPiece))
-				}
-			}
-		}
-	}
 	rw.lastOff = off
 	rw.lastLen = len(p)
 
@@ -252,7 +218,7 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 		}
 	}()
 
-	n, err := readAtLeast(rw, rw.timeout, p, 1, rw.log)
+	n, err := readAtLeast(rw, rw.timeout, p, len(p), rw.log)
 	close(done)
 
 	elapsed := time.Since(start)
