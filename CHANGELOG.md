@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.21.4](https://github.com/Apollogeddon/distribyted/compare/v0.21.3...v0.21.4) (2026-05-05)
+
+
+### Bug Fixes
+
+* Add logging for limitStorage when write limit is reached ([940b38f](https://github.com/Apollogeddon/distribyted/commit/940b38f6e3a22129620a3904ae3ce29a2e4422de))
+* Clean up ReadAt logic and update persistence test structure ([d755c73](https://github.com/Apollogeddon/distribyted/commit/d755c73ad753b3e55643eebc0eb8eca31ab869e2))
+* Comment out cache eviction and disk space exhaustion tests for short mode ([5937ed8](https://github.com/Apollogeddon/distribyted/commit/5937ed89c0a7a693883e9e4432832a5e99ebe664))
+* Enhance limitStorage OpenTorrent to handle nil PieceImpl and improve PieceWithHash logic ([a34d1bb](https://github.com/Apollogeddon/distribyted/commit/a34d1bb6182247a5e4dfb863e44a52bec3415f48))
+* Enhance ReadAt logging and implement stall-watcher in readAtWrapper ([90222a9](https://github.com/Apollogeddon/distribyted/commit/90222a947b1e2685f1cc4700e9c6c568c4c44601))
+* Improve piece completion handling and logging in torrent service ([333f734](https://github.com/Apollogeddon/distribyted/commit/333f734cd051334872fdee601e8dc3d9826ad6f7))
+* Update CI/CD pipeline conditions for job execution and improve logic for release and docker jobs ([0114046](https://github.com/Apollogeddon/distribyted/commit/0114046537d558786e9d3b95e9c1fc9c18a97ee1))
+
 ## [0.21.3](https://github.com/Apollogeddon/distribyted/compare/v0.21.2...v0.21.3) (2026-05-05)
 
 
