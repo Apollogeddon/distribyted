@@ -11,14 +11,23 @@ on:
 jobs:
   gitleaks:
     name: Gitleaks
+    if: >
+      !(github.event_name == 'push' && startsWith(github.event.head_commit.message || '', 'chore(master): release')) &&
+      !startsWith(github.ref, 'refs/tags/')
     uses: ./.github/workflows/gitleaks.yaml
 
   lint:
     name: Lint
+    if: >
+      !(github.event_name == 'push' && startsWith(github.event.head_commit.message || '', 'chore(master): release')) &&
+      !startsWith(github.ref, 'refs/tags/')
     uses: ./.github/workflows/lint.yaml
 
   govulncheck:
     name: Govulncheck
+    if: >
+      !(github.event_name == 'push' && startsWith(github.event.head_commit.message || '', 'chore(master): release')) &&
+      !startsWith(github.ref, 'refs/tags/')
     uses: ./.github/workflows/govulncheck.yaml
 
   codeql:
@@ -33,12 +42,23 @@ jobs:
   build:
     name: Build & Test
     needs: codeql
+    if: >
+      always() &&
+      (needs.codeql.result == 'success' || needs.codeql.result == 'skipped') &&
+      (
+        !(github.event_name == 'push' && startsWith(github.event.head_commit.message || '', 'chore(master): release')) ||
+        startsWith(github.ref, 'refs/tags/')
+      )
     uses: ./.github/workflows/build.yaml
 
   release:
     name: Release
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: >
+      always() &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      github.event_name == 'push' && 
+      github.ref == 'refs/heads/master'
     uses: ./.github/workflows/release-please.yaml
     permissions:
       contents: write
@@ -47,7 +67,11 @@ jobs:
   docker:
     name: Docker Build & Push
     needs: [build, release]
-    if: needs.release.outputs.release_created == 'true'
+    if: >
+      always() &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.release.result == 'success' || needs.release.result == 'skipped') &&
+      needs.release.outputs.release_created == 'true'
     uses: ./.github/workflows/docker.yaml
     with:
       version: ${{ needs.release.outputs.tag_name }}
