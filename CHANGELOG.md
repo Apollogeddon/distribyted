@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.2](https://github.com/Apollogeddon/distribyted/compare/v0.21.1...v0.21.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* Improve read handling in file operations and clean up path management ([d9b4c3f](https://github.com/Apollogeddon/distribyted/commit/d9b4c3f69e042451e7a0aa587e057d0fba2b5c84))
+
 ## [0.21.1](https://github.com/Apollogeddon/distribyted/compare/v0.21.0...v0.21.1) (2026-05-04)
 
 
