@@ -2,6 +2,7 @@ package testenv
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 	"syscall"
@@ -144,6 +145,7 @@ func (lp *limitPiece) WriteAt(p []byte, off int64) (n int, err error) {
 	defer lp.ls.mu.Unlock()
 
 	if lp.ls.written+int64(len(p)) > lp.ls.limitBytes {
+		fmt.Printf("limitStorage hit limit! written=%d, len=%d, limit=%d\n", lp.ls.written, len(p), lp.ls.limitBytes)
 		return 0, syscall.ENOSPC
 	}
 
