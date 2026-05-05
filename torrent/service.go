@@ -152,13 +152,18 @@ func (s *Service) logSwarmHealth() {
 				progress = float64(completedPieces) / float64(t.TotalPieces) * 100
 			}
 
+			rate := 0.0
+			if t.TimePassed > 0 {
+				rate = float64(t.DownloadedBytes) / t.TimePassed
+			}
+
 			// Concise summary: [Route] Name: Peers (Seeders), DL Speed, Progress
 			s.log.Info().
 				Str(dlog.KeyRoute, r.Name).
 				Str(dlog.KeyName, t.Name).
 				Int("peers", t.Peers).
 				Int("seeders", t.Seeders).
-				Str("dl", fmt.Sprintf("%.2f MB/s", float64(t.DownloadedBytes)/1024/1024/60)).
+				Str("dl", fmt.Sprintf("%.2f MB/s", rate/1024/1024)).
 				Str("progress", fmt.Sprintf("%.1f%%", progress)).
 				Msg("swarm health summary")
 		}

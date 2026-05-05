@@ -111,11 +111,21 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error creating cache: %w", err)
 	}
 
+	pcp := filepath.Join(conf.Torrent.MetadataFolder, "piece-completion")
+	if err := os.MkdirAll(pcp, 0744); err != nil {
+		return fmt.Errorf("error creating piece completion folder: %w", err)
+	}
+
+	pc, err := storage.NewBoltPieceCompletion(pcp)
+	if err != nil {
+		return fmt.Errorf("error creating piece completion db: %w", err)
+	}
+
 	st := storage.NewResourcePieces(fc.AsResourceProvider())
 
 	// cache is not working with windows
 	if runtime.GOOS == "windows" {
-		st = storage.NewFile(cf)
+		st = storage.NewFileWithCompletion(cf, pc)
 	}
 
 	fis, err := torrent.NewFileItemStore(filepath.Join(conf.Torrent.MetadataFolder, "items"), 2*time.Hour)
@@ -131,16 +141,6 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	c, err := torrent.NewClient(st, fis, conf.Torrent, id)
 	if err != nil {
 		return fmt.Errorf("error starting torrent client: %w", err)
-	}
-
-	pcp := filepath.Join(conf.Torrent.MetadataFolder, "piece-completion")
-	if err := os.MkdirAll(pcp, 0744); err != nil {
-		return fmt.Errorf("error creating piece completion folder: %w", err)
-	}
-
-	pc, err := storage.NewBoltPieceCompletion(pcp)
-	if err != nil {
-		return fmt.Errorf("error creating servers piece completion: %w", err)
 	}
 
 	var servers []*torrent.Server
