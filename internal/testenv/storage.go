@@ -6,6 +6,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/anacrolix/generics"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 )
@@ -109,12 +110,26 @@ func (l *limitStorage) OpenTorrent(ctx context.Context, info *metainfo.Info, inf
 	if origPiece != nil {
 		tImpl.Piece = func(p metainfo.Piece) storage.PieceImpl {
 			pImpl := origPiece(p)
+			if pImpl == nil {
+				return nil
+			}
 			return &limitPiece{PieceImpl: pImpl, ls: l}
 		}
 	}
 
-	// We disable PieceWithHash to force using Piece, which we wrapped.
-	tImpl.PieceWithHash = nil
+	origPieceWithHash := tImpl.PieceWithHash
+	if origPieceWithHash != nil {
+		tImpl.PieceWithHash = func(p metainfo.Piece, hash generics.Option[[]byte]) storage.PieceImpl {
+			pImpl := origPieceWithHash(p, hash)
+			if pImpl == nil {
+				return nil
+			}
+			return &limitPiece{PieceImpl: pImpl, ls: l}
+		}
+	} else {
+		// We disable PieceWithHash to force using Piece, which we wrapped.
+		tImpl.PieceWithHash = nil
+	}
 
 	return tImpl, nil
 }
