@@ -10,6 +10,7 @@ import (
 	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/dgraph-io/badger/v3"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -26,6 +27,7 @@ type DB struct {
 	inMemory  bool
 	closeOnce sync.Once
 	closeErr  error
+	log       zerolog.Logger
 }
 
 func NewDB(path string) (*DB, error) {
@@ -137,7 +139,7 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		k := string(item.Key())
-		fmt.Printf("DB DEBUG: found magnet key: %s\n", k)
+		l.log.Debug().Str("key", k).Msg("found magnet key")
 		// key is /route/<hash>/<route_name>
 		// routeRootKey + "/" + hash(40) + "/"
 		r := k[len(routeRootKey)+42:] 

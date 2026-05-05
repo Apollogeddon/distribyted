@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/iio"
+	dlog "github.com/Apollogeddon/distribyted/log"
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/torrent"
+	"github.com/rs/zerolog"
 )
 
 var _ Filesystem = &TorrentFS{}
@@ -19,6 +21,7 @@ type TorrentFS struct {
 	s           *storage
 	ts          map[string]Torrent
 	readTimeout int
+	log         zerolog.Logger
 }
 
 func NewTorrent(readTimeout int) *TorrentFS {
@@ -26,6 +29,7 @@ func NewTorrent(readTimeout int) *TorrentFS {
 		s:           newStorage(GetSupportedFactories()),
 		ts:          make(map[string]Torrent),
 		readTimeout: readTimeout,
+		log:         dlog.Logger("torrent-fs"),
 	}
 }
 
@@ -56,6 +60,7 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			readerFunc: file.NewReader,
 			len:        file.Length(),
 			timeout:    fs.readTimeout,
+			log:        fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
 		tf.SetIno(HashIno(ih + file.Path()))
 		_ = fs.s.Add(tf, file.Path())
@@ -63,6 +68,7 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 }
 
 func (fs *TorrentFS) RemoveTorrent(h string) {
+	fs.log.Info().Str(dlog.KeyHash, h).Msg("removing torrent from filesystem")
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -164,10 +170,12 @@ type readAtWrapper struct {
 	torrent.Reader
 	io.ReaderAt
 	io.Closer
+
+	log zerolog.Logger
 }
 
-func newReadAtWrapper(r torrent.Reader, file *torrent.File, timeout int) reader {
-	return &readAtWrapper{Reader: r, file: file, timeout: timeout}
+func newReadAtWrapper(r torrent.Reader, file *torrent.File, timeout int, l zerolog.Logger) reader {
+	return &readAtWrapper{Reader: r, file: file, timeout: timeout, log: l}
 }
 
 func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
@@ -178,15 +186,19 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
+	rw.log.Debug().Int64("off", off).Int("len", len(p)).Msg("ReadAt request")
+
 	if rw.file != nil {
 		t := rw.file.Torrent()
-		if info := t.Info(); info != nil {
+		if t.Info() != nil {
+			info := t.Info()
 			pieceLength := info.PieceLength
 			absOff := rw.file.Offset() + off
 			beginPiece := absOff / pieceLength
 			endPiece := (absOff + int64(len(p)) + pieceLength - 1) / pieceLength
 
 			// Set high priority for currently requested pieces
+			rw.log.Debug().Int64("begin", beginPiece).Int64("end", endPiece).Msg("prioritizing pieces")
 			for i := int(beginPiece); i < int(endPiece); i++ {
 				t.Piece(i).SetPriority(torrent.PiecePriorityNow)
 			}
@@ -204,6 +216,7 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 				}
 
 				if prefetchBeginPiece < prefetchEndPiece {
+					rw.log.Debug().Int64("begin", prefetchBeginPiece).Int64("end", prefetchEndPiece).Msg("prefetching next region")
 					t.DownloadPieces(int(prefetchBeginPiece), int(prefetchEndPiece))
 				}
 			}
@@ -214,10 +227,15 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 
 	_, err := rw.Seek(off, io.SeekStart)
 	if err != nil {
+		rw.log.Error().Err(err).Msg("Seek failed")
 		return 0, err
 	}
 
-	return readAtLeast(rw, rw.timeout, p, 1)
+	n, err := readAtLeast(rw, rw.timeout, p, 1, rw.log)
+	if err != nil && err != io.EOF {
+		rw.log.Error().Err(err).Int64("off", off).Msg("read error")
+	}
+	return n, err
 }
 
 var timerPool = sync.Pool{
@@ -228,7 +246,7 @@ var timerPool = sync.Pool{
 	},
 }
 
-func readAtLeast(r missinggo.ReadContexter, timeout int, buf []byte, min int) (n int, err error) {
+func readAtLeast(r missinggo.ReadContexter, timeout int, buf []byte, min int, l zerolog.Logger) (n int, err error) {
 	if len(buf) < min {
 		return 0, io.ErrShortBuffer
 	}
@@ -243,6 +261,7 @@ func readAtLeast(r missinggo.ReadContexter, timeout int, buf []byte, min int) (n
 		go func() {
 			select {
 			case <-timer.C:
+				l.Warn().Int("min", min).Int("got", n).Msg("read operation timing out")
 				cancel()
 			case <-ctx.Done():
 			}
@@ -289,6 +308,7 @@ type torrentFile struct {
 	readerFunc func() torrent.Reader
 	len        int64
 	timeout    int
+	log        zerolog.Logger
 }
 
 func (d *torrentFile) NewHandle() *torrentFileHandle {
@@ -335,7 +355,7 @@ func (h *torrentFileHandle) load() {
 	if h.reader != nil {
 		return
 	}
-	h.reader = newReadAtWrapper(h.readerFunc(), h.file, h.timeout)
+	h.reader = newReadAtWrapper(h.readerFunc(), h.file, h.timeout, h.log)
 }
 
 func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
@@ -348,6 +368,7 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	go func() {
 		select {
 		case <-timer.C:
+			h.log.Warn().Msg("Read handle timeout")
 			cancel()
 		case <-ctx.Done():
 		}

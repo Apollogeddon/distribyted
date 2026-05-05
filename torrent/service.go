@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path"
@@ -90,11 +91,15 @@ type Service struct {
 	log                     zerolog.Logger
 	addTimeout, readTimeout int
 	continueWhenAddTimeout  bool
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c TorrentClient, addTimeout, readTimeout int, continueWhenAddTimeout bool) *Service {
 	l := dlog.Logger("torrent-service")
-	return &Service{
+	ctx, cancel := context.WithCancel(context.Background())
+	s := &Service{
 		log:                    l,
 		s:                      stats,
 		c:                      c,
@@ -104,6 +109,59 @@ func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c 
 		addTimeout:             addTimeout,
 		readTimeout:            readTimeout,
 		continueWhenAddTimeout: continueWhenAddTimeout,
+		ctx:                    ctx,
+		cancel:                 cancel,
+	}
+
+	go s.runHealthLogger()
+
+	return s
+}
+
+func (s *Service) runHealthLogger() {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.logSwarmHealth()
+		}
+	}
+}
+
+func (s *Service) logSwarmHealth() {
+	routes := s.s.RoutesStats()
+	if len(routes) == 0 {
+		return
+	}
+
+	for _, r := range routes {
+		for _, t := range r.TorrentStats {
+			completedPieces := 0
+			for _, chunk := range t.PieceChunks {
+				if chunk.Status == Complete {
+					completedPieces += chunk.NumPieces
+				}
+			}
+
+			progress := 0.0
+			if t.TotalPieces > 0 {
+				progress = float64(completedPieces) / float64(t.TotalPieces) * 100
+			}
+
+			// Concise summary: [Route] Name: Peers (Seeders), DL Speed, Progress
+			s.log.Info().
+				Str(dlog.KeyRoute, r.Name).
+				Str(dlog.KeyName, t.Name).
+				Int("peers", t.Peers).
+				Int("seeders", t.Seeders).
+				Str("dl", fmt.Sprintf("%.2f MB/s", float64(t.DownloadedBytes)/1024/1024/60)).
+				Str("progress", fmt.Sprintf("%.1f%%", progress)).
+				Msg("swarm health summary")
+		}
 	}
 }
 
@@ -393,5 +451,6 @@ func (s *Service) Torrent(h string) (fs.Torrent, bool) {
 }
 
 func (s *Service) Close() {
+	s.cancel()
 	s.c.Close()
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/anacrolix/torrent"
+	"github.com/rs/zerolog"
 
 	"github.com/stretchr/testify/require"
 )
@@ -154,7 +155,7 @@ func TestReadAtWrapper(t *testing.T) {
 	<-to.GotInfo()
 	torrFile := to.Files()[0]
 
-	r := newReadAtWrapper(torrFile.NewReader(), torrFile, 10)
+	r := newReadAtWrapper(torrFile.NewReader(), torrFile, 10, zerolog.Nop())
 	defer func() { _ = r.Close() }()
 
 	toRead := make([]byte, 5)
@@ -179,7 +180,7 @@ func TestReadAtLeast(t *testing.T) {
 	require := require.New(t)
 
 	// test short buffer error
-	n, err := readAtLeast(nil, 1, make([]byte, 1), 2)
+	n, err := readAtLeast(nil, 1, make([]byte, 1), 2, zerolog.Nop())
 	require.Equal(0, n)
 	require.ErrorIs(err, io.ErrShortBuffer)
 }
