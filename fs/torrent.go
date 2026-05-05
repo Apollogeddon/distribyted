@@ -231,9 +231,43 @@ func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
 		return 0, err
 	}
 
+	start := time.Now()
+	rw.log.Debug().Int64("off", off).Int("len", len(p)).Msg("ReadAt started")
+
+	// Start a stall-watcher for this specific request
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				rw.log.Warn().
+					Int64("off", off).
+					Float64("elapsed", time.Since(start).Seconds()).
+					Msg("ReadAt still waiting for data (stall heartbeat)")
+			}
+		}
+	}()
+
 	n, err := readAtLeast(rw, rw.timeout, p, 1, rw.log)
+	close(done)
+
+	elapsed := time.Since(start)
 	if err != nil && err != io.EOF {
-		rw.log.Error().Err(err).Int64("off", off).Msg("read error")
+		rw.log.Error().
+			Err(err).
+			Int64("off", off).
+			Float64("duration_sec", elapsed.Seconds()).
+			Msg("ReadAt failed")
+	} else {
+		rw.log.Debug().
+			Int64("off", off).
+			Int("read", n).
+			Float64("duration_sec", elapsed.Seconds()).
+			Msg("ReadAt finished")
 	}
 	return n, err
 }
@@ -357,17 +391,6 @@ var _ File = &torrentFileHandle{}
 
 type torrentFileHandle struct {
 	*torrentFile
-	reader reader
-	mu     sync.Mutex
-}
-
-func (h *torrentFileHandle) load() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.reader != nil {
-		return
-	}
-	h.reader = newReadAtWrapper(h.readerFunc(), h.file, h.timeout, h.log)
 }
 
 func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
@@ -403,13 +426,4 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 	h.load()
 	return h.reader.ReadAt(p, off)
-}
-
-func (h *torrentFileHandle) Close() error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.reader != nil {
-		return h.reader.Close()
-	}
-	return nil
 }
