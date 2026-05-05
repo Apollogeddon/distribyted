@@ -858,6 +858,4 @@ func TestIntegration_DiskSpaceExhaustion(t *testing.T) {
 	// }
 }
 
-func contains(s, substr string) bool {
-	return bytes.Contains([]byte(s), []byte(substr))
-}
+
