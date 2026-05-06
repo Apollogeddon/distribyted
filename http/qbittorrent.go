@@ -251,23 +251,10 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 				upSpeed = int64(float64(ts.UploadedBytes) / ts.TimePassed)
 			}
 
-			completedPieces := 0
-			for _, chunk := range ts.PieceChunks {
-				if chunk.Status == torrent.Complete {
-					completedPieces += chunk.NumPieces
-				}
-			}
-
-			if ts.TotalPieces > 0 {
-				progress = float64(completedPieces) / float64(ts.TotalPieces)
-			}
-
 			if info != nil {
 				size = info.TotalLength()
+				progress = 1.0 // Always 100% if we have metadata to satisfy Radarr/Sonarr
 				state = "uploading"
-				if progress < 1.0 {
-					state = "downloading"
-				}
 			}
 
 			// Map distribyted torrent to qBit format
@@ -289,13 +276,13 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 				Tags:           "",
 				AddedOn:        now,
 				CompletionOn:   now,
-				AmountLeft:     size - int64(progress*float64(size)),
-				Completed:      int64(progress * float64(size)),
+				AmountLeft:     0,
+				Completed:      size,
 				TotalSize:      size,
 				Ratio:          1.0,
 				Eta:            0,
 				Uploaded:       0,
-				Downloaded:     int64(progress * float64(size)),
+				Downloaded:     size,
 				Availability:   1.0,
 				SequentialDl:   false,
 				FirstLastPiece: false,
