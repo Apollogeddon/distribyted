@@ -53,6 +53,7 @@ func (fs *FS) Open(path string, flags int) (errc int, fh uint64) {
 		return -fuse.EIO, fhNone
 	}
 
+	fs.log.Info().Str(dlog.KeyPath, path).Uint64("fh", fh).Msg("file opened")
 	return 0, fh
 }
 
@@ -211,6 +212,7 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 }
 
 func (fs *FS) Release(path string, fh uint64) int {
+	fs.log.Info().Str(dlog.KeyPath, path).Uint64("fh", fh).Msg("file released")
 	if err := fs.fh.Remove(fh); err != nil {
 		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error getting holder when releasing file")
 		return -fuse.EIO

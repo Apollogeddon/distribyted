@@ -10,17 +10,19 @@ import (
 
 	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/Apollogeddon/distribyted/iio"
+	"github.com/rs/zerolog"
 	"golang.org/x/net/webdav"
 )
 
 var _ webdav.FileSystem = &WebDAV{}
 
 type WebDAV struct {
-	fs fs.Filesystem
+	fs  fs.Filesystem
+	log zerolog.Logger
 }
 
-func newFS(fs fs.Filesystem) *WebDAV {
-	return &WebDAV{fs: fs}
+func newFS(fs fs.Filesystem, l zerolog.Logger) *WebDAV {
+	return &WebDAV{fs: fs, log: l}
 }
 
 func (wd *WebDAV) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
@@ -31,9 +33,10 @@ func (wd *WebDAV) OpenFile(ctx context.Context, name string, flag int, perm os.F
 		return nil, err
 	}
 
+	wd.log.Info().Str("path", p).Msg("file opened")
 	wdf := newFile(filepath.Base(p), f, func() ([]os.FileInfo, error) {
 		return wd.listDir(p)
-	})
+	}, wd.log.With().Str("path", p).Logger())
 	return wdf, nil
 }
 
@@ -105,14 +108,22 @@ type webDAVFile struct {
 	pos        int64
 	dirFunc    func() ([]os.FileInfo, error)
 	dirContent []os.FileInfo
+
+	log zerolog.Logger
 }
 
-func newFile(name string, f fs.File, df func() ([]os.FileInfo, error)) *webDAVFile {
+func newFile(name string, f fs.File, df func() ([]os.FileInfo, error), l zerolog.Logger) *webDAVFile {
 	return &webDAVFile{
 		fi:      newFileInfo(name, f.Size(), f.IsDir()),
 		dirFunc: df,
 		Reader:  f,
+		log:     l,
 	}
+}
+
+func (wdf *webDAVFile) Close() error {
+	wdf.log.Info().Msg("file closed")
+	return wdf.Reader.Close()
 }
 
 func (wdf *webDAVFile) Readdir(count int) ([]os.FileInfo, error) {

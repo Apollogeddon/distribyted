@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/webdav"
 )
@@ -22,7 +23,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 	err := mfs.Storage.Add(mf, "/folder/file.txt")
 	require.NoError(err)
 
-	wfs := newFS(mfs)
+	wfs := newFS(mfs, zerolog.Nop())
 
 	dir, err := wfs.OpenFile(context.Background(), "/", 0, 0)
 	require.NoError(err)
@@ -116,7 +117,7 @@ func TestMkdirRemoveRename(t *testing.T) {
 	err := mfs.Storage.Add(mf, "/folder/file.txt")
 	require.NoError(err)
 
-	wfs := newFS(mfs)
+	wfs := newFS(mfs, zerolog.Nop())
 
 	require.NoError(wfs.Mkdir(context.Background(), "test", 0))
 	require.NoError(wfs.Rename(context.Background(), "test", "newTest"))

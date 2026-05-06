@@ -12,7 +12,7 @@ func newHandler(fs fs.Filesystem) *webdav.Handler {
 	l := log.Logger.With().Str("component", "webDAV").Logger()
 	return &webdav.Handler{
 		Prefix:     "/",
-		FileSystem: newFS(fs),
+		FileSystem: newFS(fs, l),
 		LockSystem: webdav.NewMemLS(),
 		Logger: func(req *http.Request, err error) {
 			if err != nil {
