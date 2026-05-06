@@ -94,6 +94,14 @@ type Service struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	lastHealth map[string]healthState
+}
+
+type healthState struct {
+	peers    int
+	seeders  int
+	progress string
 }
 
 func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c TorrentClient, addTimeout, readTimeout int, continueWhenAddTimeout bool) *Service {
@@ -111,6 +119,7 @@ func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c 
 		continueWhenAddTimeout: continueWhenAddTimeout,
 		ctx:                    ctx,
 		cancel:                 cancel,
+		lastHealth:             make(map[string]healthState),
 	}
 
 	go s.runHealthLogger()
@@ -119,7 +128,7 @@ func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c 
 }
 
 func (s *Service) runHealthLogger() {
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for {
@@ -138,6 +147,9 @@ func (s *Service) logSwarmHealth() {
 		return
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, r := range routes {
 		for _, t := range r.TorrentStats {
 			completedPieces := 0
@@ -147,9 +159,15 @@ func (s *Service) logSwarmHealth() {
 				}
 			}
 
-			progress := 0.0
+			progressVal := 0.0
 			if t.TotalPieces > 0 {
-				progress = float64(completedPieces) / float64(t.TotalPieces) * 100
+				progressVal = float64(completedPieces) / float64(t.TotalPieces) * 100
+			}
+			progress := fmt.Sprintf("%.1f%%", progressVal)
+
+			last, ok := s.lastHealth[t.Hash]
+			if ok && last.peers == t.Peers && last.seeders == t.Seeders && last.progress == progress {
+				continue
 			}
 
 			rate := 0.0
@@ -164,8 +182,14 @@ func (s *Service) logSwarmHealth() {
 				Int("peers", t.Peers).
 				Int("seeders", t.Seeders).
 				Str("dl", fmt.Sprintf("%.2f MB/s", rate/1024/1024)).
-				Str("progress", fmt.Sprintf("%.1f%%", progress)).
+				Str("progress", progress).
 				Msg("swarm health summary")
+
+			s.lastHealth[t.Hash] = healthState{
+				peers:    t.Peers,
+				seeders:  t.Seeders,
+				progress: progress,
+			}
 		}
 	}
 }
@@ -415,6 +439,7 @@ func (s *Service) RemoveFromHash(r, h string) error {
 	}
 
 	tfs.RemoveTorrent(h)
+	delete(s.lastHealth, h)
 
 	// Remove from client
 	var mh metainfo.Hash
