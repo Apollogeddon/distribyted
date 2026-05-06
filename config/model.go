@@ -33,6 +33,7 @@ type TorrentGlobal struct {
 	DisableDHT             bool   `yaml:"disable_dht,omitempty"`
 	IP                     string `yaml:"ip,omitempty"`
 	ListenPort             int    `yaml:"listen_port,omitempty"`
+	Seed                   bool   `yaml:"seed,omitempty"`
 }
 
 type WebDAVGlobal struct {

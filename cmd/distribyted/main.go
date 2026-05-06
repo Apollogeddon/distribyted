@@ -143,6 +143,10 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error starting torrent client: %w", err)
 	}
 
+	if !conf.Torrent.Seed && len(conf.Servers) > 0 {
+		log.Warn().Msg("seeding is disabled in configuration, but 'servers' are configured. Local folders will not be shared with the swarm.")
+	}
+
 	var servers []*torrent.Server
 	for _, s := range conf.Servers {
 		server := torrent.NewServer(c, pc, s)

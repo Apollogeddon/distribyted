@@ -78,6 +78,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 			DisableUPnP:            true,
 			DisableDHT:             true,
 			ListenPort:             -1,
+			Seed:                   true,
 		},
 		HTTPGlobal: &config.HTTPGlobal{
 			Port:   0, // random
