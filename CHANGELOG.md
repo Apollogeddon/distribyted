@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.21.5](https://github.com/Apollogeddon/distribyted/compare/v0.21.4...v0.21.5) (2026-05-06)
+
+
+### Bug Fixes
+
+* Add category filtering for torrents in qBitTorrentsInfoHandler and implement route retrieval functions ([b652b78](https://github.com/Apollogeddon/distribyted/commit/b652b788fc7da1577c77b1f4c1a8f25442118280))
+* Add seed configuration to torrent settings and log warning for disabled seeding ([07f18da](https://github.com/Apollogeddon/distribyted/commit/07f18da39f3bfa1fa290629cb411017c762c8a5c))
+* Calculate and return real download and upload speeds in transfer info ([db560f0](https://github.com/Apollogeddon/distribyted/commit/db560f00ebf7759718b65575f31d663c704297c0))
+* Enhance logging in filesystem operations ([50a3f95](https://github.com/Apollogeddon/distribyted/commit/50a3f9585298cf710558bc251f81bb1aec64ea2a))
+* Implement health tracking for torrents and adjust logging intervals ([854c41d](https://github.com/Apollogeddon/distribyted/commit/854c41d402652788b2bb57ba6dfc229cd55c1853))
+* Improve error handling in torrent removal process and ensure proper type assertion ([b680718](https://github.com/Apollogeddon/distribyted/commit/b680718f8ec3e8c8c39fb1166938971232c3fb56))
+* Optimize health logging condition in logSwarmHealth function ([db602eb](https://github.com/Apollogeddon/distribyted/commit/db602eb49aec46790e48f6126895db8f4a3524e0))
+* Update torrent progress and completion logic in qBitTorrentsInfoHandler ([f8a6d1f](https://github.com/Apollogeddon/distribyted/commit/f8a6d1feded0a8edcf39505b1116b7f85439ca7c))
+
 ## [0.21.4](https://github.com/Apollogeddon/distribyted/compare/v0.21.3...v0.21.4) (2026-05-05)
 
 
