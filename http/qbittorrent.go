@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/Apollogeddon/distribyted/torrent"
 	"github.com/gin-gonic/gin"
 )
@@ -216,9 +217,16 @@ func qBitTorrentsMockHandler(c *gin.Context) {
 
 func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		torrents := ss.GetAllTorrents()
-		resp := make([]qBitTorrent, 0)
+		categoryFilter := c.Query("category")
 
+		var torrents map[string]fs.Torrent
+		if categoryFilter != "" && categoryFilter != "all" {
+			torrents = ss.GetTorrentsInRoute(categoryFilter)
+		} else {
+			torrents = ss.GetAllTorrents()
+		}
+
+		resp := make([]qBitTorrent, 0)
 		now := time.Now().Unix()
 
 		for hash, t := range torrents {
@@ -228,7 +236,13 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 			size := int64(0)
 			progress := 0.0
 			state := "stalledDL"
-			category := ss.GetRouteFromHash(hash)
+
+			// Determine category: if filtering by category, use that.
+			// Otherwise, use the first route found (GetRouteFromHash).
+			category := categoryFilter
+			if category == "" || category == "all" {
+				category = ss.GetRouteFromHash(hash)
+			}
 
 			var dlSpeed int64
 			var upSpeed int64

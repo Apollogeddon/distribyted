@@ -144,12 +144,50 @@ func (s *Stats) GetRouteFromHash(hash string) string {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
+	var routes []string
 	for route, torrents := range s.torrentsByRoute {
 		if _, ok := torrents[hash]; ok {
-			return route
+			routes = append(routes, route)
 		}
 	}
-	return ""
+
+	if len(routes) == 0 {
+		return ""
+	}
+
+	sort.Strings(routes)
+	return routes[0]
+}
+
+func (s *Stats) GetRoutesFromHash(hash string) []string {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	var routes []string
+	for route, torrents := range s.torrentsByRoute {
+		if _, ok := torrents[hash]; ok {
+			routes = append(routes, route)
+		}
+	}
+
+	sort.Strings(routes)
+	return routes
+}
+
+func (s *Stats) GetTorrentsInRoute(route string) map[string]fs.Torrent {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	torrents, ok := s.torrentsByRoute[route]
+	if !ok {
+		return nil
+	}
+
+	out := make(map[string]fs.Torrent)
+	for h, t := range torrents {
+		out[h] = t
+	}
+	return out
 }
 
 func (s *Stats) Stats(hash string) (*TorrentStats, error) {
