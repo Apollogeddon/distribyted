@@ -166,7 +166,7 @@ func (s *Service) logSwarmHealth() {
 			progress := fmt.Sprintf("%.1f%%", progressVal)
 
 			last, ok := s.lastHealth[t.Hash]
-			if ok && last.peers == t.Peers && last.seeders == t.Seeders && last.progress == progress {
+			if ok && last.progress == progress {
 				continue
 			}
 
