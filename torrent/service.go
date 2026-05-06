@@ -433,13 +433,22 @@ func (s *Service) RemoveFromHash(r, h string) error {
 	// Remove from fs
 	folder := path.Join("/", r)
 
-	tfs, ok := s.fss[folder].(*fs.TorrentFS)
+	s.mu.Lock()
+	fs_entry, exists := s.fss[folder]
+	if !exists {
+		s.mu.Unlock()
+		return fmt.Errorf("error removing torrent from filesystem: route %s not found", folder)
+	}
+
+	tfs, ok := fs_entry.(*fs.TorrentFS)
 	if !ok {
-		return errors.New("error removing torrent from filesystem")
+		s.mu.Unlock()
+		return fmt.Errorf("error removing torrent from filesystem: route %s has unexpected type %T", folder, fs_entry)
 	}
 
 	tfs.RemoveTorrent(h)
 	delete(s.lastHealth, h)
+	s.mu.Unlock()
 
 	// Remove from client
 	var mh metainfo.Hash

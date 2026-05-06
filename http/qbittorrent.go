@@ -1,15 +1,16 @@
 package http
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Apollogeddon/distribyted/config"
 	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/Apollogeddon/distribyted/torrent"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 // qBitTorrent represents a torrent in qBittorrent API format
@@ -133,7 +134,10 @@ func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
 	}
 }
 
-var mockCreatedCategories = make(map[string]bool)
+var (
+	mockCreatedCategories   = make(map[string]bool)
+	mockCreatedCategoriesMu sync.RWMutex
+)
 
 func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -156,6 +160,7 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePa
 		}
 
 		// Add dynamically mocked categories
+		mockCreatedCategoriesMu.RLock()
 		for cat := range mockCreatedCategories {
 			savePath := fusePath
 			if cat != "" {
@@ -166,6 +171,7 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePa
 				"savePath": savePath,
 			}
 		}
+		mockCreatedCategoriesMu.RUnlock()
 
 		// Also add any routes that have active torrents
 		routes := ss.RoutesStats()
@@ -189,7 +195,9 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePa
 func qBitTorrentsCreateCategoryHandler(c *gin.Context) {
 	category := c.PostForm("category")
 	if category != "" {
+		mockCreatedCategoriesMu.Lock()
 		mockCreatedCategories[category] = true
+		mockCreatedCategoriesMu.Unlock()
 	}
 	c.String(http.StatusOK, "")
 }
@@ -203,10 +211,12 @@ func qBitTorrentsRemoveCategoriesHandler(c *gin.Context) {
 		catList = []string{categories}
 	}
 
+	mockCreatedCategoriesMu.Lock()
 	for _, cat := range catList {
 		cat = strings.TrimSpace(cat)
 		delete(mockCreatedCategories, cat)
 	}
+	mockCreatedCategoriesMu.Unlock()
 	c.String(http.StatusOK, "")
 }
 
@@ -315,7 +325,7 @@ func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 			}
 			if err := s.AddMagnet(category, m); err != nil {
 				// We log error but continue with others
-				fmt.Printf("Error adding magnet via qBit API: %v\n", err)
+				log.Error().Err(err).Str("category", category).Msg("error adding magnet via qBit API")
 			}
 		}
 
@@ -335,7 +345,7 @@ func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 				continue
 			}
 			if err := s.RemoveFromHashOnly(h); err != nil {
-				fmt.Printf("Error deleting torrent via qBit API: %v\n", err)
+				log.Error().Err(err).Str("hash", h).Msg("error deleting torrent via qBit API")
 			}
 		}
 
