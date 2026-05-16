@@ -123,6 +123,34 @@ func TestRecursiveZipFilesystem(t *testing.T) {
 	require.Equal([]byte("inner content"), data)
 }
 
+func TestZipFilesystem_Corrupted(t *testing.T) {
+	corrupted := []byte("this is not a valid zip file")
+	zfs := NewArchive(newCBR(corrupted), int64(len(corrupted)), &Zip{})
+
+	_, err := zfs.ReadDir("/")
+	require.Error(t, err)
+
+	// Open on a non-root path also propagates the load error
+	_, err = zfs.Open("/some/file.txt")
+	require.Error(t, err)
+}
+
+func TestRarFilesystem_Corrupted(t *testing.T) {
+	corrupted := []byte("this is not a valid rar file")
+	rfs := NewArchive(newCBR(corrupted), int64(len(corrupted)), &Rar{})
+
+	_, err := rfs.ReadDir("/")
+	require.Error(t, err)
+}
+
+func TestSevenZipFilesystem_Corrupted(t *testing.T) {
+	corrupted := []byte("this is not a valid 7z file")
+	sfs := NewArchive(newCBR(corrupted), int64(len(corrupted)), &SevenZip{})
+
+	_, err := sfs.ReadDir("/")
+	require.Error(t, err)
+}
+
 func createTestZip(require *require.Assertions) (iio.Reader, int64) {
 	buf := bytes.NewBuffer([]byte{})
 

@@ -42,6 +42,50 @@ func TestFileItemStore(t *testing.T) {
 	assert.Equal(t, bep44.ErrItemNotFound, err)
 }
 
+func TestFileItemStore_InMemory(t *testing.T) {
+	fis, err := NewFileItemStore("", 1*time.Hour)
+	require.NoError(t, err)
+	defer func() { _ = fis.Close() }()
+
+	item := &bep44.Item{V: []byte("in-memory value")}
+	require.NoError(t, fis.Put(item))
+
+	got, err := fis.Get(item.Target())
+	require.NoError(t, err)
+	assert.Equal(t, item.V, got.V)
+}
+
+func TestFileItemStore_MultipleItems(t *testing.T) {
+	fis, err := NewFileItemStore("", 1*time.Hour)
+	require.NoError(t, err)
+	defer func() { _ = fis.Close() }()
+
+	items := []*bep44.Item{
+		{V: []byte("value1")},
+		{V: []byte("value2")},
+		{V: []byte("value3")},
+	}
+
+	for _, item := range items {
+		require.NoError(t, fis.Put(item))
+	}
+
+	for _, item := range items {
+		got, err := fis.Get(item.Target())
+		require.NoError(t, err)
+		assert.Equal(t, item.V, got.V)
+	}
+}
+
+func TestFileItemStore_CloseSafety(t *testing.T) {
+	fis, err := NewFileItemStore("", 1*time.Hour)
+	require.NoError(t, err)
+
+	require.NoError(t, fis.Close())
+	// Close is guarded by sync.Once — second call must not panic or error
+	require.NoError(t, fis.Close())
+}
+
 func TestFileItemStore_Del(t *testing.T) {
 	tempDir, _ := os.MkdirTemp("", "item-store-del")
 	defer func() { _ = os.RemoveAll(tempDir) }()

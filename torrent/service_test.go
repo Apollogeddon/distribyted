@@ -323,6 +323,61 @@ func TestService_RemoveFromHashOnly(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestService_addTorrent_TimeoutError(t *testing.T) {
+	stats := NewStats()
+	gotInfo := make(chan struct{}) // never closed — simulates a stalled torrent
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+
+	mockT := &mockTorrent{
+		hash:    hash,
+		gotInfo: gotInfo,
+	}
+
+	mockC := &mockTorrentClient{
+		addMagnetFunc: func(s string) (fs.Torrent, error) {
+			return mockT, nil
+		},
+	}
+
+	// continueWhenAddTimeout=false: must return an error when GotInfo never fires
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, false)
+	defer svc.Close()
+
+	err := svc.addMagnet("test", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout")
+}
+
+func TestService_logSwarmHealth_NoPanic(t *testing.T) {
+	stats := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+
+	mockT := &mockTorrent{
+		hash:    hash,
+		gotInfo: make(chan struct{}),
+	}
+	close(mockT.gotInfo)
+
+	mockC := &mockTorrentClient{
+		addMagnetFunc: func(s string) (fs.Torrent, error) {
+			return mockT, nil
+		},
+	}
+
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+	defer svc.Close()
+
+	// Empty stats — should be a no-op without panic
+	require.NotPanics(t, func() { svc.logSwarmHealth() })
+
+	// Add a torrent and call again to exercise the logging path
+	_ = svc.AddMagnet("route1", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	require.NotPanics(t, func() { svc.logSwarmHealth() })
+
+	// Second call hits the deduplication path (same progress → no log)
+	require.NotPanics(t, func() { svc.logSwarmHealth() })
+}
+
 func TestService_ConcurrentMagnetAdds(t *testing.T) {
 	stats := NewStats()
 	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")

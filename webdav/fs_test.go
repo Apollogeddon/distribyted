@@ -107,6 +107,19 @@ func TestWebDAVFilesystem(t *testing.T) {
 	require.Equal(os.FileMode(0777)|os.ModeDir, dirInfo.Mode())
 }
 
+func TestWebDAVFilesystem_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mfs := fs.NewMemory()
+	wfs := newFS(mfs, zerolog.Nop())
+
+	_, err := wfs.OpenFile(context.Background(), "/nonexistent/file.txt", 0, 0)
+	require.Error(t, err)
+
+	_, err = wfs.Stat(context.Background(), "/nonexistent")
+	require.Error(t, err)
+}
+
 func TestMkdirRemoveRename(t *testing.T) {
 	t.Parallel()
 
