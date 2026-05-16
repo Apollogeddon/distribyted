@@ -44,7 +44,16 @@ func (fs *ContainerFs) AddFS(p string, fss Filesystem) error {
 func (fs *ContainerFs) Open(filename string) (File, error) {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
-	return fs.s.Get(filename)
+	f, err := fs.s.Get(filename)
+	if err != nil {
+		return nil, err
+	}
+	// Create a fresh handle so each Open gets its own reader and position,
+	// preventing shared-state bugs when the same file is stored via a link.
+	if h, ok := f.(*torrentFileHandle); ok {
+		return h.NewHandle(), nil
+	}
+	return f, nil
 }
 
 func (fs *ContainerFs) ReadDir(path string) (map[string]File, error) {

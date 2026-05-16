@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/Apollogeddon/distribyted/config"
@@ -16,28 +15,30 @@ import (
 	dtorrent "github.com/Apollogeddon/distribyted/torrent"
 	"github.com/Apollogeddon/distribyted/torrent/loader"
 	"github.com/Apollogeddon/distribyted/webdav"
+	"github.com/anacrolix/generics"
 	"github.com/anacrolix/missinggo/v2/filecache"
 	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
 )
 
 type TestApp struct {
-	Config      *config.Root
-	Client      *atorrent.Client
-	Service     *dtorrent.Service
-	Stats       *dtorrent.Stats
-	FS          *fs.ContainerFs
-	TempDir     string
-	Cache       *filecache.Cache
-	HttpAddr    string
-	WebDavAddr  string
-	httpServer  *http.Server
-	db          *loader.DB
-	itemStore   *dtorrent.FileItemStore
-	pc          storage.PieceCompletion
-	KeepTempDir bool
-	ctx         context.Context
-	cancel      context.CancelFunc
+	Config       *config.Root
+	Client       *atorrent.Client
+	Service      *dtorrent.Service
+	Stats        *dtorrent.Stats
+	FS           *fs.ContainerFs
+	TempDir      string
+	Cache        *filecache.Cache
+	LimitStorage *limitStorage
+	HttpAddr     string
+	WebDavAddr   string
+	httpServer   *http.Server
+	db           *loader.DB
+	itemStore    *dtorrent.FileItemStore
+	pc           storage.PieceCompletion
+	KeepTempDir  bool
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 
 func NewTestApp() (*TestApp, error) {
@@ -105,6 +106,10 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Block until filecache's background rescan goroutine releases the mutex.
+		// Without this, concurrent writes (piece chunks) block on the mutex while
+		// rescan holds it, delaying piece completion under -race and many goroutines.
+		_ = fc.Info()
 
 		pcp := filepath.Join(actualTempDir, "piece-completion")
 		if err := os.MkdirAll(pcp, 0744); err != nil {
@@ -114,15 +119,28 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		if err != nil {
 			return nil, err
 		}
-		
-		st = storage.NewResourcePieces(fc.AsResourceProvider())
-		if runtime.GOOS == "windows" {
-			st = storage.NewFileWithCompletion(cf, pc)
+
+		// Use file-based storage with BoltDB completion tracking on all platforms.
+		// UsePartFiles=false so pieces are written directly to their final path without
+		// a .part→final rename step. This prevents setCompletionFromPartFiles from
+		// overriding BoltDB on session 2 open (which would mark partially-downloaded
+		// torrents as fully incomplete). It also eliminates the rename race that caused
+		// unexpected EOF under -race with ResourcePieces (filecache).
+		pieceDir := filepath.Join(actualTempDir, "pieces")
+		if err := os.MkdirAll(pieceDir, 0744); err != nil {
+			return nil, err
 		}
+		st = storage.NewFileOpts(storage.NewFileClientOpts{
+			ClientBaseDir:   pieceDir,
+			PieceCompletion: pc,
+			UsePartFiles:    generics.Some(false),
+		})
 	}
 
+	var ls *limitStorage
 	if limit != nil {
-		st = &limitStorage{ClientImpl: st, limitBytes: *limit}
+		ls = &limitStorage{ClientImpl: st, limitBytes: *limit}
+		st = ls
 	}
 
 	itemPath := ""
@@ -236,21 +254,22 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 	}()
 
 	return &TestApp{
-		Config:     conf,
-		Client:     c,
-		Service:    ts,
-		Stats:      ss,
-		FS:         cfs,
-		TempDir:    actualTempDir,
-		Cache:      fc,
-		HttpAddr:   httpAddr,
-		WebDavAddr: webDavAddr,
-		httpServer: httpServer,
-		db:         dbl,
-		itemStore:  fis,
-		pc:         pc,
-		ctx:        ctx,
-		cancel:     cancel,
+		Config:       conf,
+		Client:       c,
+		Service:      ts,
+		Stats:        ss,
+		FS:           cfs,
+		TempDir:      actualTempDir,
+		Cache:        fc,
+		LimitStorage: ls,
+		HttpAddr:     httpAddr,
+		WebDavAddr:   webDavAddr,
+		httpServer:   httpServer,
+		db:           dbl,
+		itemStore:    fis,
+		pc:           pc,
+		ctx:          ctx,
+		cancel:       cancel,
 	}, nil
 }
 

@@ -155,3 +155,9 @@ func (lp *limitPiece) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 	return
 }
+
+func (l *limitStorage) Written() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.written
+}

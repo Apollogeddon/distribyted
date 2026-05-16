@@ -309,18 +309,6 @@ type torrentFile struct {
 	len        int64
 	timeout    int
 	log        zerolog.Logger
-
-	reader reader
-	mu     sync.Mutex
-}
-
-func (d *torrentFile) load() {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.reader != nil {
-		return
-	}
-	d.reader = newReadAtWrapper(d.readerFunc(), d.file, d.timeout, d.log)
 }
 
 func (d *torrentFile) NewHandle() *torrentFileHandle {
@@ -357,6 +345,17 @@ var _ File = &torrentFileHandle{}
 
 type torrentFileHandle struct {
 	*torrentFile
+	reader reader
+	mu     sync.Mutex
+}
+
+func (h *torrentFileHandle) load() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.reader != nil {
+		return
+	}
+	h.reader = newReadAtWrapper(h.readerFunc(), h.file, h.timeout, h.log)
 }
 
 func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
@@ -392,4 +391,15 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 	h.load()
 	return h.reader.ReadAt(p, off)
+}
+
+func (h *torrentFileHandle) Close() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.reader != nil {
+		err := h.reader.Close()
+		h.reader = nil
+		return err
+	}
+	return nil
 }

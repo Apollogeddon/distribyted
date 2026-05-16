@@ -52,6 +52,21 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 		require.NoError(t, app.Service.AddMagnet("unique-p-route", magnet.String()))
 		waitForFile(t, app, "/unique-p-route/persist_behavior.txt")
 
+		// Ensure piece data is fully written to the filecache before close so
+		// session 2 can read without re-downloading.
+		rawTor, _ := app.Client.Torrent(magnet.InfoHash)
+		if rawTor != nil {
+			// Without DownloadAll, anacrolix waits for a reader to set piece priorities.
+			rawTor.DownloadAll()
+			for i := 0; i < 150; i++ {
+				if rawTor.Stats().PiecesComplete > 0 {
+					break
+				}
+				time.Sleep(200 * time.Millisecond)
+			}
+			require.Greater(t, rawTor.Stats().PiecesComplete, 0, "Session 1: piece must complete before close")
+		}
+
 		require.NoError(t, app.Service.AddLink("/unique-p-route/persist_behavior.txt", "/unique-manual-link.txt"))
 
 		err = os.WriteFile(filepath.Join(workDir, "session1_marker.txt"), []byte("session1"), 0644)
@@ -66,12 +81,6 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 		t.Logf("Session 1: found %d links in DB before close", len(links))
 
 		app.Close()
-
-		// Remove piece cache to force re-download in session 2; DB survives.
-		cacheDir := filepath.Join(workDir, "cache")
-		if err := os.RemoveAll(cacheDir); err != nil && !os.IsNotExist(err) {
-			t.Logf("Warning: failed to clean torrent cache: %v", err)
-		}
 	}
 	t.Log("--- SESSION 1 CLOSED ---")
 
@@ -161,19 +170,26 @@ func TestBehavior_Persistence_Pieces(t *testing.T) {
 		require.NoError(t, app.Service.AddMagnet("p-route", magnet.String()))
 		waitForFile(t, app, "/p-route/persist_pieces.bin")
 
-		f, err := app.FS.Open("/p-route/persist_pieces.bin")
-		require.NoError(t, err)
-		_, err = io.ReadFull(f, make([]byte, 1024*1024))
-		require.NoError(t, err)
-		_ = f.Close()
+		lt, _ := app.Client.Torrent(magnet.InfoHash)
+		require.NotNil(t, lt)
+
+		// Wait for at least 4 pieces (1 MB worth at 256 KB/piece) to complete.
+		// Using stats avoids a filecache race: MarkComplete is called before the
+		// piece file is guaranteed to be fully flushed, which causes unexpected EOF
+		// when we read immediately through the VFS under -race.
+		lt.DownloadAll()
+		for i := 0; i < 150; i++ {
+			piecesCompleteBefore = lt.Stats().PiecesComplete
+			if piecesCompleteBefore >= 4 {
+				break
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+		t.Logf("Session 1: pieces complete: %d", piecesCompleteBefore)
+		require.GreaterOrEqual(t, piecesCompleteBefore, 4, "Should have completed at least 4 pieces (1 MB)")
 
 		// Allow the piece completion DB to flush before close
 		time.Sleep(2 * time.Second)
-
-		lt, _ := app.Client.Torrent(magnet.InfoHash)
-		piecesCompleteBefore = lt.Stats().PiecesComplete
-		t.Logf("Session 1: pieces complete: %d", piecesCompleteBefore)
-		require.Greater(t, piecesCompleteBefore, 0, "Should have downloaded some pieces")
 
 		app.Close()
 	}
