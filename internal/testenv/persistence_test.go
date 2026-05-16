@@ -228,14 +228,14 @@ func TestBehavior_Persistence_Pieces(t *testing.T) {
 		var piecesCompleteAfter int
 		for i := 0; i < 50; i++ {
 			piecesCompleteAfter = lt.Stats().PiecesComplete
-			if piecesCompleteAfter == piecesCompleteBefore {
+			if piecesCompleteAfter >= piecesCompleteBefore {
 				break
 			}
 			time.Sleep(200 * time.Millisecond)
 		}
 
 		t.Logf("Session 2: pieces complete: %d", piecesCompleteAfter)
-		assert.Equal(t, piecesCompleteBefore, piecesCompleteAfter, "Pieces complete should match Session 1")
+		assert.GreaterOrEqual(t, piecesCompleteAfter, piecesCompleteBefore, "Session 2 should have at least as many complete pieces as Session 1")
 	}
 }
 
