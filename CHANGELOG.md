@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.21.7](https://github.com/Apollogeddon/distribyted/compare/v0.21.6...v0.21.7) (2026-05-17)
+
+
+### Bug Fixes
+
+* Correct WebDAV goroutine fallthrough that always logged spurious warning ([887cc1a](https://github.com/Apollogeddon/distribyted/commit/887cc1ac2b646a66e53825cd2f25ee9ff82107e8))
+* Guard against nil rolling file writer to prevent panic in log.Load ([02b2c19](https://github.com/Apollogeddon/distribyted/commit/02b2c19104d9f2b42f878197a706182c1dbb6c04))
+* Remove fmt.Printf debug statements from db and tracker ([fda765b](https://github.com/Apollogeddon/distribyted/commit/fda765b8aaee51526f22ed6f87fbad7cdfcf1855))
+* Replace package-level category store with per-handler instance ([554e6cc](https://github.com/Apollogeddon/distribyted/commit/554e6cc7e15fee9f21683f7f9477f0946281a258))
+* Store loadOnce error in archive struct so repeated calls return it ([299423f](https://github.com/Apollogeddon/distribyted/commit/299423fcc2ce086f437d6aa211f84c0d7228c9ff))
+
 ## [0.21.6](https://github.com/Apollogeddon/distribyted/compare/v0.21.5...v0.21.6) (2026-05-17)
 
 
