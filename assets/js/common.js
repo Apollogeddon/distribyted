@@ -40,6 +40,29 @@ Distribyted.offline = {
     }
 };
 
+Distribyted.poller = function (fn, activeMs, hiddenMs) {
+    var timer = null;
+
+    function tick() {
+        fn();
+        schedule();
+    }
+
+    function schedule() {
+        clearTimeout(timer);
+        timer = setTimeout(tick, document.hidden ? hiddenMs : activeMs);
+    }
+
+    document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) {
+            clearTimeout(timer);
+            tick();
+        }
+    });
+
+    tick();
+};
+
 Distribyted.message = {
 
     _toastr: function () {

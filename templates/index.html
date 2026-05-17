@@ -142,10 +142,9 @@
     <script src="assets/js/cache_chart.js"></script>
     <script src="assets/js/dashboard.js"></script>
     <script>
-      Distribyted.dashboard.loadView();
-      setInterval(function () {
+      Distribyted.poller(function () {
         Distribyted.dashboard.loadView();
-      }, 2000)
+      }, 2000, 30000)
     </script>
 </body>
 

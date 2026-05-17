@@ -70,10 +70,9 @@
 
             <script src="assets/js/routes.js"></script>
             <script>
-                Distribyted.routes.loadView();
-                setInterval(function () {
+                Distribyted.poller(function () {
                     Distribyted.routes.loadView();
-                }, 2000)
+                }, 2000, 30000)
 
             </script>
 </body>

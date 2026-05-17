@@ -34,10 +34,9 @@
 
             <script src="assets/js/servers.js"></script>
             <script>
-                Distribyted.servers.loadView();
-                setInterval(function () {
+                Distribyted.poller(function () {
                     Distribyted.servers.loadView();
-                }, 5000)
+                }, 5000, 30000)
 
             </script>
             <script>

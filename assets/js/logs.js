@@ -24,6 +24,7 @@ Distribyted.logs = {
                     const lines = string.split(/\r\n|[\r\n]/g)
                     this.lastString = lines.pop() || ''
 
+                    var scrollEl = document.getElementById("log-scroll")
                     lines.forEach(element => {
                         try {
                             var json = JSON.parse(element)
@@ -58,7 +59,13 @@ Distribyted.logs = {
                             row.className = tableClass
                             row.setAttribute("data-level", level)
                             row.innerHTML = `<td>${new Date(json.time*1000).toLocaleString()}</td><td>${level}</td><td>${json.component}</td><td>${json.message}</td><td>${properties}</td>`
+
+                            var atTop = !scrollEl || scrollEl.scrollTop < 5
+                            var prevHeight = scrollEl ? scrollEl.scrollHeight : 0
                             document.getElementById("log_table").appendChild(row)
+                            if (!atTop && scrollEl) {
+                                scrollEl.scrollTop += scrollEl.scrollHeight - prevHeight
+                            }
                         } catch (err) {
                             console.log(err);
                         }
