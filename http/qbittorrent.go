@@ -134,12 +134,16 @@ func qBitTransferInfoHandler(ss *torrent.Stats) gin.HandlerFunc {
 	}
 }
 
-var (
-	mockCreatedCategories   = make(map[string]bool)
-	mockCreatedCategoriesMu sync.RWMutex
-)
+type categoryStore struct {
+	mu   sync.RWMutex
+	cats map[string]bool
+}
 
-func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
+func newCategoryStore() *categoryStore {
+	return &categoryStore{cats: make(map[string]bool)}
+}
+
+func qBitTorrentsCategoriesHandler(cs *categoryStore, ch *config.Handler, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		resp := make(map[string]gin.H)
 
@@ -159,9 +163,9 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePa
 			}
 		}
 
-		// Add dynamically mocked categories
-		mockCreatedCategoriesMu.RLock()
-		for cat := range mockCreatedCategories {
+		// Add dynamically created categories
+		cs.mu.RLock()
+		for cat := range cs.cats {
 			savePath := fusePath
 			if cat != "" {
 				savePath = fusePath + "/" + cat
@@ -171,7 +175,7 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePa
 				"savePath": savePath,
 			}
 		}
-		mockCreatedCategoriesMu.RUnlock()
+		cs.mu.RUnlock()
 
 		// Also add any routes that have active torrents
 		routes := ss.RoutesStats()
@@ -192,32 +196,36 @@ func qBitTorrentsCategoriesHandler(ch *config.Handler, ss *torrent.Stats, fusePa
 	}
 }
 
-func qBitTorrentsCreateCategoryHandler(c *gin.Context) {
-	category := c.PostForm("category")
-	if category != "" {
-		mockCreatedCategoriesMu.Lock()
-		mockCreatedCategories[category] = true
-		mockCreatedCategoriesMu.Unlock()
+func qBitTorrentsCreateCategoryHandler(cs *categoryStore) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		category := c.PostForm("category")
+		if category != "" {
+			cs.mu.Lock()
+			cs.cats[category] = true
+			cs.mu.Unlock()
+		}
+		c.String(http.StatusOK, "")
 	}
-	c.String(http.StatusOK, "")
 }
 
-func qBitTorrentsRemoveCategoriesHandler(c *gin.Context) {
-	categories := c.PostForm("categories")
-	catList := strings.FieldsFunc(categories, func(r rune) bool {
-		return r == '\n' || r == '|'
-	})
-	if len(catList) == 0 && categories != "" {
-		catList = []string{categories}
-	}
+func qBitTorrentsRemoveCategoriesHandler(cs *categoryStore) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		categories := c.PostForm("categories")
+		catList := strings.FieldsFunc(categories, func(r rune) bool {
+			return r == '\n' || r == '|'
+		})
+		if len(catList) == 0 && categories != "" {
+			catList = []string{categories}
+		}
 
-	mockCreatedCategoriesMu.Lock()
-	for _, cat := range catList {
-		cat = strings.TrimSpace(cat)
-		delete(mockCreatedCategories, cat)
+		cs.mu.Lock()
+		for _, cat := range catList {
+			cat = strings.TrimSpace(cat)
+			delete(cs.cats, cat)
+		}
+		cs.mu.Unlock()
+		c.String(http.StatusOK, "")
 	}
-	mockCreatedCategoriesMu.Unlock()
-	c.String(http.StatusOK, "")
 }
 
 func qBitTorrentsMockHandler(c *gin.Context) {

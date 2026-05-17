@@ -15,6 +15,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockTorrentService struct {
@@ -254,6 +255,37 @@ func TestApiAddTorrentHandlerError(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestQBitCategoryIsolation(t *testing.T) {
+	// Each NewHandler call must use its own categoryStore; categories added to
+	// one handler must not be visible in another (the old package-level global
+	// caused test pollution and inter-instance leakage in production).
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+	}
+
+	r1, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse")
+	require.NoError(t, err)
+	r2, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse")
+	require.NoError(t, err)
+
+	// Add a category to r1 only
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/v2/torrents/createCategory", strings.NewReader("category=isolated-cat"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r1.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	// r2 must not see that category
+	w = httptest.NewRecorder()
+	req, _ = http.NewRequest("GET", "/api/v2/torrents/categories", nil)
+	r2.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	resp := make(map[string]interface{})
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.NotContains(t, resp, "isolated-cat", "category stores must not be shared between handler instances")
 }
 
 func TestQBitTorrentsCategoriesFlow(t *testing.T) {

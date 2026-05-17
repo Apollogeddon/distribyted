@@ -77,6 +77,8 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	}
 
+	cs := newCategoryStore()
+
 	qbit := r.Group("/api/v2")
 	{
 		qbit.POST("/auth/login", qBitLoginHandler)
@@ -86,9 +88,9 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		qbit.POST("/app/setPreferences", qBitAppSetPreferencesHandler)
 		qbit.GET("/transfer/info", qBitTransferInfoHandler(ss))
 		qbit.GET("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
-		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(ch, ss, fusePath))
-		qbit.POST("/torrents/createCategory", qBitTorrentsCreateCategoryHandler)
-		qbit.POST("/torrents/removeCategories", qBitTorrentsRemoveCategoriesHandler)
+		qbit.GET("/torrents/categories", qBitTorrentsCategoriesHandler(cs, ch, ss, fusePath))
+		qbit.POST("/torrents/createCategory", qBitTorrentsCreateCategoryHandler(cs))
+		qbit.POST("/torrents/removeCategories", qBitTorrentsRemoveCategoriesHandler(cs))
 		qbit.POST("/torrents/setCategory", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/addTags", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/pause", qBitTorrentsMockHandler)
