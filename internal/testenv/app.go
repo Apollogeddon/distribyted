@@ -15,7 +15,6 @@ import (
 	dtorrent "github.com/Apollogeddon/distribyted/torrent"
 	"github.com/Apollogeddon/distribyted/torrent/loader"
 	"github.com/Apollogeddon/distribyted/webdav"
-	"github.com/anacrolix/generics"
 	"github.com/anacrolix/missinggo/v2/filecache"
 	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
@@ -120,21 +119,16 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 			return nil, err
 		}
 
-		// Use file-based storage with BoltDB completion tracking on all platforms.
-		// UsePartFiles=false so pieces are written directly to their final path without
-		// a .part→final rename step. This prevents setCompletionFromPartFiles from
-		// overriding BoltDB on session 2 open (which would mark partially-downloaded
-		// torrents as fully incomplete). It also eliminates the rename race that caused
-		// unexpected EOF under -race with ResourcePieces (filecache).
+		// Use FileWithCompletion (file-based + BoltDB) instead of ResourcePieces
+		// (filecache). ResourcePieces has a race under -race: MarkComplete renames
+		// the piece file before the data is fully readable, causing unexpected EOF.
+		// FileWithCompletion only renames at the per-file level (all pieces done),
+		// so there is no piece-level rename race.
 		pieceDir := filepath.Join(actualTempDir, "pieces")
 		if err := os.MkdirAll(pieceDir, 0744); err != nil {
 			return nil, err
 		}
-		st = storage.NewFileOpts(storage.NewFileClientOpts{
-			ClientBaseDir:   pieceDir,
-			PieceCompletion: pc,
-			UsePartFiles:    generics.Some(false),
-		})
+		st = storage.NewFileWithCompletion(pieceDir, pc)
 	}
 
 	var ls *limitStorage
