@@ -270,18 +270,19 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	}()
 
 	go func() {
-		if conf.WebDAV != nil {
-			port = webDAVPort
-			if port == 0 {
-				port = conf.WebDAV.Port
-			}
-
-			if err := webdav.NewWebDAVServer(cfs, port, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
-				log.Error().Err(err).Msg("error starting webDAV")
-			}
+		if conf.WebDAV == nil {
+			log.Warn().Msg("webDAV configuration not found!")
+			return
 		}
 
-		log.Warn().Msg("webDAV configuration not found!")
+		port = webDAVPort
+		if port == 0 {
+			port = conf.WebDAV.Port
+		}
+
+		if err := webdav.NewWebDAVServer(cfs, port, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
+			log.Error().Err(err).Msg("error starting webDAV")
+		}
 	}()
 
 	httpfs := torrent.NewHTTPFS(cfs)
