@@ -129,9 +129,10 @@ type archive struct {
 	r iio.Reader
 	s *storage
 
-	size int64
-	once sync.Once
-	l    loader
+	size    int64
+	once    sync.Once
+	loadErr error
+	l       loader
 }
 
 func NewArchive(r iio.Reader, size int64, l loader) *archive {
@@ -144,23 +145,22 @@ func NewArchive(r iio.Reader, size int64, l loader) *archive {
 }
 
 func (fs *archive) loadOnce() error {
-	var errOut error
 	fs.once.Do(func() {
 		files, err := fs.l.getFiles(fs.r, fs.size)
 		if err != nil {
-			errOut = err
+			fs.loadErr = err
 			return
 		}
 
 		for name, file := range files {
 			if err := fs.s.Add(file, name); err != nil {
-				errOut = err
+				fs.loadErr = err
 				return
 			}
 		}
 	})
 
-	return errOut
+	return fs.loadErr
 }
 
 func (fs *archive) Open(filename string) (File, error) {

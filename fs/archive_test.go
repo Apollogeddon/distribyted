@@ -151,6 +151,22 @@ func TestSevenZipFilesystem_Corrupted(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestZipFilesystem_CorruptedErrorPersists(t *testing.T) {
+	// sync.Once only runs once; loadErr must be stored on the struct so that
+	// subsequent calls after the first failure still return an error.
+	corrupted := []byte("this is not a valid zip file")
+	zfs := NewArchive(newCBR(corrupted), int64(len(corrupted)), &Zip{})
+
+	_, err1 := zfs.ReadDir("/")
+	require.Error(t, err1)
+
+	_, err2 := zfs.ReadDir("/")
+	require.Error(t, err2, "error must persist across repeated calls after first loadOnce failure")
+
+	_, err3 := zfs.Open("/some/file.txt")
+	require.Error(t, err3, "Open must also surface the stored load error")
+}
+
 func createTestZip(require *require.Assertions) (iio.Reader, int64) {
 	buf := bytes.NewBuffer([]byte{})
 
