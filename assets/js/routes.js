@@ -108,16 +108,22 @@ Distribyted.routes = {
         return fetch('/api/routes')
             .then(function (response) {
                 if (response.ok) {
+                    Distribyted.offline.hide();
                     return response.json();
                 } else {
-                    Distribyted.message.error('Error getting data from server. Response: ' + response.status)
+                    Distribyted.offline.show();
                 }
             }).then(function (routes) {
                 return routes;
             })
-            .catch(function (error) {
-                Distribyted.message.error('Error getting status info: ' + error.message)
+            .catch(function () {
+                Distribyted.offline.show();
             });
+    },
+
+    confirmDelete: function (route, torrentHash, torrentName) {
+        if (!confirm('Delete "' + torrentName + '"?\n\nThis will remove the torrent and cannot be undone.')) return;
+        this.deleteTorrent(route, torrentHash);
     },
 
     deleteTorrent: function (route, torrentHash) {
@@ -155,7 +161,17 @@ $("#new-magnet").submit(function (event) {
     event.preventDefault();
 
     let route = $("#route-string :selected").val()
-    let magnet = $("#magnet-url").val()
+    let magnet = $("#magnet-url").val().trim()
+    let magnetInput = document.getElementById("magnet-url")
+    let feedbackEl = document.getElementById("magnet-feedback")
+
+    if (!magnet.startsWith("magnet:?")) {
+        magnetInput.classList.add("is-invalid")
+        feedbackEl.textContent = "Please enter a valid magnet link (must start with magnet:?)"
+        return
+    }
+    magnetInput.classList.remove("is-invalid")
+    feedbackEl.textContent = ""
 
     let url = '/api/routes/' + route + '/torrent'
     let body = JSON.stringify({ magnet: magnet })
@@ -169,6 +185,7 @@ $("#new-magnet").submit(function (event) {
         .then(function (response) {
             if (response.ok) {
                 Distribyted.message.info('New magnet added.')
+                document.getElementById("magnet-url").value = ""
                 Distribyted.routes.loadView();
             } else {
                 response.json().then(json => {

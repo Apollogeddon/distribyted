@@ -1,4 +1,4 @@
-{{#.}}
+{{#each .}}
 
 <div class="card card-default">
     <div class="card-header justify-content-between align-items-center card-header-border-bottom">
@@ -42,4 +42,11 @@
         </div>
     </div>
 </div>
-{{/.}}
+{{else}}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="mdi mdi-folder-upload-outline text-muted" style="font-size:3rem"></i>
+        <p class="text-muted mt-3 mb-0">No served folders found.<br>Configure a folder to serve via the application config.</p>
+    </div>
+</div>
+{{/each}}

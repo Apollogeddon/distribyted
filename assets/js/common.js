@@ -8,6 +8,38 @@ Handlebars.registerHelper('bytes', function (bytes) {
 
 var Distribyted = Distribyted || {};
 
+Distribyted.offline = {
+    _isOffline: false,
+    _banner: null,
+
+    _getBanner: function () {
+        if (this._banner) return this._banner;
+        var div = document.createElement('div');
+        div.id = 'offline-banner';
+        div.className = 'alert alert-danger m-3 mb-0';
+        div.setAttribute('role', 'alert');
+        div.style.display = 'none';
+        div.innerHTML = '<i class="mdi mdi-wifi-off mr-2"></i><strong>Connection lost</strong> — Could not reach server. Retrying…';
+        var wrapper = document.querySelector('.content-wrapper');
+        if (wrapper) wrapper.prepend(div);
+        this._banner = div;
+        return div;
+    },
+
+    show: function () {
+        if (this._isOffline) return;
+        this._isOffline = true;
+        this._getBanner().style.display = 'block';
+    },
+
+    hide: function () {
+        if (!this._isOffline) return;
+        this._isOffline = false;
+        var b = document.getElementById('offline-banner');
+        if (b) b.style.display = 'none';
+    }
+};
+
 Distribyted.message = {
 
     _toastr: function () {

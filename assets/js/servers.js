@@ -33,13 +33,14 @@ Distribyted.servers = {
         return fetch('/api/servers')
             .then(function (response) {
                 if (response.ok) {
+                    Distribyted.offline.hide();
                     return response.json();
                 } else {
-                    Distribyted.message.error('Error getting data from server. Response: ' + response.status)
+                    Distribyted.offline.show();
                 }
             })
-            .catch(function (error) {
-                Distribyted.message.error('Error getting status info: ' + error.message)
+            .catch(function () {
+                Distribyted.offline.show();
             });
     },
 

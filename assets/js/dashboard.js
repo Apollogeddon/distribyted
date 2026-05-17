@@ -6,11 +6,13 @@ Distribyted.dashboard = {
         fetch('/api/status')
             .then(function (response) {
                 if (response.ok) {
+                    Distribyted.offline.hide();
                     return response.json();
                 } else {
-                    Distribyted.message.error('Error getting data from server. Response: ' + response.status)
+                    Distribyted.offline.show();
                 }
             }).then(function (stats) {
+                if (!stats) return;
                 var download = stats.torrentStats.downloadedBytes / stats.torrentStats.timePassed;
                 var upload = stats.torrentStats.uploadedBytes / stats.torrentStats.timePassed;
 
@@ -24,8 +26,8 @@ Distribyted.dashboard = {
                 document.getElementById("general-upload-speed").innerText =
                     Humanize.ibytes(upload, 1024) + "/s";
             })
-            .catch(function (error) {
-                Distribyted.message.error('Error getting status info: ' + error.message)
+            .catch(function () {
+                Distribyted.offline.show();
             });
     }
 }

@@ -1,4 +1,4 @@
-{{#.}}
+{{#each .}}
 <div class="row">
     <div class="col-12">
         <div class="card card-table-border-none">
@@ -14,20 +14,24 @@
                             </th>
                             <th style="width: 15%" class="d-none d-lg-table-cell">Peers/Seeders</th>
                             <th style="width: 35%" class="d-none d-lg-table-cell">Status</th>
-                            <th style="width: 5%" >Actions</th>
+                            <th style="width: 5%">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{#torrentStats}}
                         <tr>
-                            <td>{{name}}</td>
+                            <td title="{{name}}">{{name}}</td>
                             <td>{{ibytes downloadedBytes timePassed}} / {{ibytes
                                 uploadedBytes timePassed}}</td>
                             <td class="d-none d-lg-table-cell">{{{torrent_info peers seeders pieceSize}}}</td>
                             <td class="d-none d-lg-table-cell">
                                 {{{torrent_status pieceChunks totalPieces}}}
                             </td>
-                            <td><i class="mdi mdi-delete-forever" title="delete torrent" onclick='Distribyted.routes.deleteTorrent("{{../name}}","{{hash}}")'></i></td>
+                            <td><i class="mdi mdi-delete-forever" title="delete torrent" style="cursor:pointer" onclick='Distribyted.routes.confirmDelete("{{../name}}","{{hash}}","{{name}}")'></i></td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No active torrents on this route.</td>
                         </tr>
                         {{/torrentStats}}
                     </tbody>
@@ -36,5 +40,15 @@
         </div>
     </div>
 </div>
-
-{{/.}}
+{{else}}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="mdi mdi-folder-multiple-outline text-muted" style="font-size:3rem"></i>
+                <p class="text-muted mt-3 mb-0">No routes configured yet.<br>Add a magnet link below to get started.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{{/each}}
