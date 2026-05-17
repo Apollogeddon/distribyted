@@ -39,7 +39,9 @@ func Load(config *config.Log) {
 	cso := colorable.NewColorableStdout()
 
 	writers = append(writers, zerolog.ConsoleWriter{Out: cso, TimeFormat: time.DateTime})
-	writers = append(writers, newRollingFile(config))
+	if w := newRollingFile(config); w != nil {
+		writers = append(writers, w)
+	}
 	mw := io.MultiWriter(writers...)
 
 	log.Logger = log.Output(mw)
