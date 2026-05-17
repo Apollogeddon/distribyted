@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/Apollogeddon/distribyted/compare/v0.21.7...v0.22.0) (2026-05-17)
+
+
+### Features
+
+* Implement polling mechanism for dashboard and logs views with visibility handling ([a67f5ca](https://github.com/Apollogeddon/distribyted/commit/a67f5cac5eada814c0a1b420d167765b302630eb))
+
 ## [0.21.7](https://github.com/Apollogeddon/distribyted/compare/v0.21.6...v0.21.7) (2026-05-17)
 
 
