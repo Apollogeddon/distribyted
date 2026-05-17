@@ -25,10 +25,14 @@
                     <div class="tab-content px-3 px-xl-5">
                         <div class="mt-5">
                             <div class="form-group mb-4">
-                                <label for="magnetUri">Magnet URI</label>
-                                <input type="text" class="form-control" id="magnetUri" value="{{magnetUri}}">
-                                <span class="d-block mt-1">Magnet URI pointing to the actual folder content. If content
-                                    changes, this URI will change too.</span>
+                                <label>Magnet URI</label>
+                                <div class="input-group magnet-group">
+                                    <input type="text" class="form-control" readonly value="{{magnetUri}}" title="{{magnetUri}}">
+                                    <div class="input-group-append">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText('{{magnetUri}}').then(function(){ var btn=this; btn.textContent='Copied!'; setTimeout(function(){ btn.textContent='Copy'; }, 1500); }.bind(this))">Copy</button>
+                                    </div>
+                                </div>
+                                <span class="d-block mt-1 text-muted" style="font-size:0.8rem">Magnet URI pointing to the actual folder content. Updates when content changes.</span>
                             </div>
 
                             <div class="form-group mb-4">

@@ -29,6 +29,13 @@
                                 <div
                                     class="card-header justify-content-between align-items-center card-header-border-bottom">
                                     <h2>Logs</h2>
+                                    <div id="log-filters" class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-secondary active" data-filter="all">All</button>
+                                        <button type="button" class="btn btn-outline-primary" data-filter="info">Info</button>
+                                        <button type="button" class="btn btn-outline-warning" data-filter="warn">Warn</button>
+                                        <button type="button" class="btn btn-outline-danger" data-filter="error">Error</button>
+                                        <button type="button" class="btn btn-outline-info" data-filter="debug">Debug</button>
+                                    </div>
                                 </div>
                                 <div style="position: relative; overflow: hidden; width: auto; height: 100%;">
                                     <div class="card-body"

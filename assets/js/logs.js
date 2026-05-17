@@ -53,17 +53,33 @@ Distribyted.logs = {
                                 default:
                                     break;
                             }
-                            template = `<tr class="${tableClass}"><td>${new Date(json.time*1000).toLocaleString()}</td><td>${json.level}</td><td>${json.component}</td><td>${json.message}</td><td>${properties}</td></tr>`;
-                            document.getElementById("log_table").innerHTML += template;
+                            var level = json.level || "info"
+                            var row = document.createElement("tr")
+                            row.className = tableClass
+                            row.setAttribute("data-level", level)
+                            row.innerHTML = `<td>${new Date(json.time*1000).toLocaleString()}</td><td>${level}</td><td>${json.component}</td><td>${json.message}</td><td>${properties}</td>`
+                            document.getElementById("log_table").appendChild(row)
                         } catch (err) {
-                            // server can send some corrupted json line
                             console.log(err);
                         }
                     });
-
 
                     return reader.read().then(processText);
                 }).catch(err => console.log(err));
             }).catch(err => console.log(err));
     }
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+    var filters = document.getElementById("log-filters")
+    if (!filters) return
+    filters.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-filter]")
+        if (!btn) return
+        filters.querySelectorAll(".btn").forEach(function (b) { b.classList.remove("active") })
+        btn.classList.add("active")
+        var level = btn.getAttribute("data-filter")
+        var table = document.getElementById("log_table")
+        table.className = level === "all" ? "" : "filter-" + level
+    })
+})

@@ -25,6 +25,14 @@ Distribyted.dashboard = {
 
                 document.getElementById("general-upload-speed").innerText =
                     Humanize.ibytes(upload, 1024) + "/s";
+
+                document.getElementById("kpi-download").innerText = Humanize.ibytes(download, 1024) + "/s";
+                document.getElementById("kpi-upload").innerText = Humanize.ibytes(upload, 1024) + "/s";
+                var cachePct = stats.cacheCapacity > 0
+                    ? Math.round(stats.cacheFilled / stats.cacheCapacity * 100) + "%"
+                    : "N/A";
+                document.getElementById("kpi-cache-pct").innerText = cachePct;
+                document.getElementById("kpi-cache-items").innerText = stats.cacheItems;
             })
             .catch(function () {
                 Distribyted.offline.show();
