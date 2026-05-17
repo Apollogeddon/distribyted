@@ -1,9 +1,7 @@
 package loader
 
 import (
-	"fmt"
 	"path"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -34,11 +32,8 @@ func NewDB(path string) (*DB, error) {
 	l := log.Logger.With().Str("component", "torrent-store").Logger()
 	var opts badger.Options
 	if path == "" {
-		fmt.Printf("DB DEBUG: opening in-memory database\n")
 		opts = badger.DefaultOptions("").WithInMemory(true)
 	} else {
-		absPath, _ := filepath.Abs(path)
-		fmt.Printf("DB DEBUG: opening database at %s\n", absPath)
 		opts = badger.DefaultOptions(path)
 	}
 
@@ -96,7 +91,6 @@ func (l *DB) AddMagnet(r, m string) error {
 		ih := spec.InfoHash.HexString()
 
 		rp := path.Join(routeRootKey, ih, r)
-		fmt.Printf("DB DEBUG: adding magnet key: %s\n", rp)
 		return txn.Set([]byte(rp), []byte(m))
 	})
 
@@ -157,7 +151,6 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 func (l *DB) AddLink(oldpath, newpath string) error {
 	err := l.db.Update(func(txn *badger.Txn) error {
 		key := path.Join(linkRootKey, newpath)
-		fmt.Printf("DB DEBUG: adding link key: %s\n", key)
 		return txn.Set([]byte(key), []byte(oldpath))
 	})
 	if err != nil {
@@ -189,8 +182,6 @@ func (l *DB) ListLinks() (map[string]string, error) {
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		k := string(item.Key())
-		fmt.Printf("DB DEBUG: found link key: %s\n", k)
-
 		val, err := item.ValueCopy(nil)
 		if err != nil {
 			return nil, err
@@ -208,7 +199,6 @@ func (l *DB) ListLinks() (map[string]string, error) {
 
 func (l *DB) Close() error {
 	l.closeOnce.Do(func() {
-		fmt.Printf("DB DEBUG: closing database\n")
 		if l.close != nil {
 			close(l.close)
 		}
@@ -217,21 +207,3 @@ func (l *DB) Close() error {
 	return l.closeErr
 }
 
-func (l *DB) DumpAllKeys() {
-	fmt.Println("--- DB DUMP START ---")
-	tx := l.db.NewTransaction(false)
-	defer tx.Discard()
-
-	it := tx.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	count := 0
-	for it.Rewind(); it.Valid(); it.Next() {
-		item := it.Item()
-		k := item.Key()
-		val, _ := item.ValueCopy(nil)
-		fmt.Printf("KEY: %s | VAL: %s\n", string(k), string(val))
-		count++
-	}
-	fmt.Printf("--- DB DUMP END (Total: %d keys) ---\n", count)
-}

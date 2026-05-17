@@ -71,7 +71,6 @@ func (t *Tracker) RegisterPeer(hash metainfo.Hash, peerAddr string) {
 
 func (t *Tracker) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 	infoHashRaw := r.URL.Query().Get("info_hash")
-	fmt.Printf("Tracker: Received announce for hash: %x\n", infoHashRaw)
 	var hash metainfo.Hash
 	copy(hash[:], infoHashRaw)
 
