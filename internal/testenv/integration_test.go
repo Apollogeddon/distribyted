@@ -328,7 +328,12 @@ func TestIntegration_CacheEviction(t *testing.T) {
 	require.NoError(t, err)
 	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
 
-	app, err := NewTestAppWithDir(t.TempDir())
+	// Use os.MkdirTemp rather than t.TempDir so that cleanup errors (e.g.
+	// Windows file-locking from anacrolix's shared-file cache) are silently
+	// ignored by app.Close() instead of being reported as a test failure.
+	tmpDir, err := os.MkdirTemp("", "TestIntegration_CacheEviction")
+	require.NoError(t, err)
+	app, err := NewTestAppWithDir(tmpDir)
 	require.NoError(t, err)
 	defer app.Close()
 
