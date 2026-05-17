@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.6](https://github.com/Apollogeddon/distribyted/compare/v0.21.5...v0.21.6) (2026-05-17)
+
+
+### Bug Fixes
+
+* Replace ResourcePieces with FileWithCompletion to avoid race conditions ([0778296](https://github.com/Apollogeddon/distribyted/commit/0778296d4c97a6447dd2c173fc6bdd848e413dcb))
+* Resolve four CI race-detector test failures ([acb513d](https://github.com/Apollogeddon/distribyted/commit/acb513d799894b6a4a6e3912ba484326091dd191))
+* Use os.MkdirTemp for temporary directory to avoid cleanup errors in CacheEviction test ([4c8b651](https://github.com/Apollogeddon/distribyted/commit/4c8b651ae78a0788d1ace33d86103a8ee70c9d1e))
+
 ## [0.21.5](https://github.com/Apollogeddon/distribyted/compare/v0.21.4...v0.21.5) (2026-05-06)
 
 
