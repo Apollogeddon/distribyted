@@ -46,6 +46,7 @@ func TestNewWebDAVServerWithListener(t *testing.T) {
 	addr := l.Addr().String()
 	resp, err := http.Get("http://" + addr)
 	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, 401, resp.StatusCode)
 
 	_ = l.Close()

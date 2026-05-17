@@ -1,0 +1,20 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - bodyclose
+    - revive
+    - forbidigo
+
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: 'fmt\.Print(ln|f)?'
+          msg: "use zerolog structured logger instead of fmt.Print*"
+
+    revive:
+      rules:
+        - name: var-naming

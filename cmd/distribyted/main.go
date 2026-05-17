@@ -76,7 +76,7 @@ func main() {
 			// stop program execution on errors to avoid flashing consoles
 			if err != nil && runtime.GOOS == "windows" {
 				log.Error().Err(err).Msg("problem starting application")
-				fmt.Print("Press 'Enter' to continue...")
+				fmt.Print("Press 'Enter' to continue...") //nolint:forbidigo // Windows interactive pause, not a log statement
 				_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 			}
 

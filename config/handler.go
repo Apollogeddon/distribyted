@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/Apollogeddon/distribyted"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -42,7 +43,7 @@ func (c *Handler) createFromTemplateFile() ([]byte, error) {
 func (c *Handler) GetRaw() ([]byte, error) {
 	f, err := os.ReadFile(c.p)
 	if os.IsNotExist(err) {
-		fmt.Println("configuration file does not exist, creating from template file:", c.p)
+		log.Info().Str("path", c.p).Msg("configuration file does not exist, creating from template file")
 		return c.createFromTemplateFile()
 	}
 

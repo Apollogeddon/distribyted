@@ -393,14 +393,14 @@ func (s *Service) addTorrent(r string, t fs.Torrent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	fs_entry, exists := s.fss[folder]
+	fsEntry, exists := s.fss[folder]
 	if !exists {
 		return fmt.Errorf("error adding torrent to filesystem: route %s not found in map", folder)
 	}
 
-	tfs, ok := fs_entry.(*fs.TorrentFS)
+	tfs, ok := fsEntry.(*fs.TorrentFS)
 	if !ok {
-		return fmt.Errorf("error adding torrent to filesystem: route %s has unexpected type %T", folder, fs_entry)
+		return fmt.Errorf("error adding torrent to filesystem: route %s has unexpected type %T", folder, fsEntry)
 	}
 
 	tfs.AddTorrent(t)
@@ -434,16 +434,16 @@ func (s *Service) RemoveFromHash(r, h string) error {
 	folder := path.Join("/", r)
 
 	s.mu.Lock()
-	fs_entry, exists := s.fss[folder]
+	fsEntry, exists := s.fss[folder]
 	if !exists {
 		s.mu.Unlock()
 		return fmt.Errorf("error removing torrent from filesystem: route %s not found", folder)
 	}
 
-	tfs, ok := fs_entry.(*fs.TorrentFS)
+	tfs, ok := fsEntry.(*fs.TorrentFS)
 	if !ok {
 		s.mu.Unlock()
-		return fmt.Errorf("error removing torrent from filesystem: route %s has unexpected type %T", folder, fs_entry)
+		return fmt.Errorf("error removing torrent from filesystem: route %s has unexpected type %T", folder, fsEntry)
 	}
 
 	tfs.RemoveTorrent(h)

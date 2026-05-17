@@ -29,7 +29,7 @@ type TestApp struct {
 	TempDir      string
 	Cache        *filecache.Cache
 	LimitStorage *limitStorage
-	HttpAddr     string
+	HTTPAddr     string
 	WebDavAddr   string
 	httpServer   *http.Server
 	db           *loader.DB
@@ -243,7 +243,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 
 	go func() {
 		if err := webdav.NewWebDAVServerWithListener(webDavListener, cfs, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
-			fmt.Printf("WebDAV error: %v\n", err)
+			fmt.Printf("WebDAV error: %v\n", err) //nolint:forbidigo
 		}
 	}()
 
@@ -256,7 +256,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		TempDir:      actualTempDir,
 		Cache:        fc,
 		LimitStorage: ls,
-		HttpAddr:     httpAddr,
+		HTTPAddr:     httpAddr,
 		WebDavAddr:   webDavAddr,
 		httpServer:   httpServer,
 		db:           dbl,

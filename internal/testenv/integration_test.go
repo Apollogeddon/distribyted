@@ -196,7 +196,7 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	require.NoError(t, app.Service.AddMagnet(route, magnet.String()))
 
 	// 7. Verify via HTTP FS handler
-	// The path should be reachable via http://<app.HttpAddr>/fs/<route>/multi_protocol.txt
+	// The path should be reachable via http://<app.HTTPAddr>/fs/<route>/multi_protocol.txt
 	// Wait for info
 	maxRetries := 50
 	var httpResp *http.Response
@@ -206,7 +206,7 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	}
 	
 	for i := 0; i < maxRetries; i++ {
-		url := fmt.Sprintf("http://%s/fs/%s/multi_protocol.txt", app.HttpAddr, route)
+		url := fmt.Sprintf("http://%s/fs/%s/multi_protocol.txt", app.HTTPAddr, route)
 		resp, err := httpClient.Get(url)
 		if err == nil && resp.StatusCode == http.StatusOK {
 			httpResp = resp
@@ -220,9 +220,9 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	require.NotNil(t, httpResp, "Could not fetch via HTTP after timeout")
 	defer func() { _ = httpResp.Body.Close() }()
 
-	downloadedHttp, err := io.ReadAll(httpResp.Body)
+	downloadedHTTP, err := io.ReadAll(httpResp.Body)
 	require.NoError(t, err)
-	assert.Equal(t, content, downloadedHttp)
+	assert.Equal(t, content, downloadedHTTP)
 
 	// 8. Verify via WebDAV
 	// Use basic auth
@@ -694,7 +694,7 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 
 	// 1. Add torrent via qBit API
 	category := "movies"
-	apiURL := fmt.Sprintf("http://%s/api/v2/torrents/add", app.HttpAddr)
+	apiURL := fmt.Sprintf("http://%s/api/v2/torrents/add", app.HTTPAddr)
 	formData := fmt.Sprintf("urls=%s&category=%s", magnet.String(), category)
 
 	resp, err := http.Post(apiURL, "application/x-www-form-urlencoded", strings.NewReader(formData))
@@ -721,7 +721,7 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 	}})
 
 	// 3. Poll API until torrent appears and has info
-	infoURL := fmt.Sprintf("http://%s/api/v2/torrents/info", app.HttpAddr)
+	infoURL := fmt.Sprintf("http://%s/api/v2/torrents/info", app.HTTPAddr)
 	var torrentFound bool
 	for i := 0; i < 50; i++ {
 		resp, err := http.Get(infoURL)
