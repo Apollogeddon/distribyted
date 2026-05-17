@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/Apollogeddon/distribyted/compare/v0.22.0...v0.22.1) (2026-05-17)
+
+
+### Bug Fixes
+
+* Enhance logging and update variable naming conventions across the codebase ([43898ff](https://github.com/Apollogeddon/distribyted/commit/43898ff7b926a7955de784120ebed37f8f07ddf5))
+
 ## [0.22.0](https://github.com/Apollogeddon/distribyted/compare/v0.21.7...v0.22.0) (2026-05-17)
 
 
