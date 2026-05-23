@@ -35,15 +35,14 @@ func (dtr *DiskTeeReader) ReadAt(p []byte, off int64) (int, error) {
 
 	if tb > dtr.fo {
 		w, err := io.CopyN(io.Discard, dtr.tr, tb-dtr.fo)
+		dtr.fo += w
 		dtr.to += w
 		if err != nil && err != io.EOF {
 			return 0, err
 		}
 	}
 
-	n, err := dtr.fr.ReadAt(p, off)
-	dtr.fo += int64(n)
-	return n, err
+	return dtr.fr.ReadAt(p, off)
 }
 
 func (dtr *DiskTeeReader) Read(p []byte) (n int, err error) {
