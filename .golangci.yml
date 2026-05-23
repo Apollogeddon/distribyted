@@ -6,10 +6,23 @@ run:
 linters:
   enable:
     - bodyclose
+    - errcheck
+    - gosec
     - revive
     - forbidigo
 
   settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+
+    gosec:
+      excludes:
+        - G304
+        - G115
+
     forbidigo:
       forbid:
         - pattern: 'fmt\.Print(ln|f)?'
@@ -18,3 +31,18 @@ linters:
     revive:
       rules:
         - name: var-naming
+
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # Don't enforce errcheck/gosec in test files
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+      # testenv helpers are test infrastructure only
+      - path: internal/testenv
+        linters:
+          - errcheck
+          - gosec
