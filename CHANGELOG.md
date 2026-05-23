@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.22.2](https://github.com/Apollogeddon/distribyted/compare/v0.22.1...v0.22.2) (2026-05-23)
+
+
+### Bug Fixes
+
+* **fs:** Log Add/Remove errors instead of silently discarding ([da39e5a](https://github.com/Apollogeddon/distribyted/commit/da39e5a8aea748d2d2d667757199c1c199211049))
+* **fs:** Return io.EOF from Dir reads and guard torrentFileHandle against nil reader ([c2102ca](https://github.com/Apollogeddon/distribyted/commit/c2102ca59b4627d44988741ac9ed1594a73bc138))
+* **fuse:** Log FUSE mount goroutine exit to surface premature failures ([fc723f4](https://github.com/Apollogeddon/distribyted/commit/fc723f4e2f11172330c01b7b914db769cf050642))
+* **http:** Return 500 for server errors; report qBit add/delete failures ([8e52ef7](https://github.com/Apollogeddon/distribyted/commit/8e52ef728663629c3061d08039f0c90f7b92d3c3))
+* **http:** Validate API params, close log fd on all error paths, sanitise HTTPFS filepath ([3d8d686](https://github.com/Apollogeddon/distribyted/commit/3d8d6861d289d5c769b1c24dca1eda9961a5d178))
+* **iio:** Correct DiskTeeReader frontier offset to prevent data corruption ([179cdd2](https://github.com/Apollogeddon/distribyted/commit/179cdd2442a24851a2a74827eeb0e32eb27e1b69))
+* **lint:** Add nolint directives for accepted gosec patterns ([c49c5a3](https://github.com/Apollogeddon/distribyted/commit/c49c5a31c05ca69b7fbf68ec237d9742a9567eae))
+* **lint:** Rewrite golangci.yml for v2 format; add errcheck, gosec, forbidigo ([402edc3](https://github.com/Apollogeddon/distribyted/commit/402edc34502c0546e96da2cf4e1aa1961bd9065b))
+* **main:** Guard HTTP error log, warn on link retry exhaustion, extract magic durations ([568aae3](https://github.com/Apollogeddon/distribyted/commit/568aae3b209346a088d699666038e4882a428e8e))
+* **security:** Tighten dir/file creation permissions to 0750/0600 ([a86394d](https://github.com/Apollogeddon/distribyted/commit/a86394d587fdfe3311df6713f77a1b0ed234595b))
+* **torrent:** Treat MaxConnsPerTorrent=0 as unset, not zero-cap; guard half-open floor at 1 ([7a4d9b5](https://github.com/Apollogeddon/distribyted/commit/7a4d9b595364b2955f78b26cfa8a18fa3fe02f1f))
+
+
+### Performance Improvements
+
+* **badger:** Cap block cache, memtable size and count to reduce idle memory ([fed15ab](https://github.com/Apollogeddon/distribyted/commit/fed15abd013acbcc330b07374edcafbabc0e1dc6))
+* **torrent:** Cap peer connections per torrent via configurable max_conns_per_torrent ([3b1aead](https://github.com/Apollogeddon/distribyted/commit/3b1aeade5b249d798acfe077c865ab54618099f2))
+
 ## [0.22.1](https://github.com/Apollogeddon/distribyted/compare/v0.22.0...v0.22.1) (2026-05-17)
 
 
