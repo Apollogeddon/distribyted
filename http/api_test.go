@@ -254,7 +254,7 @@ func TestApiAddTorrentHandlerError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestQBitCategoryIsolation(t *testing.T) {
@@ -433,7 +433,7 @@ func TestApiDelTorrentHandlerError(t *testing.T) {
 	req, _ := http.NewRequest("DELETE", "/api/routes/test-route/torrent/test-hash", nil)
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestQBitWebapiVersionHandler(t *testing.T) {

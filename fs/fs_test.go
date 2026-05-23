@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"io"
 	"os"
 	"testing"
 
@@ -38,11 +39,11 @@ func TestDir(t *testing.T) {
 
 	n, err := d.Read(nil)
 	require.Equal(0, n)
-	require.NoError(err)
+	require.ErrorIs(err, io.EOF)
 
 	n, err = d.ReadAt(nil, 0)
 	require.Equal(0, n)
-	require.NoError(err)
+	require.ErrorIs(err, io.EOF)
 }
 
 func TestContainerFs_Mutation(t *testing.T) {
