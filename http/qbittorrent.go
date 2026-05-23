@@ -326,17 +326,25 @@ func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 		}
 
 		magnets := strings.Split(urls, "\n")
+		var succeeded int
+		var lastErr error
 		for _, m := range magnets {
 			m = strings.TrimSpace(m)
 			if m == "" {
 				continue
 			}
 			if err := s.AddMagnet(category, m); err != nil {
-				// We log error but continue with others
 				log.Error().Err(err).Str("category", category).Msg("error adding magnet via qBit API")
+				lastErr = err
+			} else {
+				succeeded++
 			}
 		}
 
+		if succeeded == 0 && lastErr != nil {
+			c.String(http.StatusInternalServerError, lastErr.Error())
+			return
+		}
 		c.String(http.StatusOK, "Ok.")
 	}
 }
@@ -347,6 +355,8 @@ func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 		// qBit sends hashes separated by |
 		hashList := strings.Split(hashes, "|")
 
+		var succeeded int
+		var lastErr error
 		for _, h := range hashList {
 			h = strings.ToLower(strings.TrimSpace(h))
 			if h == "" {
@@ -354,9 +364,16 @@ func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 			}
 			if err := s.RemoveFromHashOnly(h); err != nil {
 				log.Error().Err(err).Str("hash", h).Msg("error deleting torrent via qBit API")
+				lastErr = err
+			} else {
+				succeeded++
 			}
 		}
 
+		if succeeded == 0 && lastErr != nil {
+			c.String(http.StatusInternalServerError, lastErr.Error())
+			return
+		}
 		c.String(http.StatusOK, "Ok.")
 	}
 }

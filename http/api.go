@@ -75,7 +75,7 @@ var apiAddTorrentHandler = func(s torrentService) gin.HandlerFunc {
 		}
 
 		if err := s.AddMagnet(route, json.Magnet); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -93,7 +93,7 @@ var apiDelTorrentHandler = func(s torrentService) gin.HandlerFunc {
 		}
 
 		if err := s.RemoveFromHash(route, hash); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -105,27 +105,27 @@ var apiLogHandler = func(path string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		f, err := os.Open(path)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		defer f.Close()
 
 		fi, err := f.Stat()
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		max := math.Max(float64(-fi.Size()), -1024*8*8)
 		_, err = f.Seek(int64(max), io.SeekEnd)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		_, err = io.Copy(ctx.Writer, f)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 	}
