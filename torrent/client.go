@@ -27,6 +27,8 @@ func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal
 	torrentCfg.DisableUTP = cfg.DisableUTP
 	torrentCfg.NoDefaultPortForwarding = cfg.DisableUPnP
 	torrentCfg.NoDHT = cfg.DisableDHT
+	torrentCfg.EstablishedConnsPerTorrent = cfg.MaxConnsPerTorrent
+	torrentCfg.HalfOpenConnsPerTorrent = cfg.MaxConnsPerTorrent / 2
 
 	if cfg.ListenPort != 0 {
 		if cfg.ListenPort == -1 {

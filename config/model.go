@@ -34,6 +34,7 @@ type TorrentGlobal struct {
 	IP                     string `yaml:"ip,omitempty"`
 	ListenPort             int    `yaml:"listen_port,omitempty"`
 	Seed                   bool   `yaml:"seed,omitempty"`
+	MaxConnsPerTorrent     int    `yaml:"max_conns_per_torrent,omitempty"`
 }
 
 type WebDAVGlobal struct {
@@ -87,6 +88,10 @@ func AddDefaults(r *Root) *Root {
 
 	if r.Torrent.GlobalCacheSize == 0 {
 		r.Torrent.GlobalCacheSize = 2048 // 2GB
+	}
+
+	if r.Torrent.MaxConnsPerTorrent == 0 {
+		r.Torrent.MaxConnsPerTorrent = 25
 	}
 
 	if r.Torrent.MetadataFolder == "" {
