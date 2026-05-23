@@ -63,7 +63,9 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			log:        fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
 		tf.SetIno(HashIno(ih + file.Path()))
-		_ = fs.s.Add(tf, file.Path())
+		if err := fs.s.Add(tf, file.Path()); err != nil {
+			fs.log.Error().Err(err).Str(dlog.KeyPath, file.Path()).Msg("failed to register file in storage")
+		}
 	}
 }
 
@@ -77,7 +79,9 @@ func (fs *TorrentFS) RemoveTorrent(h string) {
 	// Surgical removal: only remove files that belong to this hash
 	for p, f := range fs.s.files {
 		if f.MatchHash(h) {
-			_ = fs.s.Remove(p)
+			if err := fs.s.Remove(p); err != nil {
+				fs.log.Error().Err(err).Str(dlog.KeyPath, p).Msg("failed to remove file from storage")
+			}
 		}
 	}
 

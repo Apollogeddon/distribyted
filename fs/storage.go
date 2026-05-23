@@ -5,6 +5,9 @@ import (
 	"path"
 	"strings"
 	"sync"
+
+	dlog "github.com/Apollogeddon/distribyted/log"
+	"github.com/rs/zerolog"
 )
 
 const separator = "/"
@@ -46,6 +49,7 @@ func GetSupportedFactories() map[string]FsFactory {
 type storage struct {
 	mu        sync.RWMutex
 	factories map[string]FsFactory
+	log       zerolog.Logger
 
 	files       map[string]File
 	filesystems map[string]Filesystem
@@ -58,9 +62,10 @@ func newStorage(factories map[string]FsFactory) *storage {
 		children:    make(map[string]map[string]File),
 		filesystems: make(map[string]Filesystem),
 		factories:   factories,
+		log:         dlog.Logger("fs-storage"),
 	}
 
-	_ = s.Add(&Dir{}, separator)
+	_ = s.Add(&Dir{}, separator) //nolint:errcheck // root "/" always succeeds
 	return s
 }
 
@@ -72,7 +77,7 @@ func (s *storage) Clear() {
 	s.children = make(map[string]map[string]File)
 	s.filesystems = make(map[string]Filesystem)
 
-	_ = s.addLocked(&Dir{}, "/")
+	_ = s.addLocked(&Dir{}, "/") //nolint:errcheck // root "/" always succeeds
 }
 
 func (s *storage) Has(path string) bool {
@@ -190,7 +195,7 @@ func (s *storage) removeLocked(p string) error {
 		if len(s.children[base]) == 0 && base != separator {
 			// Don't prune if it's a mountpoint
 			if _, isMount := s.filesystems[base]; !isMount {
-				_ = s.removeLocked(base)
+				_ = s.removeLocked(base) //nolint:errcheck // best-effort empty-dir pruning
 			}
 		}
 	}
@@ -204,7 +209,9 @@ func (s *storage) RemoveByHash(h string) {
 
 	for p, f := range s.files {
 		if f.MatchHash(h) {
-			_ = s.removeLocked(p)
+			if err := s.removeLocked(p); err != nil {
+				s.log.Error().Err(err).Str(dlog.KeyPath, p).Msg("failed to remove file from storage during hash eviction")
+			}
 		}
 	}
 }
