@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"path"
 
 	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/gin-gonic/gin"
@@ -44,8 +45,8 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 	if conf.HTTPGlobal.HTTPFS {
 		log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d/fs", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting HTTPFS")
 		h := func(c *gin.Context) {
-			path := c.Param("filepath")
-			c.FileFromFS(path, fs)
+			p := path.Clean(c.Param("filepath"))
+			c.FileFromFS(p, fs)
 		}
 		r.GET("/fs/*filepath", h)
 		r.HEAD("/fs/*filepath", h)

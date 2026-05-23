@@ -63,6 +63,10 @@ var apiRoutesHandler = func(ss *torrent.Stats) gin.HandlerFunc {
 var apiAddTorrentHandler = func(s torrentService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		route := ctx.Param("route")
+		if route == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "route is required"})
+			return
+		}
 
 		var json RouteAdd
 		if err := ctx.ShouldBindJSON(&json); err != nil {
@@ -83,6 +87,10 @@ var apiDelTorrentHandler = func(s torrentService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		route := ctx.Param("route")
 		hash := strings.ToLower(ctx.Param("torrent_hash"))
+		if route == "" || hash == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "route and hash are required"})
+			return
+		}
 
 		if err := s.RemoveFromHash(route, hash); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -100,6 +108,7 @@ var apiLogHandler = func(path string) gin.HandlerFunc {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		defer f.Close()
 
 		fi, err := f.Stat()
 		if err != nil {
@@ -116,11 +125,6 @@ var apiLogHandler = func(path string) gin.HandlerFunc {
 
 		_, err = io.Copy(ctx.Writer, f)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		if err := f.Close(); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
