@@ -31,6 +31,13 @@ const (
 	fuseAllowOther = "fuse-allow-other"
 	portFlag       = "http-port"
 	webDAVPortFlag = "webdav-port"
+
+	linkRetryMaxIter = 300 // 10 minutes at 2s per attempt
+)
+
+var (
+	linkRetryInterval = 2 * time.Second
+	itemStoreTTL      = 2 * time.Hour
 )
 
 var (
@@ -128,7 +135,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		st = storage.NewFileWithCompletion(cf, pc)
 	}
 
-	fis, err := torrent.NewFileItemStore(filepath.Join(conf.Torrent.MetadataFolder, "items"), 2*time.Hour)
+	fis, err := torrent.NewFileItemStore(filepath.Join(conf.Torrent.MetadataFolder, "items"), itemStoreTTL)
 	if err != nil {
 		return fmt.Errorf("error starting item store: %w", err)
 	}
@@ -226,12 +233,13 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 			_ = cfs.Mkdir(np)
 		} else {
 			go func(op, np string) {
-				for i := 0; i < 300; i++ { // 10 minutes max for app
+				for i := 0; i < linkRetryMaxIter; i++ {
 					if err := cfs.Link(op, np); err == nil {
 						return
 					}
-					time.Sleep(2 * time.Second)
+					time.Sleep(linkRetryInterval)
 				}
+				log.Warn().Str("old", op).Str("new", np).Msg("giving up creating virtual link after max retries")
 			}(op, np)
 		}
 	}
@@ -294,7 +302,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	}
 
 	err = http.New(fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath)
-	log.Error().Err(err).Msg("error initializing HTTP server")
+	if err != nil {
+		log.Error().Err(err).Msg("error initializing HTTP server")
+	}
 	return err
 }
 

@@ -1,4 +1,6 @@
-distribyted-data
-httpfs_vfsdata.go
 bin/
+
+CLAUDE.md
+GEMINI.md
+
 coverage.out
