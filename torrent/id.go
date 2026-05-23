@@ -26,5 +26,5 @@ func GetOrCreatePeerID(p string) ([20]byte, error) {
 		return emptyBytes, err
 	}
 
-	return out, os.WriteFile(p, out[:], 0755)
+	return out, os.WriteFile(p, out[:], 0600)
 }

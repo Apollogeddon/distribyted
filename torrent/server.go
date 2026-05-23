@@ -78,7 +78,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	if err := os.MkdirAll(s.cfg.Path, 0744); err != nil {
+	if err := os.MkdirAll(s.cfg.Path, 0750); err != nil {
 		return fmt.Errorf("error creating server folder: %s. Error: %w", s.cfg.Path, err)
 	}
 
