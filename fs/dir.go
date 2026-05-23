@@ -1,5 +1,7 @@
 package fs
 
+import "io"
+
 var _ File = &Dir{}
 
 type Dir struct {
@@ -19,9 +21,9 @@ func (d *Dir) Close() error {
 }
 
 func (d *Dir) Read(p []byte) (n int, err error) {
-	return 0, nil
+	return 0, io.EOF
 }
 
 func (d *Dir) ReadAt(p []byte, off int64) (n int, err error) {
-	return 0, nil
+	return 0, io.EOF
 }

@@ -175,6 +175,9 @@ type readAtWrapper struct {
 }
 
 func newReadAtWrapper(r torrent.Reader, file *torrent.File, timeout int, l zerolog.Logger) reader {
+	if r == nil {
+		return nil
+	}
 	return &readAtWrapper{Reader: r, file: file, timeout: timeout, log: l}
 }
 
@@ -360,6 +363,9 @@ func (h *torrentFileHandle) load() {
 
 func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	h.load()
+	if h.reader == nil {
+		return 0, io.EOF
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 
 	timer := timerPool.Get().(*time.Timer)
@@ -390,6 +396,9 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 
 func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 	h.load()
+	if h.reader == nil {
+		return 0, io.EOF
+	}
 	return h.reader.ReadAt(p, off)
 }
 
