@@ -40,7 +40,10 @@ func NewDB(path string) (*DB, error) {
 	opts = opts.WithLogger(&dlog.Badger{L: l}).
 		WithValueLogFileSize(1<<26 - 1).
 		WithValueThreshold(1024).
-		WithSyncWrites(true)
+		WithSyncWrites(true).
+		WithBlockCacheSize(8 << 20).
+		WithNumMemtables(1).
+		WithMemTableSize(16 << 20)
 
 	db, err := badger.Open(opts)
 	if err != nil {

@@ -34,7 +34,10 @@ func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, erro
 
 	opts = opts.WithLogger(&dlog.Badger{L: l}).
 		WithValueLogFileSize(1<<26 - 1).
-		WithValueThreshold(1024)
+		WithValueThreshold(1024).
+		WithBlockCacheSize(8 << 20).
+		WithNumMemtables(1).
+		WithMemTableSize(16 << 20)
 
 	db, err := badger.Open(opts)
 	if err != nil {
