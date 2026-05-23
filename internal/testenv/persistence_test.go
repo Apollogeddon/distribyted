@@ -58,13 +58,9 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 		if rawTor != nil {
 			// Without DownloadAll, anacrolix waits for a reader to set piece priorities.
 			rawTor.DownloadAll()
-			for i := 0; i < 150; i++ {
-				if rawTor.Stats().PiecesComplete > 0 {
-					break
-				}
-				time.Sleep(200 * time.Millisecond)
-			}
-			require.Greater(t, rawTor.Stats().PiecesComplete, 0, "Session 1: piece must complete before close")
+			require.Eventually(t, func() bool {
+				return rawTor.Stats().PiecesComplete > 0
+			}, 30*time.Second, 200*time.Millisecond, "Session 1: piece must complete before close")
 		}
 
 		require.NoError(t, app.Service.AddLink("/unique-p-route/persist_behavior.txt", "/unique-manual-link.txt"))

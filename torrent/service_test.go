@@ -123,10 +123,11 @@ func TestService_Load(t *testing.T) {
 	require.Contains(t, fss, "/route1")
 	require.Contains(t, fss, "/route2")
 
-	// wait for torrents to be added properly and info to be ignored due to timeout
-	time.Sleep(2 * time.Second)
-
-	require.Len(t, svc.fss, 2)
+	require.Eventually(t, func() bool {
+		svc.mu.Lock()
+		defer svc.mu.Unlock()
+		return len(svc.fss) == 2
+	}, 5*time.Second, 100*time.Millisecond, "expected 2 filesystems after add timeout")
 }
 
 func TestService_addTorrent_Timeout(t *testing.T) {
