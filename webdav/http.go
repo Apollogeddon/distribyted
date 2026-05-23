@@ -12,11 +12,11 @@ import (
 
 func NewWebDAVServer(fs fs.Filesystem, port int, user, pass string) error {
 	log.Info().Str(dlog.KeyHost, fmt.Sprintf("0.0.0.0:%d", port)).Msg("starting webDAV server")
-	return http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), NewWebDAVHandler(fs, user, pass))
+	return http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), NewWebDAVHandler(fs, user, pass)) //nolint:gosec // G114: no timeout by design
 }
 
 func NewWebDAVServerWithListener(l net.Listener, fs fs.Filesystem, user, pass string) error {
-	return http.Serve(l, NewWebDAVHandler(fs, user, pass))
+	return http.Serve(l, NewWebDAVHandler(fs, user, pass)) //nolint:gosec // G114: no timeout by design
 }
 
 func NewWebDAVHandler(fs fs.Filesystem, user, pass string) http.Handler {

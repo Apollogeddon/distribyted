@@ -39,7 +39,7 @@ func (fs *Zip) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 			return iio.NewDiskTeeReader(zr)
 		}
 
-		n := filepath.Join(string(os.PathSeparator), f.Name)
+		n := filepath.Join(string(os.PathSeparator), f.Name) //nolint:gosec // G305: intentional archive path join
 		af := NewArchiveFile(rf, f.FileInfo().Size())
 
 		out[n] = af
@@ -76,7 +76,7 @@ func (fs *SevenZip) getFiles(reader iio.Reader, size int64) (map[string]*Archive
 		}
 
 		af := NewArchiveFile(rf, f.FileInfo().Size())
-		n := filepath.Join(string(os.PathSeparator), f.Name)
+		n := filepath.Join(string(os.PathSeparator), f.Name) //nolint:gosec // G305: intentional archive path join
 
 		out[n] = af
 	}
@@ -109,7 +109,7 @@ func (fs *Rar) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 			return iio.NewDiskTeeReader(r)
 		}
 
-		n := filepath.Join(string(os.PathSeparator), header.Name)
+		n := filepath.Join(string(os.PathSeparator), header.Name) //nolint:gosec // G305: intentional archive path join
 
 		af := NewArchiveFile(rf, header.UnPackedSize)
 
