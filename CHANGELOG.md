@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.5](https://github.com/Apollogeddon/distribyted/compare/v0.22.4...v0.22.5) (2026-05-24)
+
+
+### Bug Fixes
+
+* Close signal race condition ([87b6974](https://github.com/Apollogeddon/distribyted/commit/87b69747ae3bc8a75c40e80e91d5c2f8acfd2e82))
+
 ## [0.22.4](https://github.com/Apollogeddon/distribyted/compare/v0.22.3...v0.22.4) (2026-05-24)
 
 
