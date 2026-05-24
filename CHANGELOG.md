@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.4](https://github.com/Apollogeddon/distribyted/compare/v0.22.3...v0.22.4) (2026-05-24)
+
+
+### Bug Fixes
+
+* Updated the go versions to 1.26 ([89cbe14](https://github.com/Apollogeddon/distribyted/commit/89cbe140a02237eb6d228a9bf2c2f4a47caa117c))
+
 ## [0.22.3](https://github.com/Apollogeddon/distribyted/compare/v0.22.2...v0.22.3) (2026-05-24)
 
 
