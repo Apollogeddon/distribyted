@@ -137,11 +137,10 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		st = ls
 	}
 
-	itemPath := ""
-	if !inMemory {
-		itemPath = filepath.Join(actualTempDir, "items")
-	}
-	fis, err := dtorrent.NewFileItemStore(itemPath, 2*time.Hour)
+	// DHT is disabled in tests, so the item store is never accessed.
+	// Always use in-memory mode to avoid badger's disk-based background
+	// goroutines (updateSize, compaction) hanging on close under -race.
+	fis, err := dtorrent.NewFileItemStore("", 2*time.Hour)
 	if err != nil {
 		return nil, err
 	}
