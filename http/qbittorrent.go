@@ -264,7 +264,7 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 
 			var dlSpeed int64
 			var upSpeed int64
-			if ts.TimePassed > 0 {
+			if ts != nil && ts.TimePassed > 0 {
 				dlSpeed = int64(float64(ts.DownloadedBytes) / ts.TimePassed)
 				upSpeed = int64(float64(ts.UploadedBytes) / ts.TimePassed)
 			}
