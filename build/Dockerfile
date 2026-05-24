@@ -2,7 +2,7 @@
 # Stage 1: Build
 #===============
 
-FROM golang:1.25-alpine as builder
+FROM golang:1.26-alpine as builder
 
 RUN apk add --no-cache fuse-dev gcc libc-dev g++ make git
 
