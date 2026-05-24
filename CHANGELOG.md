@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.3](https://github.com/Apollogeddon/distribyted/compare/v0.22.2...v0.22.3) (2026-05-24)
+
+
+### Bug Fixes
+
+* Added nil check for time check ([bf5ac53](https://github.com/Apollogeddon/distribyted/commit/bf5ac536f9c0a6e805583398f1edc3e28f770c56))
+
 ## [0.22.2](https://github.com/Apollogeddon/distribyted/compare/v0.22.1...v0.22.2) (2026-05-23)
 
 
