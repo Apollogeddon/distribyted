@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/webdav"

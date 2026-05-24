@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
-	dtorrent "github.com/Apollogeddon/distribyted/torrent"
+	dtorrent "github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"

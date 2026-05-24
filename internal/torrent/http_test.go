@@ -4,7 +4,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

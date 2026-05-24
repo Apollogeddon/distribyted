@@ -9,7 +9,7 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
 )
 

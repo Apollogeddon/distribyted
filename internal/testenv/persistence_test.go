@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	dtorrent "github.com/Apollogeddon/distribyted/torrent"
+	dtorrent "github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/anacrolix/torrent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

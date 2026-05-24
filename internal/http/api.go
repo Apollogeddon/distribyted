@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/gin-gonic/gin"
 )

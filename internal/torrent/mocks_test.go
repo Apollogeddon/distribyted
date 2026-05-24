@@ -1,7 +1,7 @@
 package torrent
 
 import (
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )

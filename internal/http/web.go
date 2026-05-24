@@ -3,7 +3,7 @@ package http
 import (
 	"net/http"
 
-	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/gin-gonic/gin"
 )
 

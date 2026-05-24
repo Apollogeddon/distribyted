@@ -17,13 +17,13 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
-	"github.com/Apollogeddon/distribyted/fs"
-	"github.com/Apollogeddon/distribyted/fuse"
-	"github.com/Apollogeddon/distribyted/http"
+	"github.com/Apollogeddon/distribyted/internal/fs"
+	"github.com/Apollogeddon/distribyted/internal/fuse"
+	"github.com/Apollogeddon/distribyted/internal/http"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
-	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
-	"github.com/Apollogeddon/distribyted/webdav"
+	"github.com/Apollogeddon/distribyted/internal/webdav"
 )
 
 const (

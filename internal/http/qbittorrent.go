@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
-	"github.com/Apollogeddon/distribyted/fs"
-	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/internal/fs"
+	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )

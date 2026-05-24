@@ -12,7 +12,7 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/rs/zerolog"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
 )

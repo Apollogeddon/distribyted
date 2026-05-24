@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/stretchr/testify/require"
 )

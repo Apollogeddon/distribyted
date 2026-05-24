@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/iio"
 	"github.com/rs/zerolog"
 	"golang.org/x/net/webdav"

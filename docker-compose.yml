@@ -2,7 +2,7 @@ services:
   test:
     build:
       context: .
-      dockerfile: tools/Dockerfile.test
+      dockerfile: build/Dockerfile.test
     volumes:
       - .:/app
       - go-cache:/go-cache

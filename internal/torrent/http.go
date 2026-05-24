@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	dfs "github.com/Apollogeddon/distribyted/fs"
+	dfs "github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/iio"
 )
 

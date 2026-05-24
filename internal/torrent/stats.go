@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 )
 
 var ErrTorrentNotFound = errors.New("torrent not found")

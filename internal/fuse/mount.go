@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

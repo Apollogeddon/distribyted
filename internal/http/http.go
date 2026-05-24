@@ -12,7 +12,7 @@ import (
 
 	"github.com/Apollogeddon/distribyted/internal/config"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
-	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/Apollogeddon/distribyted/web"
 )
 
