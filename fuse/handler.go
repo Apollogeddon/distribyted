@@ -9,7 +9,7 @@ import (
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/rs/zerolog/log"
 
-	dlog "github.com/Apollogeddon/distribyted/log"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 )
 
 type FileSystemHost interface {

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/internal/config"
 	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/Apollogeddon/distribyted/torrent"
 	"github.com/gin-gonic/gin"

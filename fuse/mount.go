@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	dlog "github.com/Apollogeddon/distribyted/log"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 )
 
 type FS struct {

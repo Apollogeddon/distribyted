@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/internal/config"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/stretchr/testify/require"

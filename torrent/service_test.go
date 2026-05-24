@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Apollogeddon/distribyted/fs"
-	"github.com/Apollogeddon/distribyted/torrent/loader"
+	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
 )
 
 type MockLoader struct {

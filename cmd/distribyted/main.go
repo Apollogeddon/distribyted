@@ -16,13 +16,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/internal/config"
 	"github.com/Apollogeddon/distribyted/fs"
 	"github.com/Apollogeddon/distribyted/fuse"
 	"github.com/Apollogeddon/distribyted/http"
-	dlog "github.com/Apollogeddon/distribyted/log"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/Apollogeddon/distribyted/torrent"
-	"github.com/Apollogeddon/distribyted/torrent/loader"
+	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
 	"github.com/Apollogeddon/distribyted/webdav"
 )
 

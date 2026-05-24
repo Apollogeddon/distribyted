@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/internal/config"
 	dtorrent "github.com/Apollogeddon/distribyted/torrent"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"

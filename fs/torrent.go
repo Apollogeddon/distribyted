@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Apollogeddon/distribyted/iio"
-	dlog "github.com/Apollogeddon/distribyted/log"
+	"github.com/Apollogeddon/distribyted/internal/iio"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/torrent"
 	"github.com/rs/zerolog"

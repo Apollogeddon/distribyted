@@ -14,8 +14,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/rs/zerolog"
 
-	"github.com/Apollogeddon/distribyted/config"
-	dlog "github.com/Apollogeddon/distribyted/log"
+	"github.com/Apollogeddon/distribyted/internal/config"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 )
 
 type ServerState int

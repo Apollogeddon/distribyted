@@ -10,10 +10,10 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/shurcooL/httpfs/html/vfstemplate"
 
-	"github.com/Apollogeddon/distribyted"
-	"github.com/Apollogeddon/distribyted/config"
-	dlog "github.com/Apollogeddon/distribyted/log"
+	"github.com/Apollogeddon/distribyted/internal/config"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/Apollogeddon/distribyted/torrent"
+	"github.com/Apollogeddon/distribyted/web"
 )
 
 func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string) error {
@@ -39,7 +39,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 	r.Use(Logger())
 
 	r.GET("/assets/*filepath", func(c *gin.Context) {
-		c.FileFromFS(c.Request.URL.Path, http.FS(distribyted.Assets))
+		c.FileFromFS(c.Request.URL.Path, http.FS(web.Assets))
 	})
 
 	if conf.HTTPGlobal.HTTPFS {
@@ -53,7 +53,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	}
 
-	t, err := vfstemplate.ParseGlob(http.FS(distribyted.Templates), nil, "/templates/*")
+	t, err := vfstemplate.ParseGlob(http.FS(web.Templates), nil, "/templates/*")
 	if err != nil {
 		return nil, fmt.Errorf("error parsing html: %w", err)
 	}

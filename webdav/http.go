@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Apollogeddon/distribyted/fs"
-	dlog "github.com/Apollogeddon/distribyted/log"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/rs/zerolog/log"
 )
 

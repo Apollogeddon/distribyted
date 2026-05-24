@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	dlog "github.com/Apollogeddon/distribyted/log"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/rs/zerolog"
 )
 

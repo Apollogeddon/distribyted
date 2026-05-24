@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Apollogeddon/distribyted/iio"
+	"github.com/Apollogeddon/distribyted/internal/iio"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )

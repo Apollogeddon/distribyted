@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/Apollogeddon/distribyted/iio"
+	"github.com/Apollogeddon/distribyted/internal/iio"
 	"github.com/bodgit/sevenzip"
 	"github.com/nwaples/rardecode/v2"
 )

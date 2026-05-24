@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	dlog "github.com/Apollogeddon/distribyted/log"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/anacrolix/dht/v2/bep44"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/rs/zerolog/log"

@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Apollogeddon/distribyted/iio"
+	"github.com/Apollogeddon/distribyted/internal/iio"
 	"github.com/stretchr/testify/require"
 )
 

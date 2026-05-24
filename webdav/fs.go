@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/fs"
-	"github.com/Apollogeddon/distribyted/iio"
+	"github.com/Apollogeddon/distribyted/internal/iio"
 	"github.com/rs/zerolog"
 	"golang.org/x/net/webdav"
 )

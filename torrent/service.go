@@ -13,8 +13,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/Apollogeddon/distribyted/fs"
-	dlog "github.com/Apollogeddon/distribyted/log"
-	"github.com/Apollogeddon/distribyted/torrent/loader"
+	dlog "github.com/Apollogeddon/distribyted/internal/log"
+	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
 )
 
 type TorrentClient interface {
