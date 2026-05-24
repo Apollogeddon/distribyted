@@ -21,6 +21,7 @@ type FileItemStore struct {
 	inMemory  bool
 	closeOnce sync.Once
 	closeErr  error
+	gcWg      sync.WaitGroup
 }
 
 func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, error) {
@@ -52,6 +53,7 @@ func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, erro
 	}
 	if !fis.inMemory {
 		_ = db.RunValueLogGC(0.5)
+		fis.gcWg.Add(1)
 		go fis.runGC()
 	}
 
@@ -59,18 +61,23 @@ func NewFileItemStore(path string, itemsTTL time.Duration) (*FileItemStore, erro
 }
 
 func (fis *FileItemStore) runGC() {
-	stop := fis.closeChan
+	defer fis.gcWg.Done()
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			for {
+				select {
+				case <-fis.closeChan:
+					return
+				default:
+				}
 				if err := fis.db.RunValueLogGC(0.5); err != nil {
 					break
 				}
 			}
-		case <-stop:
+		case <-fis.closeChan:
 			return
 		}
 	}
@@ -130,6 +137,7 @@ func (fis *FileItemStore) Del(t bep44.Target) error {
 func (fis *FileItemStore) Close() error {
 	fis.closeOnce.Do(func() {
 		close(fis.closeChan)
+		fis.gcWg.Wait()
 		fis.closeErr = fis.db.Close()
 	})
 	return fis.closeErr
