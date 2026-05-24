@@ -139,7 +139,7 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 		l.log.Debug().Str("key", k).Msg("found magnet key")
 		// key is /route/<hash>/<route_name>
 		// routeRootKey + "/" + hash(40) + "/"
-		r := k[len(routeRootKey)+42:] 
+		r := k[len(routeRootKey)+42:]
 
 		val, err := item.ValueCopy(nil)
 		if err != nil {
@@ -209,4 +209,3 @@ func (l *DB) Close() error {
 	})
 	return l.closeErr
 }
-

@@ -197,7 +197,6 @@ func TestSupportedFactories(t *testing.T) {
 	require.NotNil(fs)
 }
 
-
 var _ Filesystem = &DummyFs{}
 
 type DummyFs struct {

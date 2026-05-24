@@ -83,7 +83,7 @@ func TestRegression_VFS_Concurrency(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			
+
 			// Each goroutine opens its own handle
 			f, err := app.FS.Open(vfsPath)
 			if err != nil {
@@ -98,7 +98,7 @@ func TestRegression_VFS_Concurrency(t *testing.T) {
 				// Random offset and size
 				offset := r.Int63n(int64(contentSize - maxReadSize))
 				readSize := r.Intn(maxReadSize) + 1
-				
+
 				buf := make([]byte, readSize)
 				n := 0
 				for n < readSize {
@@ -187,7 +187,7 @@ func TestRegression_ThunderingHerd(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			
+
 			f, err := app.FS.Open(vfsPath)
 			if err != nil {
 				errCh <- fmt.Errorf("G%d: open failed: %w", id, err)
