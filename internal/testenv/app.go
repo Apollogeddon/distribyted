@@ -15,10 +15,21 @@ import (
 	dtorrent "github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
 	"github.com/Apollogeddon/distribyted/internal/webdav"
+	"github.com/anacrolix/dht/v2/bep44"
 	"github.com/anacrolix/missinggo/v2/filecache"
 	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
 )
+
+// noopBEP44Store is a bep44.Store that does nothing.
+// DHT is disabled in all testenv apps, so the store is never called.
+// Using a no-op avoids opening a badger DB whose internal goroutines
+// (updateSize) can deadlock SignalAndWait under -race.
+type noopBEP44Store struct{}
+
+func (noopBEP44Store) Put(*bep44.Item) error              { return nil }
+func (noopBEP44Store) Get(bep44.Target) (*bep44.Item, error) { return nil, bep44.ErrItemNotFound }
+func (noopBEP44Store) Del(bep44.Target) error              { return nil }
 
 type TestApp struct {
 	Config       *config.Root
@@ -33,7 +44,6 @@ type TestApp struct {
 	WebDavAddr   string
 	httpServer   *http.Server
 	db           *loader.DB
-	itemStore    *dtorrent.FileItemStore
 	pc           storage.PieceCompletion
 	KeepTempDir  bool
 	ctx          context.Context
@@ -137,13 +147,9 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		st = ls
 	}
 
-	// DHT is disabled in tests, so the item store is never accessed.
-	// Always use in-memory mode to avoid badger's disk-based background
-	// goroutines (updateSize, compaction) hanging on close under -race.
-	fis, err := dtorrent.NewFileItemStore("", 2*time.Hour)
-	if err != nil {
-		return nil, err
-	}
+	// DHT is disabled in tests so the store is never called; use a no-op to
+	// avoid opening a badger DB whose internal goroutines can hang on close.
+	fis := noopBEP44Store{}
 
 	idPath := ""
 	if !inMemory {
@@ -259,7 +265,6 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		WebDavAddr:   webDavAddr,
 		httpServer:   httpServer,
 		db:           dbl,
-		itemStore:    fis,
 		pc:           pc,
 		ctx:          ctx,
 		cancel:       cancel,
@@ -279,9 +284,6 @@ func (a *TestApp) Close() {
 	}
 	if a.db != nil {
 		_ = a.db.Close()
-	}
-	if a.itemStore != nil {
-		_ = a.itemStore.Close()
 	}
 	if a.TempDir != "" && !a.KeepTempDir {
 		_ = os.RemoveAll(a.TempDir)
