@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Apollogeddon/distribyted/config"
+	"github.com/Apollogeddon/distribyted/internal/config"
 	"github.com/Apollogeddon/distribyted/fs"
 	dhttp "github.com/Apollogeddon/distribyted/http"
 	dtorrent "github.com/Apollogeddon/distribyted/torrent"
-	"github.com/Apollogeddon/distribyted/torrent/loader"
+	"github.com/Apollogeddon/distribyted/internal/torrent/loader"
 	"github.com/Apollogeddon/distribyted/webdav"
 	"github.com/anacrolix/missinggo/v2/filecache"
 	atorrent "github.com/anacrolix/torrent"

@@ -1,0 +1,43 @@
+package iio_test
+
+import (
+	"io"
+	"testing"
+
+	"github.com/Apollogeddon/distribyted/fs"
+	"github.com/Apollogeddon/distribyted/internal/iio"
+	"github.com/stretchr/testify/require"
+)
+
+var testData []byte = []byte("Hello World")
+
+func TestSeekerWrapper(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	mf := fs.NewMemoryFile(testData)
+
+	r := iio.NewSeekerWrapper(mf, mf.Size())
+	defer func() { _ = r.Close() }()
+
+	n, err := r.Seek(6, io.SeekStart)
+	require.NoError(err)
+	require.Equal(int64(6), n)
+
+	toRead := make([]byte, 5)
+	nn, err := r.Read(toRead)
+	require.NoError(err)
+	require.Equal(5, nn)
+	require.Equal("World", string(toRead))
+
+	// Seek Current
+	n, err = r.Seek(-5, io.SeekCurrent)
+	require.NoError(err)
+	require.Equal(int64(6), n)
+
+	// Seek End
+	n, err = r.Seek(-5, io.SeekEnd)
+	require.NoError(err)
+	require.Equal(int64(6), n)
+}
