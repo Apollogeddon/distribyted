@@ -4,13 +4,13 @@ go 1.26.0
 
 require (
 	github.com/RoaringBitmap/roaring v1.9.4 // indirect
-	github.com/anacrolix/dht/v2 v2.23.0
+	github.com/anacrolix/dht/v2 v2.24.0
 	github.com/anacrolix/log v0.17.1-0.20251118025802-918f1157b7bb
 	github.com/anacrolix/missinggo/v2 v2.10.0
 	github.com/anacrolix/multiless v0.4.0 // indirect
 	github.com/anacrolix/torrent v1.61.0
 	github.com/billziss-gh/cgofuse v1.5.0
-	github.com/bodgit/sevenzip v1.6.3
+	github.com/bodgit/sevenzip v1.6.4
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/fsnotify/fsnotify v1.10.1
@@ -21,7 +21,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14
-	github.com/nwaples/rardecode/v2 v2.2.2
+	github.com/nwaples/rardecode/v2 v2.2.3
 	github.com/pion/rtp v1.8.26 // indirect
 	github.com/pion/sctp v1.8.41 // indirect
 	github.com/rs/zerolog v1.35.1
