@@ -28,8 +28,8 @@ github.com/anacrolix/btree v0.0.0-20251201064447-d86c3fa41bd8 h1:c02PsmoaChabVqA
 github.com/anacrolix/btree v0.0.0-20251201064447-d86c3fa41bd8/go.mod h1:7stWJ39LeusmMI8mjJuhFNRqep//vx0AsaySRoK9or0=
 github.com/anacrolix/chansync v0.7.0 h1:wgwxbsJRmOqNjil4INpxHrDp4rlqQhECxR8/WBP4Et0=
 github.com/anacrolix/chansync v0.7.0/go.mod h1:DZsatdsdXxD0WiwcGl0nJVwyjCKMDv+knl1q2iBjA2k=
-github.com/anacrolix/dht/v2 v2.23.0 h1:EuD17ykTTEkAMPLjBsS5QjGOwuBgLTdQhds6zPAjeVY=
-github.com/anacrolix/dht/v2 v2.23.0/go.mod h1:seXRz6HLw8zEnxlysf9ye2eQbrKUmch6PyOHpe/Nb/U=
+github.com/anacrolix/dht/v2 v2.24.0 h1:qKIZKmJjW0y/LoqeMPPQ99JBy3Op15voFZrR7OpeOh8=
+github.com/anacrolix/dht/v2 v2.24.0/go.mod h1:0IpTSbqYnFcjmexGvnINUGq/kbx93S5cKIryH4oJL8U=
 github.com/anacrolix/envpprof v0.0.0-20180404065416-323002cec2fa/go.mod h1:KgHhUaQMc8cC0+cEflSgCFNFbKwi5h54gqtVn8yhP7c=
 github.com/anacrolix/envpprof v1.0.0/go.mod h1:KgHhUaQMc8cC0+cEflSgCFNFbKwi5h54gqtVn8yhP7c=
 github.com/anacrolix/envpprof v1.1.0/go.mod h1:My7T5oSqVfEn4MD4Meczkw/f5lSIndGAKu/0SM/rkf4=
@@ -101,8 +101,8 @@ github.com/bits-and-blooms/bitset v1.24.4 h1:95H15Og1clikBrKr/DuzMXkQzECs1M6hhoG
 github.com/bits-and-blooms/bitset v1.24.4/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6a/7QIWpPxHddWR8=
 github.com/bodgit/plumbing v1.3.0 h1:pf9Itz1JOQgn7vEOE7v7nlEfBykYqvUYioC61TwWCFU=
 github.com/bodgit/plumbing v1.3.0/go.mod h1:JOTb4XiRu5xfnmdnDJo6GmSbSbtSyufrsyZFByMtKEs=
-github.com/bodgit/sevenzip v1.6.3 h1:t7K1jcgPnXdZyRHr68vq5L9vO/WmjDJEiGUwTR6i6gk=
-github.com/bodgit/sevenzip v1.6.3/go.mod h1:a29jn+ZL8UfQr/L+8jJT1wmhCMulGOfaT5d1HWxwD5g=
+github.com/bodgit/sevenzip v1.6.4 h1:iHiVJfxbrB6RF4X+snI2MpVgNBKmVfGaTqZGNlMQIU0=
+github.com/bodgit/sevenzip v1.6.4/go.mod h1:ZtNi5KNgHXeXg1G7WiF0IWSuFE2eG6lt/cTGlvuirO0=
 github.com/bodgit/windows v1.0.1 h1:tF7K6KOluPYygXa3Z2594zxlkbKPAOvqr97etrGNIz4=
 github.com/bodgit/windows v1.0.1/go.mod h1:a6JLwrB4KrTR5hBpp8FI9/9W9jJfeQ2h4XDXU74ZCdM=
 github.com/bradfitz/iter v0.0.0-20140124041915-454541ec3da2/go.mod h1:PyRFw1Lt2wKX4ZVSQ2mk+PeDa1rxyObEDlApuIsUKuo=
@@ -348,8 +348,8 @@ github.com/multiformats/go-varint v0.1.0/go.mod h1:5KVAVXegtfmNQQm/lCY+ATvDzvJJh
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/ncruces/go-strftime v1.0.0 h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=
 github.com/ncruces/go-strftime v1.0.0/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
-github.com/nwaples/rardecode/v2 v2.2.2 h1:/5oL8dzYivRM/tqX9VcTSWfbpwcbwKG1QtSJr3b3KcU=
-github.com/nwaples/rardecode/v2 v2.2.2/go.mod h1:7uz379lSxPe6j9nvzxUZ+n7mnJNgjsRNb6IbvGVHRmw=
+github.com/nwaples/rardecode/v2 v2.2.3 h1:qaVuy3ChZDbAQZshPLjHeNJKF3Cru8uo9jmgveKIy2A=
+github.com/nwaples/rardecode/v2 v2.2.3/go.mod h1:7uz379lSxPe6j9nvzxUZ+n7mnJNgjsRNb6IbvGVHRmw=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
