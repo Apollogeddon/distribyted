@@ -10,6 +10,6 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for all tags and branches
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
