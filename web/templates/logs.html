@@ -5,7 +5,7 @@
 </head>
 
 
-<body class="header-fixed sidebar-fixed sidebar-dark header-light" id="body">
+<body class="header-fixed sidebar-fixed sidebar-dark header-dark" id="body">
     <div class="wrapper">
         {{template "navbar.html" "logs"}}
 
@@ -40,14 +40,14 @@
                                 <div style="position: relative; overflow: hidden; width: auto; height: 100%;">
                                     <div id="log-scroll" class="card-body"
                                         style="overflow: hidden; width: auto; height: 100%; overflow-y: scroll; display: flex; flex-direction: column-reverse;">
-                                        <table class="table">
+                                        <table class="table" id="log-table-container">
                                             <thead>
                                                 <tr>
-                                                    <th scope="col" style="width: 5%">Time</th>
-                                                    <th scope="col" style="width: 5%">Type</th>
-                                                    <th scope="col" style="width: 15%">Component</th>
-                                                    <th scope="col" style="width: 40%">Message</th>
-                                                    <th scope="col" style="width: 35%">Properties</th>
+                                                    <th scope="col">Time</th>
+                                                    <th scope="col">Type</th>
+                                                    <th scope="col">Component</th>
+                                                    <th scope="col">Message</th>
+                                                    <th scope="col">Properties</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="log_table">
