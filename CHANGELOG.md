@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.24.0](https://github.com/Apollogeddon/distribyted/compare/v0.23.0...v0.24.0) (2026-07-19)
+
+
+### Features
+
+* **test:** Skip Thundering Herd test on Windows due to file locking issues ([03615d4](https://github.com/Apollogeddon/distribyted/commit/03615d4af125f22a4fef002271fa74ecb9e29227))
+* **test:** Skip Thundering Herd test on Windows due to file locking issues ([6a45d9e](https://github.com/Apollogeddon/distribyted/commit/6a45d9ec1522d1d668e51a4f2e78b66cd957ef62))
+* **web:** Enhance UI with improved styles, mobile support, and log table updates ([3127bd1](https://github.com/Apollogeddon/distribyted/commit/3127bd178de84b99e285020724b28d40a9a3636f))
+
+
+### Bug Fixes
+
+* Improved the homepage structure for all screen sizes ([5e5def0](https://github.com/Apollogeddon/distribyted/commit/5e5def01c7e04a5a4162826fc6d94b7faad4f21f))
+
 ## [0.23.0](https://github.com/Apollogeddon/distribyted/compare/v0.22.5...v0.23.0) (2026-07-19)
 
 
