@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/Apollogeddon/distribyted/compare/v0.22.5...v0.23.0) (2026-07-19)
+
+
+### Features
+
+* Added maindata endpoint required for tools like home assistant ([73526cc](https://github.com/Apollogeddon/distribyted/commit/73526ccc88f4133ba269a7f0fcc70b2ebd7835a4))
+
 ## [0.22.5](https://github.com/Apollogeddon/distribyted/compare/v0.22.4...v0.22.5) (2026-05-24)
 
 
