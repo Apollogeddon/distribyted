@@ -377,3 +377,145 @@ func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 		c.String(http.StatusOK, "Ok.")
 	}
 }
+
+func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, ch *config.Handler, fusePath string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		categories := make(map[string]gin.H)
+		if ch != nil {
+			if root, err := ch.Get(); err == nil && root != nil {
+				for _, r := range root.Routes {
+					savePath := fusePath
+					if r.Name != "" {
+						savePath = fusePath + "/" + r.Name
+					}
+					categories[r.Name] = gin.H{"name": r.Name, "savePath": savePath}
+				}
+			}
+		}
+		cs.mu.RLock()
+		for cat := range cs.cats {
+			savePath := fusePath
+			if cat != "" {
+				savePath = fusePath + "/" + cat
+			}
+			categories[cat] = gin.H{"name": cat, "savePath": savePath}
+		}
+		cs.mu.RUnlock()
+		routes := ss.RoutesStats()
+		for _, r := range routes {
+			if _, exists := categories[r.Name]; !exists {
+				savePath := fusePath
+				if r.Name != "" {
+					savePath = fusePath + "/" + r.Name
+				}
+				categories[r.Name] = gin.H{"name": r.Name, "savePath": savePath}
+			}
+		}
+
+		torrentsMap := make(map[string]qBitTorrent)
+		torrents := ss.GetAllTorrents()
+		var totalDownloadData int64
+		var totalUploadData int64
+		now := time.Now().Unix()
+
+		for hash, t := range torrents {
+			st := t.Stats()
+			totalDownloadData += st.BytesReadData.Int64()
+			totalUploadData += st.BytesWrittenData.Int64()
+
+			ts, _ := ss.Stats(hash)
+			info := t.Info()
+			name := t.Name()
+			size := int64(0)
+			progress := 0.0
+			state := "stalledDL"
+
+			category := ss.GetRouteFromHash(hash)
+			var dlSpeed int64
+			var upSpeed int64
+			numSeeds := 0
+			numLeechs := 0
+			if ts != nil {
+				if ts.TimePassed > 0 {
+					dlSpeed = int64(float64(ts.DownloadedBytes) / ts.TimePassed)
+					upSpeed = int64(float64(ts.UploadedBytes) / ts.TimePassed)
+				}
+				numSeeds = ts.Seeders
+				numLeechs = ts.Peers - ts.Seeders
+			}
+
+			if info != nil {
+				size = info.TotalLength()
+				progress = 1.0
+				state = "uploading"
+			}
+
+			savePath := fusePath
+			if category != "" {
+				savePath = fusePath + "/" + category
+			}
+
+			qbt := qBitTorrent{
+				Hash:           hash,
+				Name:           name,
+				Size:           size,
+				Progress:       progress,
+				State:          state,
+				SavePath:       savePath,
+				ContentPath:    savePath + "/" + name,
+				Category:       category,
+				Tracker:        "",
+				Tags:           "",
+				AddedOn:        now,
+				CompletionOn:   now,
+				AmountLeft:     0,
+				Completed:      size,
+				TotalSize:      size,
+				Ratio:          1.0,
+				Eta:            0,
+				Uploaded:       0,
+				Downloaded:     size,
+				Availability:   1.0,
+				SequentialDl:   false,
+				FirstLastPiece: false,
+				LastActivity:   now,
+				Dlspeed:        dlSpeed,
+				Upspeed:        upSpeed,
+				NumSeeds:       numSeeds,
+				NumLeechs:      numLeechs,
+			}
+			torrentsMap[hash] = qbt
+		}
+
+		gs := ss.GlobalStats()
+		var globalDlSpeed int64
+		var globalUpSpeed int64
+		if gs.TimePassed > 0 {
+			globalDlSpeed = int64(float64(gs.DownloadedBytes) / gs.TimePassed)
+			globalUpSpeed = int64(float64(gs.UploadedBytes) / gs.TimePassed)
+		}
+
+		serverState := gin.H{
+			"connection_status":    "connected",
+			"dht_nodes":            0,
+			"dl_info_data":         totalDownloadData,
+			"dl_info_speed":        globalDlSpeed,
+			"dl_rate_limit":        0,
+			"up_info_data":         totalUploadData,
+			"up_info_speed":        globalUpSpeed,
+			"up_rate_limit":        0,
+			"refresh_interval":     2000,
+			"queueing_enabled":     false,
+			"use_alt_speed_limits": false,
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"rid":          0,
+			"full_update":  true,
+			"torrents":     torrentsMap,
+			"categories":   categories,
+			"tags":         []string{},
+			"server_state": serverState,
+		})
+	}
+}

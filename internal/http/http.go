@@ -96,6 +96,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		qbit.POST("/torrents/addTags", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/pause", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/resume", qBitTorrentsMockHandler)
+		qbit.GET("/sync/maindata", qBitSyncMaindataHandler(ss, cs, ch, fusePath))
 		qbit.POST("/torrents/add", qBitTorrentsAddHandler(s))
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}
