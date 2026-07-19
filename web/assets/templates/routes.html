@@ -10,24 +10,26 @@
                 <table class="table card-table" style="width:100%">
                     <thead>
                         <tr>
-                            <th style="width: 30%">Name</th>
-                            <th style="width: 15%"><i class="mdi mdi-arrow-down"></i> / <i class="mdi mdi-arrow-up"></i>
-                            </th>
-                            <th style="width: 15%" class="d-none d-lg-table-cell">Peers/Seeders</th>
-                            <th style="width: 35%" class="d-none d-lg-table-cell">Status</th>
-                            <th style="width: 5%">Actions</th>
+                            <th>Name / Status</th>
+                            <th><div class="text-success d-inline"><i class="mdi mdi-arrow-down-bold"></i></div> / <div class="text-primary d-inline"><i class="mdi mdi-arrow-up-bold"></i></div></th>
+                            <th>Peers/Seeders</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{#torrentStats}}
                         <tr>
-                            <td class="torrent-name" title="{{name}}">{{name}}</td>
-                            <td>{{ibytes downloadedBytes timePassed}} / {{ibytes
-                                uploadedBytes timePassed}}</td>
-                            <td class="d-none d-lg-table-cell">{{{torrent_info peers seeders pieceSize}}}</td>
-                            <td class="d-none d-lg-table-cell">
-                                {{{torrent_status pieceChunks totalPieces}}}
+                            <td>
+                                <div class="torrent-name mb-2" title="{{name}}">{{name}}</div>
+                                <div>
+                                    {{{torrent_status pieceChunks totalPieces}}}
+                                </div>
                             </td>
+                            <td>
+                                <div class="text-success font-weight-bold text-nowrap" style="font-size:0.9rem"><i class="mdi mdi-arrow-down-bold"></i> {{ibytes downloadedBytes timePassed}}</div>
+                                <div class="text-primary font-weight-bold text-nowrap" style="font-size:0.9rem"><i class="mdi mdi-arrow-up-bold"></i> {{ibytes uploadedBytes timePassed}}</div>
+                            </td>
+                            <td>{{{torrent_info peers seeders pieceSize}}}</td>
                             <td><i class="mdi mdi-delete-forever" title="delete torrent" style="cursor:pointer" onclick='Distribyted.routes.confirmDelete("{{../name}}","{{hash}}","{{name}}")'></i></td>
                         </tr>
                         {{else}}

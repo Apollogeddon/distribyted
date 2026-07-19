@@ -60,21 +60,22 @@ Handlebars.registerHelper("torrent_info", function (peers, seeders, pieceSize) {
 
     const level = ["text-success", "text-warning", "text-danger"];
     const icon = ["mdi-check", "mdi-alert", "mdi-alert-octagram"];
-    const div = document.createElement("div");
-    const i = document.createElement("i");
-
     const errIndex = Math.max(...errorLevels);
 
-    i.className = "mdi " + icon[errIndex];
-    i.title = messages.join("\n");
-
-    const text = document.createTextNode(peers + "/" + seeders + " (" + Humanize.bytes(pieceSize, 1024) + " chunks) ");
-
-    div.className = level[errIndex];
-    div.appendChild(text);
-    div.appendChild(i);
-
-    return div.outerHTML;
+    return `
+    <div class="d-flex flex-column">
+        <div class="font-weight-bold" style="font-size:0.9rem">
+            <span class="text-info" title="Peers"><i class="mdi mdi-account-multiple"></i> ${peers}</span>
+            <span class="mx-1 text-muted">|</span>
+            <span class="text-success" title="Seeders"><i class="mdi mdi-seed"></i> ${seeders}</span>
+        </div>
+        <div class="text-muted" style="font-size:0.8rem">
+            <i class="mdi mdi-puzzle"></i> ${Humanize.bytes(pieceSize, 1024)} chunks
+        </div>
+        <div class="${level[errIndex]} mt-1" style="font-size:0.8rem" title="${messages.join('\\n')}">
+            <i class="mdi ${icon[errIndex]}"></i> ${errIndex === 0 ? "Healthy" : "Warning"}
+        </div>
+    </div>`;
 });
 
 Distribyted.routes = {
