@@ -1,0 +1,170 @@
+/* Modern Glassmorphic Dark Theme */
+
+:root {
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(12px);
+  --accent-primary: #8b5cf6;
+  --accent-secondary: #3b82f6;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  background: var(--bg-gradient) !important;
+  background-attachment: fixed !important;
+  color: var(--text-main) !important;
+  font-family: 'Inter', 'Poppins', sans-serif;
+}
+
+/* Typography Overrides */
+h1, h2, h3, h4, h5, h6, .brand-name {
+  color: var(--text-main) !important;
+  font-weight: 600;
+}
+
+/* Sidebar / Navbar Styling */
+.left-sidebar {
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: var(--glass-blur);
+  border-right: 1px solid var(--glass-border);
+}
+
+.sidebar .app-brand {
+  background: transparent !important;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.sidebar .nav.sidebar-inner > li > a {
+  color: var(--text-muted) !important;
+  transition: var(--transition);
+  border-radius: 8px;
+  margin: 4px 12px;
+}
+
+.sidebar .nav.sidebar-inner > li > a:hover {
+  background: var(--glass-bg);
+  color: #fff !important;
+  transform: translateX(5px);
+}
+
+.sidebar .nav.sidebar-inner > li.active > a {
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  color: #fff !important;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+/* Header */
+.main-header {
+  background: rgba(15, 23, 42, 0.4) !important;
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+/* Cards (Glassmorphism) */
+.card, .card-default {
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--card-shadow) !important;
+  transition: var(--transition);
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+.card-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+}
+
+.card-footer {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-top: 1px solid var(--glass-border) !important;
+}
+
+.card-body {
+  color: var(--text-main);
+}
+
+/* KPI Cards */
+.kpi-card {
+  padding: 1rem;
+}
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.kpi-label {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.kpi-icon {
+  font-size: 2.5rem;
+  opacity: 0.8;
+  transition: var(--transition);
+}
+
+.kpi-card:hover .kpi-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+/* Overriding default template colors */
+.bg-white {
+  background-color: transparent !important;
+}
+
+.border-left {
+  border-left: 1px solid var(--glass-border) !important;
+}
+
+/* Charts */
+canvas {
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.2));
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 1rem !important;
+  }
+  .kpi-card {
+    margin-bottom: 1rem;
+  }
+  .card:hover {
+    transform: none; /* Disable hover float on mobile */
+  }
+}
