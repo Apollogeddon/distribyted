@@ -61,7 +61,12 @@ h1, h2, h3, h4, h5, h6, .brand-name {
 .main-header {
   background: rgba(0, 12, 34, 0.6) !important;
   backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+.navbar {
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
 /* Cards (Glassmorphism) */
