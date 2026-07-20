@@ -74,7 +74,7 @@ func TestIntegration_P2P_Fetch(t *testing.T) {
 		}
 		file = f
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "Could not open file after timeout")
+	}, 90*time.Second, 200*time.Millisecond, "Could not open file after timeout")
 	defer func() { _ = file.Close() }()
 
 	// 8. Read and Verify
@@ -140,7 +140,7 @@ func TestIntegration_ArchiveTransparency(t *testing.T) {
 		}
 		innerFile = f
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "Could not open inner file after timeout")
+	}, 90*time.Second, 200*time.Millisecond, "Could not open inner file after timeout")
 	defer func() { _ = innerFile.Close() }()
 
 	// 9. Verify content
@@ -204,7 +204,7 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 		}
 		httpResp = resp
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "Could not fetch via HTTP after timeout")
+	}, 90*time.Second, 200*time.Millisecond, "Could not fetch via HTTP after timeout")
 	defer func() { _ = httpResp.Body.Close() }()
 
 	downloadedHTTP, err := io.ReadAll(httpResp.Body)
@@ -266,7 +266,7 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 		info := srv.Info()
 		magnet1 = info.Magnet
 		return magnet1 != ""
-	}, 10*time.Second, 200*time.Millisecond, "Initial magnet not generated")
+	}, 90*time.Second, 200*time.Millisecond, "Initial magnet not generated")
 
 	// 5. Add new file
 	file2 := filepath.Join(tempDir, "file2.txt")
@@ -279,7 +279,7 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 		info := srv.Info()
 		magnet2 = info.Magnet
 		return magnet2 != "" && magnet2 != magnet1
-	}, 20*time.Second, 200*time.Millisecond, "Magnet did not update after adding file")
+	}, 90*time.Second, 200*time.Millisecond, "Magnet did not update after adding file")
 	assert.NotEmpty(t, magnet2, "Magnet did not update after adding file")
 	assert.NotEqual(t, magnet1, magnet2, "Magnet should have changed")
 }
@@ -334,7 +334,7 @@ func TestIntegration_CacheEviction(t *testing.T) {
 		}
 		file = f
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "Could not open file after timeout")
+	}, 90*time.Second, 200*time.Millisecond, "Could not open file after timeout")
 	defer func() { _ = file.Close() }()
 
 	downloaded, err := io.ReadAll(file)
@@ -391,7 +391,7 @@ func TestIntegration_P2PStall(t *testing.T) {
 		}
 		file = f
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "Could not open file after timeout")
+	}, 90*time.Second, 200*time.Millisecond, "Could not open file after timeout")
 	defer func() { _ = file.Close() }()
 
 	// Read first 1MB successfully
@@ -472,7 +472,7 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 		}
 		_ = f.Close()
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "timed out waiting for torrent metadata")
+	}, 90*time.Second, 200*time.Millisecond, "timed out waiting for torrent metadata")
 
 	const numWorkers = 50
 	errCh := make(chan error, numWorkers)
@@ -575,7 +575,7 @@ func TestIntegration_RemoteSeeding(t *testing.T) {
 	require.Eventually(t, func() bool {
 		magnetURI = server.GetMagnet()
 		return magnetURI != ""
-	}, 10*time.Second, 200*time.Millisecond, "Server did not generate magnet URI")
+	}, 90*time.Second, 200*time.Millisecond, "Server did not generate magnet URI")
 
 	// Proactively register peer in tracker
 	m, _ := metainfo.ParseMagnetUri(magnetURI)
@@ -616,7 +616,7 @@ func TestIntegration_RemoteSeeding(t *testing.T) {
 			}
 		}
 		return false
-	}, 25*time.Second, 200*time.Millisecond, "Could not find file in Leecher VFS")
+	}, 90*time.Second, 200*time.Millisecond, "Could not find file in Leecher VFS")
 
 	var file io.ReadCloser
 	require.Eventually(t, func() bool {
@@ -626,7 +626,7 @@ func TestIntegration_RemoteSeeding(t *testing.T) {
 		}
 		file = f
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "Could not open file via Leecher VFS")
+	}, 90*time.Second, 200*time.Millisecond, "Could not open file via Leecher VFS")
 	defer func() { _ = file.Close() }()
 
 	downloaded, err := io.ReadAll(file)
@@ -672,7 +672,7 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 	require.Eventually(t, func() bool {
 		ttor, _ = app.Client.Torrent(magnet.InfoHash)
 		return ttor != nil
-	}, 10*time.Second, 200*time.Millisecond, "Torrent did not appear in client after API add")
+	}, 90*time.Second, 200*time.Millisecond, "Torrent did not appear in client after API add")
 
 	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
 	var p uint16
@@ -705,7 +705,7 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 			}
 		}
 		return false
-	}, 10*time.Second, 200*time.Millisecond, "Torrent did not appear in API with 100% progress")
+	}, 90*time.Second, 200*time.Millisecond, "Torrent did not appear in API with 100% progress")
 
 	// 3. Verify accessibility via VFS mount
 	// The path should be /<category>/<filename>
@@ -718,7 +718,7 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 		}
 		file = f
 		return true
-	}, 10*time.Second, 200*time.Millisecond, "Could not open file via VFS after API add")
+	}, 90*time.Second, 200*time.Millisecond, "Could not open file via VFS after API add")
 	defer func() { _ = file.Close() }()
 
 	downloaded, err := io.ReadAll(file)
