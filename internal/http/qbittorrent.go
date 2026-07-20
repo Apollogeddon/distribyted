@@ -519,3 +519,7 @@ func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, ch *config.Ha
 		})
 	}
 }
+
+func qBitTransferSpeedLimitsModeHandler(c *gin.Context) {
+	c.String(http.StatusOK, "0")
+}

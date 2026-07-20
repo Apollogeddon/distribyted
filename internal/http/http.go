@@ -34,6 +34,8 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string) (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.RedirectFixedPath = true
+	r.RedirectTrailingSlash = true
 	r.Use(gin.Recovery())
 	r.Use(gin.ErrorLogger())
 	r.Use(Logger())
@@ -60,7 +62,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	r.SetHTMLTemplate(t)
 
-	r.GET("/", indexHandler)
+	r.Any("/", indexHandler)
 	r.GET("/routes", routesHandler(ss))
 	r.GET("/logs", logsHandler)
 	r.GET("/servers", serversFoldersHandler())
@@ -88,6 +90,8 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		qbit.Any("/app/preferences", qBitAppPreferencesHandler(conf, fusePath))
 		qbit.Any("/app/setPreferences", qBitAppSetPreferencesHandler)
 		qbit.Any("/transfer/info", qBitTransferInfoHandler(ss))
+		qbit.Any("/transfer/speedLimitsMode", qBitTransferSpeedLimitsModeHandler)
+		qbit.Any("/transfer/toggleSpeedLimitsMode", qBitTorrentsMockHandler)
 		qbit.Any("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
 		qbit.Any("/torrents/categories", qBitTorrentsCategoriesHandler(cs, ch, ss, fusePath))
 		qbit.Any("/torrents/createCategory", qBitTorrentsCreateCategoryHandler(cs))
