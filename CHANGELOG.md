@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.2](https://github.com/Apollogeddon/distribyted/compare/v0.25.1...v0.25.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* Updated the timeout for integration tests ([a10f063](https://github.com/Apollogeddon/distribyted/commit/a10f063eda2754bd06baa1e5cb0922cfc376539c))
+
 ## [0.25.1](https://github.com/Apollogeddon/distribyted/compare/v0.25.0...v0.25.1) (2026-07-20)
 
 
