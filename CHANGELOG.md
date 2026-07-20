@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/Apollogeddon/distribyted/compare/v0.24.0...v0.25.0) (2026-07-20)
+
+
+### Features
+
+* **api:** Change HTTP methods to Any for various endpoints in v2 API ([4759f1f](https://github.com/Apollogeddon/distribyted/commit/4759f1fa43a32fe5187986440c77b452fc79a7de))
+
 ## [0.24.0](https://github.com/Apollogeddon/distribyted/compare/v0.23.0...v0.24.0) (2026-07-19)
 
 
