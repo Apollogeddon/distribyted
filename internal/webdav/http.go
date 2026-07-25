@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/Apollogeddon/distribyted/internal/auth"
 	"github.com/Apollogeddon/distribyted/internal/fs"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/rs/zerolog/log"
@@ -22,8 +23,8 @@ func NewWebDAVServerWithListener(l net.Listener, fs fs.Filesystem, user, pass st
 func NewWebDAVHandler(fs fs.Filesystem, user, pass string) http.Handler {
 	srv := newHandler(fs)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		username, password, _ := r.BasicAuth()
-		if username == user && password == pass {
+		username, password, ok := r.BasicAuth()
+		if ok && auth.CredentialsMatch(username, password, user, pass) {
 			srv.ServeHTTP(w, r)
 			return
 		}
