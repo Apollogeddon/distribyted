@@ -270,22 +270,17 @@ func (f *fakeContextReader) ReadContext(ctx context.Context, p []byte) (int, err
 	}
 }
 
-// TestReadAtLeast_PooledTimerNotStolen documents a suspected bug in
-// readAtLeast (internal/fs/torrent.go): timerPool.Put(timer) runs before
-// cancel(), so a concurrent caller can Get() and Reset() the same *time.Timer
-// while the previous call's watchdog goroutine is still selecting on it.
-// Whichever goroutine wins the race to receive from timer.C can consume the
-// tick meant for the other, silently starving that read's timeout and
-// hanging it indefinitely. This is the suspected root cause of the 10s->90s
-// integration-test timeout bump in commit a10f063 (see BACKLOG.md, Medium:
-// "Pooled timer released before its watchdog stops").
-//
-// This is a scheduling-dependent race and not reliably reproducible on
-// demand, so it's landed skipped: a ready-to-enable regression for whoever
-// picks up that fix, rather than a live assertion today.
+// TestReadAtLeast_PooledTimerNotStolen guards against a previously-fixed bug
+// in readAtLeast (internal/fs/torrent.go): timerPool.Put(timer) used to run
+// before the watchdog goroutine was guaranteed to have exited, so a
+// concurrent caller could Get() and Reset() the same *time.Timer while the
+// previous call's watchdog was still selecting on it, silently starving that
+// read's timeout and hanging it indefinitely. This was the suspected root
+// cause of the 10s->90s integration-test timeout bump in commit a10f063 (see
+// BACKLOG.md, Medium: "Pooled timer released before its watchdog stops").
+// withReadTimeout now waits on a watchdogDone channel before returning the
+// timer to the pool, closing the race.
 func TestReadAtLeast_PooledTimerNotStolen(t *testing.T) {
-	t.Skip("fails intermittently until the pooled-timer watchdog bug is fixed — see BACKLOG.md Medium")
-
 	l := zerolog.Nop()
 	buf := make([]byte, 4)
 

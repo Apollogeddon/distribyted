@@ -246,38 +246,58 @@ var timerPool = sync.Pool{
 	},
 }
 
+// withReadTimeout runs fn with a context cancelled after timeout, calling warn
+// if the deadline is what triggered the cancellation. The pooled timer is
+// only returned to timerPool after the watchdog goroutine has fully exited
+// (not merely been signalled to via cancel), so a subsequent borrower can
+// never Reset() a timer a stale watchdog might still be reading from.
+func withReadTimeout(timeout int, warn func(), fn func(ctx context.Context) (int, error)) (int, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	timer := timerPool.Get().(*time.Timer)
+	timer.Reset(time.Duration(timeout) * time.Second)
+
+	watchdogDone := make(chan struct{})
+	go func() {
+		defer close(watchdogDone)
+		select {
+		case <-timer.C:
+			warn()
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	n, err := fn(ctx)
+
+	cancel()
+	<-watchdogDone
+
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timerPool.Put(timer)
+
+	return n, err
+}
+
 func readAtLeast(r missinggo.ReadContexter, timeout int, buf []byte, min int, l zerolog.Logger) (n int, err error) {
 	if len(buf) < min {
 		return 0, io.ErrShortBuffer
 	}
 	for n < min && err == nil {
+		gotSoFar := n
 		var nn int
-
-		ctx, cancel := context.WithCancel(context.Background())
-
-		timer := timerPool.Get().(*time.Timer)
-		timer.Reset(time.Duration(timeout) * time.Second)
-
-		go func() {
-			select {
-			case <-timer.C:
-				l.Warn().Int("min", min).Int("got", n).Msg("read operation timing out")
-				cancel()
-			case <-ctx.Done():
-			}
-		}()
-
-		nn, err = r.ReadContext(ctx, buf[n:])
+		nn, err = withReadTimeout(timeout, func() {
+			l.Warn().Int("min", min).Int("got", gotSoFar).Msg("read operation timing out")
+		}, func(ctx context.Context) (int, error) {
+			return r.ReadContext(ctx, buf[n:])
+		})
 		n += nn
-
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-		timerPool.Put(timer)
-		cancel()
 	}
 	if n >= min {
 		err = nil
@@ -363,32 +383,11 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	if h.reader == nil {
 		return 0, io.EOF
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-
-	timer := timerPool.Get().(*time.Timer)
-	timer.Reset(time.Duration(h.timeout) * time.Second)
-
-	go func() {
-		select {
-		case <-timer.C:
-			h.log.Warn().Msg("Read handle timeout")
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-
-	defer func() {
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-		timerPool.Put(timer)
-		cancel()
-	}()
-
-	return h.reader.ReadContext(ctx, p)
+	return withReadTimeout(h.timeout, func() {
+		h.log.Warn().Msg("Read handle timeout")
+	}, func(ctx context.Context) (int, error) {
+		return h.reader.ReadContext(ctx, p)
+	})
 }
 
 func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
