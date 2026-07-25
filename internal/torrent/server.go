@@ -82,15 +82,7 @@ func (s *Server) Start() error {
 		return fmt.Errorf("error creating server folder: %s. Error: %w", s.cfg.Path, err)
 	}
 
-	if err := filepath.Walk(s.cfg.Path,
-		func(path string, info os.FileInfo, err error) error {
-			if info.Mode().IsDir() {
-				s.log.Debug().Str(dlog.KeyPath, path).Msg("adding new folder")
-				return w.Add(path)
-			}
-
-			return nil
-		}); err != nil {
+	if err := filepath.Walk(s.cfg.Path, s.watchFolderWalkFunc(w)); err != nil {
 		return err
 	}
 
@@ -128,6 +120,28 @@ func (s *Server) Start() error {
 	s.log.Info().Msg("server folder started")
 
 	return nil
+}
+
+// watchFolderWalkFunc returns the filepath.WalkFunc used to seed the fsnotify
+// watcher on startup. info is nil whenever err is set (e.g. a permission
+// error or a file removed mid-walk), so err must be checked first; a single
+// bad entry must not stop the watcher for the rest of the folder.
+func (s *Server) watchFolderWalkFunc(w *fsnotify.Watcher) filepath.WalkFunc {
+	return func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			s.log.Warn().Err(err).Str(dlog.KeyPath, path).Msg("skipping unreadable path while scanning server folder")
+			return nil
+		}
+
+		if info.Mode().IsDir() {
+			s.log.Debug().Str(dlog.KeyPath, path).Msg("adding new folder")
+			if err := w.Add(path); err != nil {
+				s.log.Warn().Err(err).Str(dlog.KeyPath, path).Msg("could not watch folder")
+			}
+		}
+
+		return nil
+	}
 }
 
 func (s *Server) watch() {
