@@ -24,6 +24,10 @@ build: go-generate go-build
 test-race:
 	go test --race -coverprofile=coverage.out ./...
 
+## test-short: execute unit tests only (skips integration tests) with race enabled.
+test-short:
+	go test --short --race -coverprofile=coverage.out ./...
+
 ## test: execute all tests
 test:
 	go test -coverprofile=coverage.out ./...

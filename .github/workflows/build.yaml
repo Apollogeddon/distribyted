@@ -81,10 +81,16 @@ jobs:
           printf "\n\nSystem environment:\n\n"
           env
 
-      - name: Run tests
+      - name: Run unit tests (short, race)
+        shell: bash
+        run: |
+          make test-short
+
+      - name: Run integration tests (race)
         shell: bash
         run: |
           make test-race
+        if: matrix.job_name == 'linux_amd64'
 
       - name: Convert coverage.out to coverage.lcov
         uses: jandelgado/gcov2lcov-action@v1.2.0
