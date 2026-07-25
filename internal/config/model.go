@@ -44,9 +44,12 @@ type WebDAVGlobal struct {
 }
 
 type HTTPGlobal struct {
-	Port   int    `yaml:"port"`
-	IP     string `yaml:"ip"`
-	HTTPFS bool   `yaml:"httpfs"`
+	Port        int    `yaml:"port"`
+	IP          string `yaml:"ip"`
+	HTTPFS      bool   `yaml:"httpfs"`
+	User        string `yaml:"user"`
+	Pass        string `yaml:"pass"`
+	DisableAuth bool   `yaml:"disable_auth,omitempty"`
 }
 
 type FuseGlobal struct {

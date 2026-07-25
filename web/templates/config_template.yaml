@@ -4,11 +4,19 @@
 # HTTP specific configuration.
 http:
   port: 4444
-  
+
   ip: "0.0.0.0"
 
   # Serve all routes content over http on IP:PORT/fs
   httpfs: true
+
+  # Credentials for the web interface, the native API and the qBittorrent-compatible
+  # API (/api/v2). Radarr/Sonarr/Prowlarr must be configured with these.
+  user: admin
+  pass: admin
+
+  # Set to true to run the HTTP interface with no authentication at all.
+  # disable_auth: false
 
 # WebDAV specific configuration. Remove this to disable WebDAV.
 webdav:

@@ -182,6 +182,10 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
 
+	if err := config.Validate(conf); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	dlog.Load(conf.Log)
 
 	sl, err := initStorageLayer(conf)

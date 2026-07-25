@@ -21,6 +21,8 @@ func DefaultConfig() *Root {
 			Port:   4444,
 			IP:     "0.0.0.0",
 			HTTPFS: true,
+			User:   "admin",
+			Pass:   "admin",
 		},
 		WebDAV: &WebDAVGlobal{
 			Port: 36911,
