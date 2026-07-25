@@ -286,7 +286,7 @@ func TestReadAtLeast_PooledTimerNotStolen(t *testing.T) {
 
 	// Churn the timer pool: many short-timeout reads that return immediately,
 	// each pooling a timer whose watchdog goroutine may still be alive.
-	fast := &fakeContextReader{delay: 0}
+	fast := &fakeContextReader{delay: 0, data: []byte("fast")}
 	for i := 0; i < 50; i++ {
 		_, _ = readAtLeast(fast, 1, buf, 4, l)
 	}
