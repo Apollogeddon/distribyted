@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ '*' ]
+    branches: [ master ]
     tags: [ '*' ]
   pull_request:
   schedule:
@@ -32,12 +32,11 @@ jobs:
 
   build:
     name: Build & Test
-    needs: codeql
     uses: ./.github/workflows/build.yaml
 
   release:
     name: Release
-    needs: build
+    needs: [build, codeql]
     uses: ./.github/workflows/release-please.yaml
     permissions:
       contents: write
