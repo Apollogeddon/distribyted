@@ -36,7 +36,8 @@ func NewTorrent(readTimeout int) *TorrentFS {
 func (fs *TorrentFS) AddTorrent(t Torrent) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	fs.ts[t.InfoHash().HexString()] = t
+	ih := t.InfoHash().HexString()
+	fs.ts[ih] = t
 
 	if t.Info() != nil {
 		fs.addFiles(t)
@@ -47,6 +48,9 @@ func (fs *TorrentFS) AddTorrent(t Torrent) {
 		<-t.GotInfo()
 		fs.mu.Lock()
 		defer fs.mu.Unlock()
+		if _, ok := fs.ts[ih]; !ok {
+			return // removed while waiting for metadata
+		}
 		fs.addFiles(t)
 	}()
 }
@@ -71,23 +75,12 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 
 func (fs *TorrentFS) RemoveTorrent(h string) {
 	fs.log.Info().Str(dlog.KeyHash, h).Msg("removing torrent from filesystem")
+
 	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
 	delete(fs.ts, h)
+	fs.mu.Unlock()
 
-	// Surgical removal: only remove files that belong to this hash
-	for p, f := range fs.s.files {
-		if f.MatchHash(h) {
-			if err := fs.s.Remove(p); err != nil {
-				fs.log.Error().Err(err).Str(dlog.KeyPath, p).Msg("failed to remove file from storage")
-			}
-		}
-	}
-
-	// Also cleanup directories that might have become empty or belonged to the torrent
-	// Since storage.Remove handles parent cleanup if needed, we just need to make sure
-	// we didn't leave any top-level folders that were part of the torrent.
+	fs.s.RemoveByHash(h)
 }
 
 func (fs *TorrentFS) Open(filename string) (File, error) {

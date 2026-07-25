@@ -1,11 +1,19 @@
 package fs
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/bencode"
+	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/rs/zerolog"
 
 	"github.com/stretchr/testify/require"
@@ -42,6 +50,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestTorrentFilesystem(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test that fetches a real magnet in short mode")
+	}
 	require := require.New(t)
 
 	to, err := Cli.AddMagnet(testMagnet)
@@ -116,6 +127,9 @@ func TestTorrentFilesystem(t *testing.T) {
 }
 
 func TestReadAtTorrent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test that fetches a real magnet in short mode")
+	}
 	require := require.New(t)
 
 	to, err := Cli.AddMagnet(testMagnet)
@@ -145,6 +159,9 @@ func TestReadAtTorrent(t *testing.T) {
 }
 
 func TestReadAtWrapper(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test that fetches a real magnet in short mode")
+	}
 	t.Parallel()
 
 	require := require.New(t)
@@ -175,6 +192,58 @@ func TestReadAtWrapper(t *testing.T) {
 	require.Equal(io.EOF, err)
 }
 
+// TestTorrentFS_ConcurrentAddRemove reproduces removing a torrent while its
+// metadata is still arriving: RemoveTorrent used to range fs.s.files without
+// storage's own lock while the GotInfo goroutine wrote it concurrently
+// (fatal error: concurrent map iteration and map write). It also guards
+// against the file resurrecting if metadata arrives after the removal.
+func TestTorrentFS_ConcurrentAddRemove(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		dir := t.TempDir()
+		filePath := filepath.Join(dir, fmt.Sprintf("concurrent-%d.txt", i))
+		content := []byte(fmt.Sprintf("concurrent add/remove test data %d", i))
+		require.NoError(t, os.WriteFile(filePath, content, 0644))
+
+		info := metainfo.Info{PieceLength: 256 * 1024}
+		require.NoError(t, info.BuildFromFilePath(filePath))
+
+		infoBytes, err := bencode.Marshal(info)
+		require.NoError(t, err)
+		ih := infohash.HashBytes(infoBytes)
+
+		to, _ := Cli.AddTorrentOpt(torrent.AddTorrentOpts{InfoHash: ih})
+
+		tfs := NewTorrent(5)
+		tfs.AddTorrent(TorrentWrapper{to})
+
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			<-start
+			_ = to.SetInfoBytes(infoBytes)
+		}()
+
+		go func() {
+			defer wg.Done()
+			<-start
+			tfs.RemoveTorrent(ih.HexString())
+		}()
+
+		close(start)
+		wg.Wait()
+
+		require.Eventually(t, func() bool {
+			files, err := tfs.ReadDir("/")
+			return err == nil && len(files) == 0
+		}, 2*time.Second, 10*time.Millisecond, "file should not be present regardless of race outcome")
+
+		to.Drop()
+	}
+}
+
 func TestReadAtLeast(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
@@ -183,4 +252,66 @@ func TestReadAtLeast(t *testing.T) {
 	n, err := readAtLeast(nil, 1, make([]byte, 1), 2, zerolog.Nop())
 	require.Equal(0, n)
 	require.ErrorIs(err, io.ErrShortBuffer)
+}
+
+// fakeContextReader is a minimal missinggo.ReadContexter for exercising
+// readAtLeast's timer handling without a real torrent.
+type fakeContextReader struct {
+	delay time.Duration
+	data  []byte
+}
+
+func (f *fakeContextReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+	select {
+	case <-time.After(f.delay):
+		return copy(p, f.data), nil
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+}
+
+// TestReadAtLeast_PooledTimerNotStolen documents a suspected bug in
+// readAtLeast (internal/fs/torrent.go): timerPool.Put(timer) runs before
+// cancel(), so a concurrent caller can Get() and Reset() the same *time.Timer
+// while the previous call's watchdog goroutine is still selecting on it.
+// Whichever goroutine wins the race to receive from timer.C can consume the
+// tick meant for the other, silently starving that read's timeout and
+// hanging it indefinitely. This is the suspected root cause of the 10s->90s
+// integration-test timeout bump in commit a10f063 (see BACKLOG.md, Medium:
+// "Pooled timer released before its watchdog stops").
+//
+// This is a scheduling-dependent race and not reliably reproducible on
+// demand, so it's landed skipped: a ready-to-enable regression for whoever
+// picks up that fix, rather than a live assertion today.
+func TestReadAtLeast_PooledTimerNotStolen(t *testing.T) {
+	t.Skip("fails intermittently until the pooled-timer watchdog bug is fixed — see BACKLOG.md Medium")
+
+	l := zerolog.Nop()
+	buf := make([]byte, 4)
+
+	// Churn the timer pool: many short-timeout reads that return immediately,
+	// each pooling a timer whose watchdog goroutine may still be alive.
+	fast := &fakeContextReader{delay: 0}
+	for i := 0; i < 50; i++ {
+		_, _ = readAtLeast(fast, 1, buf, 4, l)
+	}
+
+	// A read that legitimately needs longer than the churn's 1s timeout
+	// window to arrive, but well within its own 30s timeout.
+	slow := &fakeContextReader{delay: 2 * time.Second, data: []byte("data")}
+	done := make(chan struct{})
+	var n int
+	var err error
+	go func() {
+		n, err = readAtLeast(slow, 30, buf, 4, l)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		require.NoError(t, err)
+		require.Equal(t, 4, n)
+	case <-time.After(10 * time.Second):
+		t.Fatal("readAtLeast hung, likely because a stolen pooled timer starved its watchdog")
+	}
 }
