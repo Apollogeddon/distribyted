@@ -44,17 +44,6 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		c.FileFromFS(c.Request.URL.Path, http.FS(web.Assets))
 	})
 
-	if conf.HTTPGlobal.HTTPFS {
-		log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d/fs", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting HTTPFS")
-		h := func(c *gin.Context) {
-			p := path.Clean(c.Param("filepath"))
-			c.FileFromFS(p, fs)
-		}
-		r.GET("/fs/*filepath", h)
-		r.HEAD("/fs/*filepath", h)
-
-	}
-
 	t, err := vfstemplate.ParseGlob(http.FS(web.Templates), nil, "/templates/*")
 	if err != nil {
 		return nil, fmt.Errorf("error parsing html: %w", err)
@@ -62,13 +51,36 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	r.SetHTMLTemplate(t)
 
-	r.Any("/", indexHandler)
-	r.GET("/routes", routesHandler(ss))
-	r.GET("/logs", logsHandler)
-	r.GET("/servers", serversFoldersHandler())
-	r.GET("/version/api", qBitWebapiVersionHandler)
+	ac := newAuthConfig(conf.HTTPGlobal)
+	st := newSessionStore(sessionTTL)
+	browserAuth := browserAuthMiddleware(ac, st)
+	qbitAuth := qbitAuthMiddleware(ac, st)
 
-	api := r.Group("/api")
+	r.GET("/login", loginPageHandler)
+	r.POST("/login", loginSubmitHandler(ac, st))
+	r.Any("/logout", logoutHandler(st))
+
+	if conf.HTTPGlobal.HTTPFS {
+		log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d/fs", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting HTTPFS")
+		h := func(c *gin.Context) {
+			p := path.Clean(c.Param("filepath"))
+			c.FileFromFS(p, fs)
+		}
+		fsGroup := r.Group("/fs", browserAuth)
+		fsGroup.GET("/*filepath", h)
+		fsGroup.HEAD("/*filepath", h)
+	}
+
+	pages := r.Group("", browserAuth)
+	{
+		pages.Any("/", indexHandler)
+		pages.GET("/routes", routesHandler(ss))
+		pages.GET("/logs", logsHandler)
+		pages.GET("/servers", serversFoldersHandler())
+		pages.GET("/version/api", qBitWebapiVersionHandler)
+	}
+
+	api := r.Group("/api", browserAuth)
 	{
 		api.GET("/log", apiLogHandler(logPath))
 		api.GET("/status", apiStatusHandler(fc, ss))
@@ -82,9 +94,14 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	cs := newCategoryStore()
 
-	qbit := r.Group("/api/v2")
+	qbitPublic := r.Group("/api/v2")
 	{
-		qbit.Any("/auth/login", qBitLoginHandler)
+		qbitPublic.Any("/auth/login", qBitLoginHandler(ac, st))
+		qbitPublic.Any("/auth/logout", qBitLogoutHandler(st))
+	}
+
+	qbit := r.Group("/api/v2", qbitAuth)
+	{
 		qbit.Any("/app/webapiVersion", qBitWebapiVersionHandler)
 		qbit.Any("/app/version", qBitAppVersionHandler)
 		qbit.Any("/app/preferences", qBitAppPreferencesHandler(conf, fusePath))

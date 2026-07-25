@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+
+<head>
+  {{template "header.html" "Login"}}
+</head>
+
+<body class="header-fixed sidebar-fixed sidebar-dark header-dark" id="body">
+  <div class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+    <div class="card card-default" style="width: 100%; max-width: 360px;">
+      <div class="card-header justify-content-center">
+        <h2>Distribyted</h2>
+      </div>
+      <div class="card-body">
+        {{if .Error}}
+        <div class="alert alert-danger" role="alert">Invalid username or password.</div>
+        {{end}}
+        <form method="post" action="/login">
+          <input type="hidden" name="next" value="{{.Next}}">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" class="form-control" id="username" name="username" autofocus required>
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Log in</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -45,11 +45,6 @@ type qBitTorrent struct {
 	LastActivity   int64   `json:"last_activity"`
 }
 
-func qBitLoginHandler(c *gin.Context) {
-	// Dummy login, always success
-	c.String(http.StatusOK, "Ok.")
-}
-
 func qBitWebapiVersionHandler(c *gin.Context) {
 	// Mocked webapi version for compatibility
 	c.String(http.StatusOK, "2.8.19")

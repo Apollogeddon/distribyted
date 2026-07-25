@@ -40,9 +40,10 @@ func TestApiStatusHandler(t *testing.T) {
 	ss := dtorrent.NewStats()
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{
-			Port:   4444,
-			IP:     "0.0.0.0",
-			HTTPFS: false,
+			Port:        4444,
+			IP:          "0.0.0.0",
+			HTTPFS:      false,
+			DisableAuth: true,
 		},
 	}
 
@@ -65,7 +66,7 @@ func TestApiStatusHandler(t *testing.T) {
 
 func TestApiServersHandler(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
@@ -81,7 +82,7 @@ func TestApiServersHandler(t *testing.T) {
 func TestApiRoutesHandler(t *testing.T) {
 	ss := dtorrent.NewStats()
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
@@ -103,7 +104,7 @@ func TestApiAddTorrentHandler(t *testing.T) {
 		},
 	}
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
@@ -137,7 +138,7 @@ func TestApiLogHandler(t *testing.T) {
 	_ = tmpfile.Close()
 
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, tmpfile.Name(), conf, "")
 	assert.NoError(t, err)
@@ -152,7 +153,7 @@ func TestApiLogHandler(t *testing.T) {
 
 func TestApiAddTorrentHandlerInvalidJson(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
@@ -175,7 +176,7 @@ func TestApiDelTorrentHandler(t *testing.T) {
 		},
 	}
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
@@ -197,7 +198,7 @@ func TestQBitTorrentsAddHandler(t *testing.T) {
 		},
 	}
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
@@ -220,7 +221,7 @@ func TestQBitTorrentsDeleteHandler(t *testing.T) {
 		},
 	}
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
@@ -242,7 +243,7 @@ func TestApiAddTorrentHandlerError(t *testing.T) {
 		},
 	}
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
@@ -262,7 +263,7 @@ func TestQBitCategoryIsolation(t *testing.T) {
 	// one handler must not be visible in another (the old package-level global
 	// caused test pollution and inter-instance leakage in production).
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r1, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse")
@@ -290,7 +291,7 @@ func TestQBitCategoryIsolation(t *testing.T) {
 
 func TestQBitTorrentsCategoriesFlow(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse")
 	assert.NoError(t, err)
@@ -361,7 +362,7 @@ func TestQBitTorrentsInfoWithData(t *testing.T) {
 	ss.Add("test-category", mt)
 
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "/fuse")
 	assert.NoError(t, err)
@@ -399,7 +400,7 @@ func TestQBitTransferInfoWithData(t *testing.T) {
 	ss.Add("test-category", mt)
 
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -423,7 +424,7 @@ func TestApiDelTorrentHandlerError(t *testing.T) {
 		},
 	}
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
 	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
@@ -439,9 +440,10 @@ func TestApiDelTorrentHandlerError(t *testing.T) {
 func TestQBitWebapiVersionHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{
-			Port:   4444,
-			IP:     "0.0.0.0",
-			HTTPFS: false,
+			Port:        4444,
+			IP:          "0.0.0.0",
+			HTTPFS:      false,
+			DisableAuth: true,
 		},
 	}
 
@@ -458,7 +460,7 @@ func TestQBitWebapiVersionHandler(t *testing.T) {
 
 func TestQBitLoginHandler(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -473,7 +475,7 @@ func TestQBitLoginHandler(t *testing.T) {
 
 func TestQBitAppVersionHandler(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -488,7 +490,7 @@ func TestQBitAppVersionHandler(t *testing.T) {
 
 func TestQBitAppPreferencesHandler(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 		Torrent:    &config.TorrentGlobal{DisableIPv6: true},
 	}
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "/test/path")
@@ -509,7 +511,7 @@ func TestQBitAppPreferencesHandler(t *testing.T) {
 
 func TestQBitAppSetPreferencesHandler(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -525,7 +527,7 @@ func TestQBitAppSetPreferencesHandler(t *testing.T) {
 func TestQBitTransferInfoHandler(t *testing.T) {
 	ss := dtorrent.NewStats()
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -544,7 +546,7 @@ func TestQBitTransferInfoHandler(t *testing.T) {
 func TestQBitTorrentsInfoHandler(t *testing.T) {
 	ss := dtorrent.NewStats()
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -563,7 +565,7 @@ func TestQBitTorrentsInfoHandler(t *testing.T) {
 func TestQBitTorrentsCategoriesHandler(t *testing.T) {
 	ss := dtorrent.NewStats()
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "/fuse")
 	assert.NoError(t, err)
@@ -577,7 +579,7 @@ func TestQBitTorrentsCategoriesHandler(t *testing.T) {
 
 func TestQBitTorrentsCreateCategoryHandler(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -592,7 +594,7 @@ func TestQBitTorrentsCreateCategoryHandler(t *testing.T) {
 
 func TestQBitTorrentsMockHandler(t *testing.T) {
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
@@ -607,7 +609,7 @@ func TestQBitTorrentsMockHandler(t *testing.T) {
 func TestWebHandlers(t *testing.T) {
 	ss := dtorrent.NewStats()
 	conf := &config.Root{
-		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444},
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
 	assert.NoError(t, err)
