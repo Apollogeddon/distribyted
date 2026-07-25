@@ -11,8 +11,8 @@ In your automation tool (e.g., Radarr), add a new "qBitTorrent" download client 
 
 - **Host**: `localhost` (or the IP where Distribyted is running)
 - **Port**: `4444` (Default HTTP port)
-- **Username**: (Any - Currently mocked to always succeed)
-- **Password**: (Any - Currently mocked to always succeed)
+- **Username**: the value configured under `http.user` in your YAML config
+- **Password**: the value configured under `http.pass` in your YAML config
 
 ### 2. Categories and Routes
 In Radarr/Sonarr, the **Category** field corresponds directly to a **Route** in Distribyted.

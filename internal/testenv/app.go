@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,9 +29,9 @@ import (
 // (updateSize) can deadlock SignalAndWait under -race.
 type noopBEP44Store struct{}
 
-func (noopBEP44Store) Put(*bep44.Item) error              { return nil }
+func (noopBEP44Store) Put(*bep44.Item) error                 { return nil }
 func (noopBEP44Store) Get(bep44.Target) (*bep44.Item, error) { return nil, bep44.ErrItemNotFound }
-func (noopBEP44Store) Del(bep44.Target) error              { return nil }
+func (noopBEP44Store) Del(bep44.Target) error                { return nil }
 
 type TestApp struct {
 	Config       *config.Root
@@ -48,6 +50,7 @@ type TestApp struct {
 	KeepTempDir  bool
 	ctx          context.Context
 	cancel       context.CancelFunc
+	httpClient   *http.Client
 }
 
 func NewTestApp() (*TestApp, error) {
@@ -94,6 +97,8 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 			Port:   0, // random
 			IP:     "127.0.0.1",
 			HTTPFS: true,
+			User:   "test",
+			Pass:   "test",
 		},
 		WebDAV: &config.WebDAVGlobal{
 			Port: 0, // random
@@ -269,6 +274,30 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 		ctx:          ctx,
 		cancel:       cancel,
 	}, nil
+}
+
+// HTTPClient returns an *http.Client already logged in against this app's
+// HTTP server (qBittorrent-compatible session cookie), memoized across calls.
+func (a *TestApp) HTTPClient() (*http.Client, error) {
+	if a.httpClient != nil {
+		return a.httpClient, nil
+	}
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
+	client := &http.Client{Jar: jar}
+
+	form := url.Values{"username": {a.Config.HTTPGlobal.User}, "password": {a.Config.HTTPGlobal.Pass}}
+	resp, err := client.PostForm("http://"+a.HTTPAddr+"/api/v2/auth/login", form)
+	if err != nil {
+		return nil, err
+	}
+	_ = resp.Body.Close()
+
+	a.httpClient = client
+	return client, nil
 }
 
 func (a *TestApp) Close() {

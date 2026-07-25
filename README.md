@@ -84,7 +84,7 @@ Add `distribyted` as a **qBitTorrent** download client:
 
 ### Supported qBitTorrent API (v2) Endpoints
 
-- `POST /auth/login` (Mocked success)
+- `POST /auth/login` (Session-cookie auth against `http.user`/`http.pass`)
 - `GET /torrents/info` (Compatible listing)
 - `POST /torrents/add` (Adds magnets to routes)
 - `POST /torrents/delete` (Surgical removal)

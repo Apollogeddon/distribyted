@@ -66,6 +66,14 @@ func TestIntegration_P2P_Fetch(t *testing.T) {
 
 	// 7. Wait for Info and Download
 	// We'll try to open the file which should trigger on-demand download
+	//
+	// TODO: these 90s waits (raised from 10s in a10f063) are a bandaid, not a real
+	// requirement. Suspected root cause is the pooled read timer in
+	// internal/fs/torrent.go (readAtLeast / torrentFileHandle.Read): the timer is
+	// returned to timerPool before its watchdog goroutine's cancel() runs, so the
+	// next borrower can silently consume a stale timeout and hang a read. Fix that
+	// (BACKLOG.md, Medium: "Pooled timer released before its watchdog stops"), then
+	// bring these back down to ~10-15s.
 	var file io.ReadCloser
 	require.Eventually(t, func() bool {
 		f, err := app.FS.Open("/" + route + "/p2p_fetch.txt")
@@ -190,7 +198,10 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	// 7. Verify via HTTP FS handler
 	// The path should be reachable via http://<app.HTTPAddr>/fs/<route>/multi_protocol.txt
 	var httpResp *http.Response
+	authClient, err := app.HTTPClient()
+	require.NoError(t, err)
 	httpClient := &http.Client{
+		Jar:     authClient.Jar,
 		Timeout: 1 * time.Second,
 	}
 	require.Eventually(t, func() bool {
@@ -657,12 +668,16 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Close()
 
-	// 1. Add torrent via qBit API
+	// 1. Log in (qBittorrent-style session cookie), then add torrent via qBit API.
+	// This exercises the same login -> cookie -> add -> poll flow Radarr/Sonarr use.
+	httpClient, err := app.HTTPClient()
+	require.NoError(t, err)
+
 	category := "movies"
 	apiURL := fmt.Sprintf("http://%s/api/v2/torrents/add", app.HTTPAddr)
 	formData := fmt.Sprintf("urls=%s&category=%s", magnet.String(), category)
 
-	resp, err := http.Post(apiURL, "application/x-www-form-urlencoded", strings.NewReader(formData))
+	resp, err := httpClient.Post(apiURL, "application/x-www-form-urlencoded", strings.NewReader(formData))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	_ = resp.Body.Close()
@@ -684,7 +699,7 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 	// 3. Poll API until torrent appears and has info
 	infoURL := fmt.Sprintf("http://%s/api/v2/torrents/info", app.HTTPAddr)
 	require.Eventually(t, func() bool {
-		resp, err := http.Get(infoURL)
+		resp, err := httpClient.Get(infoURL)
 		if err != nil || resp.StatusCode != http.StatusOK {
 			if resp != nil {
 				_ = resp.Body.Close()

@@ -12,6 +12,9 @@ Configures the web dashboard and management API.
 | `port` | The port for the HTTP server. | `4444` |
 | `ip` | The IP address to bind to. | `0.0.0.0` |
 | `httpfs` | Enable/Disable the built-in HTTP file browser. | `true` |
+| `user` | Username for the web interface, native API and qBittorrent-compatible API. | `admin` |
+| `pass` | Password for the web interface, native API and qBittorrent-compatible API. | `admin` |
+| `disable_auth` | Set to `true` to run the HTTP interface with no authentication at all. | `false` |
 
 ### `webdav`
 Configures the WebDAV server for remote filesystem access.
