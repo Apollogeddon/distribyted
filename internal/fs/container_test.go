@@ -143,6 +143,121 @@ func TestContainer_Link_CallbackReentry(t *testing.T) {
 	}
 }
 
+// TestContainer_Rename_CallbackReentry, TestContainer_Mkdir_CallbackReentry,
+// TestContainer_Rmdir_CallbackReentry, and TestContainer_Create_CallbackReentry
+// guard against the same deadlock class as the Link/Remove reentry tests
+// above, for the remaining ContainerFs methods that fire callbacks. Any
+// caller-supplied callback re-entering this ContainerFs — even just to read,
+// via ReadDir's RLock — would deadlock if fs.mu were still held from the
+// triggering call, since sync.RWMutex is not reentrant even for read locks
+// held by the same goroutine that holds the write lock.
+func TestContainer_Rename_CallbackReentry(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+
+	c.OnLinkAdded(func(oldpath, newpath string) {
+		_, _ = c.ReadDir("/")
+	})
+	c.OnLinkRemoved(func(path string) {
+		_, _ = c.ReadDir("/")
+	})
+
+	f := &mockHashFile{hash: "reentrant-rename"}
+	require.NoError(c.s.Add(f, "/source.txt"))
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.Rename("/source.txt", "/dest.txt")
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Rename deadlocked when its callback re-entered ContainerFs")
+	}
+}
+
+func TestContainer_Mkdir_CallbackReentry(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+
+	c.OnLinkAdded(func(oldpath, newpath string) {
+		_, _ = c.ReadDir("/")
+	})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.Mkdir("/newdir")
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Mkdir deadlocked when its callback re-entered ContainerFs")
+	}
+}
+
+func TestContainer_Rmdir_CallbackReentry(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+	require.NoError(c.Mkdir("/rmdir-target"))
+
+	c.OnLinkRemoved(func(path string) {
+		_, _ = c.ReadDir("/")
+	})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.Rmdir("/rmdir-target")
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Rmdir deadlocked when its callback re-entered ContainerFs")
+	}
+}
+
+func TestContainer_Create_CallbackReentry(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+
+	c.OnLinkAdded(func(oldpath, newpath string) {
+		_, _ = c.ReadDir("/")
+	})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.Create("/newfile.txt")
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Create deadlocked when its callback re-entered ContainerFs")
+	}
+}
+
 func TestContainer_RemoveHashlessFileDoesNotCascade(t *testing.T) {
 	t.Parallel()
 

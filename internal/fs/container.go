@@ -103,26 +103,33 @@ func (fs *ContainerFs) Link(oldpath, newpath string) error {
 
 func (fs *ContainerFs) Rename(oldpath, newpath string) error {
 	fs.mu.Lock()
-	defer fs.mu.Unlock()
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
 	if err := fs.s.Add(f, newpath); err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
 	if err := fs.s.Remove(oldpath); err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
-	if fs.onLinkAdded != nil {
-		fs.onLinkAdded(oldpath, newpath)
+	onLinkAdded := fs.onLinkAdded
+	onLinkRemoved := fs.onLinkRemoved
+	fs.mu.Unlock()
+
+	// Callbacks run with the lock released — see Remove/Link for why.
+	if onLinkAdded != nil {
+		onLinkAdded(oldpath, newpath)
 	}
 
-	if fs.onLinkRemoved != nil {
-		fs.onLinkRemoved(oldpath)
+	if onLinkRemoved != nil {
+		onLinkRemoved(oldpath)
 	}
 
 	return nil
@@ -130,13 +137,17 @@ func (fs *ContainerFs) Rename(oldpath, newpath string) error {
 
 func (fs *ContainerFs) Mkdir(path string) error {
 	fs.mu.Lock()
-	defer fs.mu.Unlock()
 	if err := fs.s.Add(&Dir{}, path); err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
-	if fs.onLinkAdded != nil {
-		fs.onLinkAdded("", path) // Empty oldpath signifies a directory creation
+	onLinkAdded := fs.onLinkAdded
+	fs.mu.Unlock()
+
+	// Callback runs with the lock released — see Remove/Link for why.
+	if onLinkAdded != nil {
+		onLinkAdded("", path) // Empty oldpath signifies a directory creation
 	}
 
 	return nil
@@ -144,13 +155,17 @@ func (fs *ContainerFs) Mkdir(path string) error {
 
 func (fs *ContainerFs) Rmdir(path string) error {
 	fs.mu.Lock()
-	defer fs.mu.Unlock()
 	if err := fs.s.Remove(path); err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
-	if fs.onLinkRemoved != nil {
-		fs.onLinkRemoved(path)
+	onLinkRemoved := fs.onLinkRemoved
+	fs.mu.Unlock()
+
+	// Callback runs with the lock released — see Remove/Link for why.
+	if onLinkRemoved != nil {
+		onLinkRemoved(path)
 	}
 
 	return nil
@@ -158,13 +173,17 @@ func (fs *ContainerFs) Rmdir(path string) error {
 
 func (fs *ContainerFs) Create(path string) error {
 	fs.mu.Lock()
-	defer fs.mu.Unlock()
 	if err := fs.s.Add(NewMemoryFile(nil), path); err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
-	if fs.onLinkAdded != nil {
-		fs.onLinkAdded("", path)
+	onLinkAdded := fs.onLinkAdded
+	fs.mu.Unlock()
+
+	// Callback runs with the lock released — see Remove/Link for why.
+	if onLinkAdded != nil {
+		onLinkAdded("", path)
 	}
 
 	return nil

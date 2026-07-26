@@ -357,13 +357,22 @@ func (s *Service) addRoute(r string) {
 	// Add to filesystems
 	folder := path.Join("/", r)
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.fss[folder]; !ok {
-		tfs := fs.NewTorrent(s.readTimeout)
+	_, exists := s.fss[folder]
+	var tfs *fs.TorrentFS
+	var listeners []func(string, fs.Filesystem)
+	if !exists {
+		tfs = fs.NewTorrent(s.readTimeout)
 		s.fss[folder] = tfs
-		for _, f := range s.routeAddedListeners {
-			f(folder, tfs)
-		}
+		listeners = append(listeners, s.routeAddedListeners...)
+	}
+	s.mu.Unlock()
+
+	// Listeners run with the lock released: in production one calls
+	// ContainerFs.AddFS, crossing into a different mutex — holding s.mu
+	// across that call risks lock-ordering deadlocks with any future path
+	// that acquires ContainerFs's lock before calling back into Service.
+	for _, f := range listeners {
+		f(folder, tfs)
 	}
 }
 

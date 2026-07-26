@@ -226,6 +226,47 @@ func TestService_Listeners(t *testing.T) {
 	require.True(t, torrentRemovedCalled)
 }
 
+// TestService_AddRoute_ListenerReentry guards against a deadlock: addRoute
+// used to fire routeAddedListeners while still holding s.mu. In production
+// that listener calls ContainerFs.AddFS, crossing into a different mutex —
+// but any listener that calls back into Service itself (e.g. registering
+// another listener) would deadlock on s.mu if it were still held. Simulate
+// that re-entry directly.
+func TestService_AddRoute_ListenerReentry(t *testing.T) {
+	stats := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+
+	mockT := &mockTorrent{
+		hash:    hash,
+		gotInfo: make(chan struct{}),
+	}
+	close(mockT.gotInfo)
+
+	mockC := &mockTorrentClient{
+		addMagnetFunc: func(s string) (fs.Torrent, error) {
+			return mockT, nil
+		},
+	}
+
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+
+	svc.OnRouteAdded(func(r string, f fs.Filesystem) {
+		svc.OnRouteAdded(func(string, fs.Filesystem) {}) // re-enters Service, would deadlock if s.mu were still held
+	})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = svc.AddMagnet("route1", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("addRoute deadlocked when its listener re-entered Service")
+	}
+}
+
 func TestService_AddLink(t *testing.T) {
 	db := &MockLoaderAdder{}
 	svc := NewService(nil, db, nil, nil, 1, 1, true)
