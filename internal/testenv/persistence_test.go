@@ -190,9 +190,6 @@ func TestBehavior_Persistence_Pieces(t *testing.T) {
 		app.Close()
 	}
 
-	// Let the OS release any file locks before session 2 opens the same DB
-	time.Sleep(5 * time.Second)
-
 	// --- SESSION 2: Reopen and verify piece completion was preserved ---
 	t.Log("--- STARTING SESSION 2 ---")
 	{
@@ -221,8 +218,17 @@ func TestBehavior_Persistence_Pieces(t *testing.T) {
 			t.Fatal("Timeout waiting for torrent info in Session 2")
 		}
 
+		// Without DownloadAll, anacrolix waits for a reader to set piece
+		// priorities before it will check existing on-disk data against
+		// storage completion (see the matching comment in Session 1 above) --
+		// so completion for already-downloaded pieces would never register.
+		// Requires Info to already be loaded, hence after GotInfo().
+		tor.DownloadAll()
+
+		// Bounded to absorb the same worst-case settling time the removed fixed
+		// pre-sleep used to provide unconditionally, but only paid when actually needed.
 		var piecesCompleteAfter int
-		for i := 0; i < 50; i++ {
+		for i := 0; i < 100; i++ {
 			piecesCompleteAfter = lt.Stats().PiecesComplete
 			if piecesCompleteAfter >= piecesCompleteBefore {
 				break
