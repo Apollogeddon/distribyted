@@ -253,8 +253,9 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 
 	// 3. Start Live Server
 	srvCfg := &config.Server{
-		Name: "test-server",
-		Path: tempDir,
+		Name:            "test-server",
+		Path:            tempDir,
+		WatcherInterval: 1, // default is 5s; poll faster so the test doesn't wait on it
 	}
 	// We need a storage.PieceCompletion
 	// app.Client provides it or we can use a dummy
@@ -276,7 +277,7 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 	err = os.WriteFile(file2, []byte("content 2"), 0644)
 	require.NoError(t, err)
 
-	// 6. Wait for magnet update — server polls every 5 seconds so allow up to 20s
+	// 6. Wait for magnet update
 	var magnet2 string
 	require.Eventually(t, func() bool {
 		info := srv.Info()
@@ -660,6 +661,19 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Close()
 
+	// Proactively add the seeder as a peer before the API add, so metadata
+	// arrives immediately instead of blocking Service.addTorrent's full
+	// addTimeout (120s in tests) with no peer to fetch from. AddMagnet dedupes
+	// by infohash, so the API's subsequent add reuses this same, already-primed
+	// torrent object.
+	tMagnet, _ := app.Client.AddMagnet(magnet.String())
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	_, _ = fmt.Sscanf(port, "%d", &p)
+	tMagnet.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
 	// 1. Log in (qBittorrent-style session cookie), then add torrent via qBit API.
 	// This exercises the same login -> cookie -> add -> poll flow Radarr/Sonarr use.
 	httpClient, err := app.HTTPClient()
@@ -674,19 +688,11 @@ func TestIntegration_ArrWorkflow(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	_ = resp.Body.Close()
 
-	// 2. Manually add peers so it can get info (discovery might be slow)
-	var ttor *torrent.Torrent
+	// 2. Confirm the torrent is registered in the client (should be immediate).
 	require.Eventually(t, func() bool {
-		ttor, _ = app.Client.Torrent(magnet.InfoHash)
-		return ttor != nil
+		_, ok := app.Client.Torrent(magnet.InfoHash)
+		return ok
 	}, 15*time.Second, 200*time.Millisecond, "Torrent did not appear in client after API add")
-
-	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
-	var p uint16
-	_, _ = fmt.Sscanf(port, "%d", &p)
-	ttor.AddPeers([]torrent.PeerInfo{{
-		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
-	}})
 
 	// 3. Poll API until torrent appears and has info
 	infoURL := fmt.Sprintf("http://%s/api/v2/torrents/info", app.HTTPAddr)
