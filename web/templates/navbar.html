@@ -37,6 +37,16 @@
             <span class="nav-text">Routes</span>
           </a>
         </li>
+        {{if eq . "links"}}
+        <li class="active">
+          {{else}}
+        <li>
+          {{end}}
+          <a class="sidenav-item-link" href="/links">
+            <i class="mdi mdi-link-variant"></i>
+            <span class="nav-text">Links</span>
+          </a>
+        </li>
         {{if eq . "served-folders"}}
         <li class="active">
           {{else}}

@@ -1,0 +1,45 @@
+{{#each .}}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-table-border-none">
+            <div class="card-body pt-0 pb-0">
+                <div class="table-responsive">
+                <table class="table card-table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>New Path</th>
+                            <th>Source</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><div class="text-nowrap">{{newPath}}</div></td>
+                            <td>
+                                {{#if isDir}}
+                                <span class="badge badge-secondary">directory</span>
+                                {{else}}
+                                <div class="text-nowrap">{{oldPath}}</div>
+                                {{/if}}
+                            </td>
+                            <td><i class="mdi mdi-delete-forever" title="delete link" style="cursor:pointer" onclick='Distribyted.links.confirmDelete("{{newPath}}")'></i></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{else}}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="mdi mdi-link-variant text-muted" style="font-size:3rem"></i>
+                <p class="text-muted mt-3 mb-0">No links configured yet.<br>Add one below to alias an existing path under a new one.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{{/each}}
