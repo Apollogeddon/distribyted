@@ -26,3 +26,7 @@ var serversFoldersHandler = func() gin.HandlerFunc {
 		c.HTML(http.StatusOK, "servers.html", nil)
 	}
 }
+
+var linksPageHandler = func(c *gin.Context) {
+	c.HTML(http.StatusOK, "links.html", nil)
+}

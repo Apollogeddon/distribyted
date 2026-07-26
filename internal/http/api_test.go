@@ -22,6 +22,7 @@ type mockTorrentService struct {
 	addMagnetFunc          func(r, m string) error
 	removeFromHashFunc     func(r, h string) error
 	removeFromHashOnlyFunc func(h string) error
+	listLinksFunc          func() (map[string]string, error)
 }
 
 func (m *mockTorrentService) AddMagnet(r, magnet string) error {
@@ -36,6 +37,23 @@ func (m *mockTorrentService) RemoveFromHashOnly(h string) error {
 	return m.removeFromHashOnlyFunc(h)
 }
 
+func (m *mockTorrentService) ListLinks() (map[string]string, error) {
+	return m.listLinksFunc()
+}
+
+type mockLinkFs struct {
+	linkFunc   func(oldpath, newpath string) error
+	removeFunc func(path string) error
+}
+
+func (m *mockLinkFs) Link(oldpath, newpath string) error {
+	return m.linkFunc(oldpath, newpath)
+}
+
+func (m *mockLinkFs) Remove(path string) error {
+	return m.removeFunc(path)
+}
+
 func TestApiStatusHandler(t *testing.T) {
 	ss := dtorrent.NewStats()
 	conf := &config.Root{
@@ -47,7 +65,7 @@ func TestApiStatusHandler(t *testing.T) {
 		},
 	}
 
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -69,7 +87,7 @@ func TestApiServersHandler(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -85,7 +103,7 @@ func TestApiRoutesHandler(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -107,7 +125,7 @@ func TestApiAddTorrentHandler(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	body, _ := json.Marshal(RouteAdd{Magnet: "test-magnet"})
@@ -140,7 +158,7 @@ func TestApiLogHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, tmpfile.Name(), conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, tmpfile.Name(), conf, "", nil)
 	assert.NoError(t, err)
 
 	w := &CloseNotifyingRecorder{httptest.NewRecorder()}
@@ -156,7 +174,7 @@ func TestApiAddTorrentHandlerInvalidJson(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -179,7 +197,7 @@ func TestApiDelTorrentHandler(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -187,6 +205,237 @@ func TestApiDelTorrentHandler(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestApiListLinksHandler(t *testing.T) {
+	// loader.DB.ListLinks strips the leading "/" from its map keys (a
+	// pre-existing quirk of how it parses its storage-key prefix); the
+	// handler must normalize this back so the API's output paths are usable
+	// (e.g. as-is against ContainerFs, or round-tripped into DELETE).
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return map[string]string{
+				"library/z-movie.mkv": "/downloads/z-movie.mkv",
+				"library/a-movie.mkv": "/downloads/a-movie.mkv",
+				"some/dir":            "/",
+			}, nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/links", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var links []Link
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &links))
+	require.Len(t, links, 3)
+
+	// sorted by NewPath
+	assert.Equal(t, "/library/a-movie.mkv", links[0].NewPath)
+	assert.Equal(t, "/downloads/a-movie.mkv", links[0].OldPath)
+	assert.False(t, links[0].IsDir)
+
+	assert.Equal(t, "/library/z-movie.mkv", links[1].NewPath)
+	assert.False(t, links[1].IsDir)
+
+	assert.Equal(t, "/some/dir", links[2].NewPath)
+	assert.True(t, links[2].IsDir)
+}
+
+func TestApiListLinksHandler_Empty(t *testing.T) {
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return map[string]string{}, nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/links", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "[]", w.Body.String())
+}
+
+func TestApiListLinksHandler_Error(t *testing.T) {
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/links", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestApiAddLinkHandler(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		linkFunc: func(oldpath, newpath string) error {
+			assert.Equal(t, "/downloads/movie.mkv", oldpath)
+			assert.Equal(t, "/library/movie.mkv", newpath)
+			return nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	body, _ := json.Marshal(LinkAdd{OldPath: "/downloads/movie.mkv", NewPath: "/library/movie.mkv"})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestApiAddLinkHandler_MissingField(t *testing.T) {
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
+	assert.NoError(t, err)
+
+	body, _ := json.Marshal(LinkAdd{OldPath: "/downloads/movie.mkv"})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestApiAddLinkHandler_SourceNotFound(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		linkFunc: func(oldpath, newpath string) error {
+			return os.ErrNotExist
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	body, _ := json.Marshal(LinkAdd{OldPath: "/nope", NewPath: "/also-nope"})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestApiAddLinkHandler_DestExists(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		linkFunc: func(oldpath, newpath string) error {
+			return os.ErrExist
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	body, _ := json.Marshal(LinkAdd{OldPath: "/a", NewPath: "/b"})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestApiDelLinkHandler(t *testing.T) {
+	// Mock key matches real loader.DB.ListLinks behavior: no leading "/".
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return map[string]string{"library/movie.mkv": "/downloads/movie.mkv"}, nil
+		},
+	}
+	mockLfs := &mockLinkFs{
+		removeFunc: func(path string) error {
+			assert.Equal(t, "/library/movie.mkv", path)
+			return nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/api/links/library/movie.mkv", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestApiDelLinkHandler_RootRejected(t *testing.T) {
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/api/links/", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestApiDelLinkHandler_UnknownPathNotFound(t *testing.T) {
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return map[string]string{}, nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/api/links/not-a-link.txt", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestQBitTorrentsAddHandler(t *testing.T) {
@@ -201,7 +450,7 @@ func TestQBitTorrentsAddHandler(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -224,7 +473,7 @@ func TestQBitTorrentsDeleteHandler(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -246,7 +495,7 @@ func TestApiAddTorrentHandlerError(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	body, _ := json.Marshal(RouteAdd{Magnet: "test-magnet"})
@@ -266,9 +515,9 @@ func TestQBitCategoryIsolation(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r1, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse")
+	r1, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse", nil)
 	require.NoError(t, err)
-	r2, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse")
+	r2, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse", nil)
 	require.NoError(t, err)
 
 	// Add a category to r1 only
@@ -293,7 +542,7 @@ func TestQBitTorrentsCategoriesFlow(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "/fuse", nil)
 	assert.NoError(t, err)
 
 	// Create category
@@ -364,7 +613,7 @@ func TestQBitTorrentsInfoWithData(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "/fuse")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "/fuse", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -402,7 +651,7 @@ func TestQBitTransferInfoWithData(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -427,7 +676,7 @@ func TestApiDelTorrentHandlerError(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
 
-	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -447,7 +696,7 @@ func TestQBitWebapiVersionHandler(t *testing.T) {
 		},
 	}
 
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -462,7 +711,7 @@ func TestQBitLoginHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -477,7 +726,7 @@ func TestQBitAppVersionHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -493,7 +742,7 @@ func TestQBitAppPreferencesHandler(t *testing.T) {
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 		Torrent:    &config.TorrentGlobal{DisableIPv6: true},
 	}
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "/test/path")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "/test/path", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -513,7 +762,7 @@ func TestQBitAppSetPreferencesHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -529,7 +778,7 @@ func TestQBitTransferInfoHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -548,7 +797,7 @@ func TestQBitTorrentsInfoHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -567,7 +816,7 @@ func TestQBitTorrentsCategoriesHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "/fuse")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "/fuse", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -581,7 +830,7 @@ func TestQBitTorrentsCreateCategoryHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -596,7 +845,7 @@ func TestQBitTorrentsMockHandler(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -611,7 +860,7 @@ func TestWebHandlers(t *testing.T) {
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
 	}
-	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, ss, nil, nil, nil, nil, "", conf, "", nil)
 	assert.NoError(t, err)
 
 	paths := []string{"/", "/routes", "/logs", "/servers"}

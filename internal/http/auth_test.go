@@ -30,7 +30,7 @@ func loginRequest(user, pass string) *http.Request {
 }
 
 func TestQBitLogin_Success(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -47,7 +47,7 @@ func TestQBitLogin_Success(t *testing.T) {
 }
 
 func TestQBitLogin_Failure(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -59,7 +59,7 @@ func TestQBitLogin_Failure(t *testing.T) {
 }
 
 func TestQBitProtected_NoSessionIs403(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	endpoints := []struct {
@@ -90,7 +90,7 @@ func TestQBitArrCookieFlow(t *testing.T) {
 		},
 	}
 
-	r, err := NewHandler(nil, dtorrent.NewStats(), mockSvc, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), mockSvc, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(r)
@@ -119,7 +119,7 @@ func TestQBitArrCookieFlow(t *testing.T) {
 }
 
 func TestQBitLogout(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(r)
@@ -145,7 +145,7 @@ func TestQBitLogout(t *testing.T) {
 }
 
 func TestLoginPage_Get(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/login", nil)
@@ -158,7 +158,7 @@ func TestLoginPage_Get(t *testing.T) {
 }
 
 func TestLogin_Success(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	form := url.Values{"username": {"test"}, "password": {"test"}, "next": {"/routes"}}
@@ -173,7 +173,7 @@ func TestLogin_Success(t *testing.T) {
 }
 
 func TestLogin_Failure(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	form := url.Values{"username": {"test"}, "password": {"wrong"}}
@@ -188,7 +188,7 @@ func TestLogin_Failure(t *testing.T) {
 }
 
 func TestLogout(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(r)
@@ -215,7 +215,7 @@ func TestLogout(t *testing.T) {
 }
 
 func TestWebUI_RequiresAuth(t *testing.T) {
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/", nil)
@@ -244,7 +244,7 @@ func TestHTTPFS_RequiresAuth(t *testing.T) {
 	conf := authedConf()
 	conf.HTTPGlobal.HTTPFS = true
 
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, http.Dir("."), "", conf, "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, http.Dir("."), "", conf, "", nil)
 	require.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/fs/x", nil)
@@ -256,7 +256,7 @@ func TestHTTPFS_RequiresAuth(t *testing.T) {
 
 func TestUnsetCredentialsFailClosed(t *testing.T) {
 	conf := &config.Root{HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444}}
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "", nil)
 	require.NoError(t, err)
 
 	reqAPI, _ := http.NewRequest("GET", "/api/status", nil)
@@ -276,7 +276,7 @@ func TestUnsetCredentialsFailClosed(t *testing.T) {
 
 func TestAuthDisabled_AllowsEverything(t *testing.T) {
 	conf := &config.Root{HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true}}
-	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "")
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "", nil)
 	require.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/", nil)
