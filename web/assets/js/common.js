@@ -8,6 +8,30 @@ Handlebars.registerHelper('bytes', function (bytes) {
 
 var Distribyted = Distribyted || {};
 
+// fetch() follows redirects transparently: a request to a protected /api/*
+// route whose session has expired lands on the (200 OK) /login page, and
+// response.ok is true for that final response. Without this check, callers
+// would try to parse the login page's HTML as JSON/log lines and either
+// silently show nothing or, worse, report a mutating request (delete,
+// add magnet, save config) as successful when it never happened.
+Distribyted.auth = {
+    _redirecting: false,
+
+    // Returns true if the response actually landed on the login page,
+    // meaning the caller's session expired. Redirects the browser there
+    // for real (once) so the user can log back in.
+    handleResponse: function (response) {
+        if (!response.redirected || response.url.indexOf('/login') === -1) {
+            return false;
+        }
+        if (!this._redirecting) {
+            this._redirecting = true;
+            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+        }
+        return true;
+    }
+};
+
 Distribyted.offline = {
     _isOffline: false,
     _banner: null,

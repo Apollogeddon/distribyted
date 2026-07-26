@@ -2,6 +2,7 @@ Distribyted.logs = {
     loadView: function () {
         fetch("/api/log")
             .then(response => {
+                if (Distribyted.auth.handleResponse(response)) return;
                 if (response.ok) {
                     return response.body.getReader();
                 } else {

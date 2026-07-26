@@ -108,6 +108,7 @@ Distribyted.routes = {
     _getRoutesJson: function () {
         return fetch('/api/routes')
             .then(function (response) {
+                if (Distribyted.auth.handleResponse(response)) return;
                 if (response.ok) {
                     Distribyted.offline.hide();
                     return response.json();
@@ -134,6 +135,7 @@ Distribyted.routes = {
             method: 'DELETE'
         })
             .then(function (response) {
+                if (Distribyted.auth.handleResponse(response)) return;
                 if (response.ok) {
                     Distribyted.message.info('Torrent deleted.')
                     Distribyted.routes.loadView();
@@ -184,6 +186,7 @@ $("#new-magnet").submit(function (event) {
         body: body
     })
         .then(function (response) {
+            if (Distribyted.auth.handleResponse(response)) return;
             if (response.ok) {
                 Distribyted.message.info('New magnet added.')
                 document.getElementById("magnet-url").value = ""

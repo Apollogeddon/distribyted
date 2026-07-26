@@ -5,6 +5,7 @@ Distribyted.dashboard = {
     loadView: function () {
         fetch('/api/status')
             .then(function (response) {
+                if (Distribyted.auth.handleResponse(response)) return;
                 if (response.ok) {
                     Distribyted.offline.hide();
                     return response.json();
