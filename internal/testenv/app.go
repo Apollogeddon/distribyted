@@ -189,11 +189,11 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
 		_ = cfs.AddFS(p, fss)
 	})
-	ts.OnLinkAdded(func(oldpath, newpath string) {
-		_ = cfs.Link(oldpath, newpath)
+	cfs.OnLinkAdded(func(oldpath, newpath string) {
+		_ = ts.AddLink(oldpath, newpath)
 	})
-	ts.OnLinkRemoved(func(path string) {
-		_ = cfs.Remove(path)
+	cfs.OnLinkRemoved(func(path string) {
+		_ = ts.RemoveLink(path)
 	})
 	cfs.OnLastReferenceRemoved(func(hash string) {
 		_ = ts.RemoveFromHashOnly(hash)
@@ -244,7 +244,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 
 	ch := config.NewHandler("")
 
-	h, err := dhttp.NewHandler(fc, ss, ts, ch, nil, httpfs, "", conf, "/fuse")
+	h, err := dhttp.NewHandler(fc, ss, ts, ch, nil, httpfs, "", conf, "/fuse", cfs)
 	if err != nil {
 		return nil, err
 	}

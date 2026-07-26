@@ -63,7 +63,7 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 			}, 30*time.Second, 200*time.Millisecond, "Session 1: piece must complete before close")
 		}
 
-		require.NoError(t, app.Service.AddLink("/unique-p-route/persist_behavior.txt", "/unique-manual-link.txt"))
+		require.NoError(t, app.FS.Link("/unique-p-route/persist_behavior.txt", "/unique-manual-link.txt"))
 
 		err = os.WriteFile(filepath.Join(workDir, "session1_marker.txt"), []byte("session1"), 0644)
 		require.NoError(t, err)

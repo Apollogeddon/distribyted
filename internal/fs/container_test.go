@@ -109,6 +109,40 @@ func TestContainer_LastReferenceRemoved_CallbackReentry(t *testing.T) {
 	}
 }
 
+// TestContainer_Link_CallbackReentry guards against the same deadlock class
+// as TestContainer_LastReferenceRemoved_CallbackReentry, but for Link: a
+// caller-supplied onLinkAdded callback may re-enter this ContainerFs (e.g.
+// production wiring persists the link via Service.AddLink, and some wiring
+// styles route back through cfs.Link), which would deadlock if fs.mu were
+// still held across the callback.
+func TestContainer_Link_CallbackReentry(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+
+	c.OnLinkAdded(func(oldpath, newpath string) {
+		_ = c.Link(oldpath, newpath) // re-enters ContainerFs, would deadlock if fs.mu were still held
+	})
+
+	f := &mockHashFile{hash: "reentrant-link"}
+	require.NoError(c.s.Add(f, "/source.txt"))
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.Link("/source.txt", "/dest.txt")
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Link deadlocked when its callback re-entered ContainerFs")
+	}
+}
+
 func TestContainer_RemoveHashlessFileDoesNotCascade(t *testing.T) {
 	t.Parallel()
 

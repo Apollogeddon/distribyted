@@ -2,15 +2,20 @@ package testenv
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
 	"net"
+	"net/http"
+	"net/url"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	dhttp "github.com/Apollogeddon/distribyted/internal/http"
 	"github.com/anacrolix/torrent"
 	"github.com/stretchr/testify/require"
 )
@@ -284,7 +289,7 @@ func TestRegression_HardlinkDeleteCascadesTorrentRemoval(t *testing.T) {
 
 	// Simulate Radarr hardlinking the download into its library folder.
 	linkPath := "/library/Movie (2024)/movie.mkv"
-	require.NoError(t, app.Service.AddLink(origPath, linkPath))
+	require.NoError(t, app.FS.Link(origPath, linkPath))
 	require.Eventually(t, func() bool {
 		f, err := app.FS.Open(linkPath)
 		if err != nil {
@@ -306,4 +311,120 @@ func TestRegression_HardlinkDeleteCascadesTorrentRemoval(t *testing.T) {
 	}, 5*time.Second, 100*time.Millisecond, "torrent was not dropped from the client after its last reference was deleted")
 
 	require.Empty(t, app.Stats.GetRouteFromHash(magnet.InfoHash.HexString()), "torrent stats should be removed after cascade")
+}
+
+// TestRegression_LinksAPIEndToEnd exercises the /api/links HTTP endpoints
+// (not the internal Service/ContainerFs methods directly) end-to-end: create
+// a link, list it, delete it, and confirm the same last-reference cascade
+// from TestRegression_HardlinkDeleteCascadesTorrentRemoval still fires when
+// driven through the real HTTP handlers. This is also what would have caught
+// testenv's link-callback wiring being backwards relative to production,
+// since a wrong direction would leave AddLink never actually persisting.
+func TestRegression_LinksAPIEndToEnd(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	defer seeder.Stop()
+
+	content := []byte("links api end-to-end test data")
+	magnet, err := seeder.AddFile("show.mkv", content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	app, err := NewTestApp()
+	require.NoError(t, err)
+	defer app.Close()
+
+	tMagnet, _ := app.Client.AddMagnet(magnet.String())
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	_, _ = fmt.Sscanf(port, "%d", &p)
+	tMagnet.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	route := "downloads"
+	require.NoError(t, app.Service.AddMagnet(route, magnet.String()))
+
+	origPath := "/" + route + "/show.mkv"
+	require.Eventually(t, func() bool {
+		f, err := app.FS.Open(origPath)
+		if err != nil {
+			return false
+		}
+		_ = f.Close()
+		return true
+	}, 15*time.Second, 200*time.Millisecond, "torrent file did not appear in route")
+
+	client, err := app.HTTPClient()
+	require.NoError(t, err)
+	base := "http://" + app.HTTPAddr
+
+	// Create the link via the real HTTP handler.
+	newPath := "/library/Show S01E01.mkv"
+	body, err := json.Marshal(dhttp.LinkAdd{OldPath: origPath, NewPath: newPath})
+	require.NoError(t, err)
+	addResp, err := client.Post(base+"/api/links", "application/json", bytes.NewReader(body))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, addResp.StatusCode)
+	addResp.Body.Close()
+
+	// This is the assertion that would catch backwards wiring: AddLink must
+	// have actually persisted to the DB, not just updated the live tree.
+	// loader.DB.ListLinks strips the leading "/" from its map keys (a
+	// pre-existing quirk of how it parses its storage-key prefix; the HTTP
+	// layer compensates for it, see internal/http/api.go's normalizeLinkPath),
+	// so check against that raw form here rather than newPath directly.
+	links, err := app.Service.ListLinks()
+	require.NoError(t, err)
+	require.Equal(t, origPath, links[strings.TrimPrefix(newPath, "/")], "link was not persisted via Service.AddLink")
+
+	// The link must also be live in the tree, readable through the mount.
+	f, err := app.FS.Open(newPath)
+	require.NoError(t, err)
+	_ = f.Close()
+
+	// GET /api/links must show it.
+	listResp, err := client.Get(base + "/api/links")
+	require.NoError(t, err)
+	var got []dhttp.Link
+	require.NoError(t, json.NewDecoder(listResp.Body).Decode(&got))
+	listResp.Body.Close()
+	require.Len(t, got, 1)
+	require.Equal(t, newPath, got[0].NewPath)
+	require.Equal(t, origPath, got[0].OldPath)
+
+	// Delete it via the real HTTP handler (path segments percent-encoded,
+	// mirroring links.js's URL construction).
+	segments := strings.Split(strings.TrimPrefix(newPath, "/"), "/")
+	for i, s := range segments {
+		segments[i] = url.PathEscape(s)
+	}
+	delURL := base + "/api/links/" + strings.Join(segments, "/")
+	delReq, err := http.NewRequest(http.MethodDelete, delURL, nil)
+	require.NoError(t, err)
+	delResp, err := client.Do(delReq)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, delResp.StatusCode)
+	delResp.Body.Close()
+
+	// Same cascade assertions as the direct-FS hardlink-delete regression:
+	// this was the last reference, so the torrent must be fully torn down.
+	require.Eventually(t, func() bool {
+		_, ok := app.Client.Torrent(magnet.InfoHash)
+		return !ok
+	}, 5*time.Second, 100*time.Millisecond, "torrent was not dropped from the client after its last reference was deleted via the API")
+
+	require.Empty(t, app.Stats.GetRouteFromHash(magnet.InfoHash.HexString()), "torrent stats should be removed after cascade")
+
+	linksAfter, err := app.Service.ListLinks()
+	require.NoError(t, err)
+	require.NotContains(t, linksAfter, strings.TrimPrefix(newPath, "/"), "link record should be gone from the DB")
 }

@@ -77,18 +77,25 @@ func (fs *ContainerFs) ReadDir(path string) (map[string]File, error) {
 
 func (fs *ContainerFs) Link(oldpath, newpath string) error {
 	fs.mu.Lock()
-	defer fs.mu.Unlock()
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
 	if err := fs.s.Add(f, newpath); err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
-	if fs.onLinkAdded != nil {
-		fs.onLinkAdded(oldpath, newpath)
+	onLinkAdded := fs.onLinkAdded
+	fs.mu.Unlock()
+
+	// Callback runs with the lock released: like Remove, a caller-supplied
+	// onLinkAdded may re-enter this ContainerFs (e.g. to persist the link),
+	// which would deadlock if fs.mu were still held.
+	if onLinkAdded != nil {
+		onLinkAdded(oldpath, newpath)
 	}
 
 	return nil
