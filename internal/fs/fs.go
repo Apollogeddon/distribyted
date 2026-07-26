@@ -62,6 +62,11 @@ type File interface {
 	IncNlink()
 	DecNlink()
 	MatchHash(string) bool
+
+	// Hash returns the info-hash of the torrent this file belongs to, or ""
+	// for files with no torrent association (directories, in-memory files,
+	// archive entries).
+	Hash() string
 }
 
 type BaseFile struct {
@@ -93,6 +98,10 @@ func (b *BaseFile) DecNlink() {
 
 func (b *BaseFile) MatchHash(hash string) bool {
 	return false
+}
+
+func (b *BaseFile) Hash() string {
+	return ""
 }
 
 type Filesystem interface {

@@ -203,6 +203,20 @@ func (s *storage) removeLocked(p string) error {
 	return nil
 }
 
+// HasHash reports whether any entry directly held by this storage (not
+// delegated to a mounted sub-filesystem) still matches hash h.
+func (s *storage) HasHash(h string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, f := range s.files {
+		if f.MatchHash(h) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *storage) RemoveByHash(h string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -361,6 +361,10 @@ func (d *torrentFile) MatchHash(hash string) bool {
 	return d.hash == hash
 }
 
+func (d *torrentFile) Hash() string {
+	return d.hash
+}
+
 var _ File = &torrentFileHandle{}
 
 type torrentFileHandle struct {

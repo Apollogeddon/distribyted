@@ -166,6 +166,29 @@ func TestStorageRemoveByHash(t *testing.T) {
 	require.True(s.Has("/f2.txt"))
 }
 
+func TestStorageHasHash(t *testing.T) {
+	require := require.New(t)
+	s := newStorage(nil)
+
+	f1 := &mockHashFile{hash: "h1"}
+	f2 := &mockHashFile{hash: "h1"}
+
+	require.False(s.HasHash("h1"))
+
+	_ = s.Add(f1, "/f1.txt")
+	require.True(s.HasHash("h1"))
+	require.False(s.HasHash("h2"))
+
+	// A second entry with the same hash (e.g. a link) keeps it present
+	// after the first is removed.
+	_ = s.Add(f2, "/f2.txt")
+	_ = s.Remove("/f1.txt")
+	require.True(s.HasHash("h1"))
+
+	_ = s.Remove("/f2.txt")
+	require.False(s.HasHash("h1"))
+}
+
 type mockHashFile struct {
 	Dummy
 	hash string
@@ -173,6 +196,10 @@ type mockHashFile struct {
 
 func (m *mockHashFile) MatchHash(h string) bool {
 	return m.hash == h
+}
+
+func (m *mockHashFile) Hash() string {
+	return m.hash
 }
 
 func TestSupportedFactories(t *testing.T) {

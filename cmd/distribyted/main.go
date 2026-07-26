@@ -302,6 +302,12 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		}
 	})
 
+	cfs.OnLastReferenceRemoved(func(hash string) {
+		if err := ts.RemoveFromHashOnly(hash); err != nil {
+			log.Warn().Err(err).Str(dlog.KeyHash, hash).Msg("problem removing torrent after its last reference was deleted")
+		}
+	})
+
 	ts.OnTorrentRemoved(func(h string) {
 		log.Info().Str(dlog.KeyHash, h).Msg("cascading torrent removal to virtual links")
 		cfs.RemoveByHash(h)

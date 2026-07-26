@@ -228,3 +228,82 @@ func TestRegression_ThunderingHerd(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
+
+// TestRegression_HardlinkDeleteCascadesTorrentRemoval reproduces a bug where
+// deleting a hard-linked entry (the pattern Radarr/Sonarr use: hardlink the
+// download into their library folder, then delete that hardlink on
+// upgrade/removal) never tore down the underlying torrent. ContainerFs.Remove
+// only removed the DB record for that one path; nothing ever asked whether
+// it was the last reference and triggered Service.RemoveFromHashOnly. The
+// torrent stayed registered, seeding, and visible in the dashboard forever.
+func TestRegression_HardlinkDeleteCascadesTorrentRemoval(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	defer seeder.Stop()
+
+	content := []byte("hardlink delete cascade test data")
+	magnet, err := seeder.AddFile("movie.mkv", content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	app, err := NewTestApp()
+	require.NoError(t, err)
+	defer app.Close()
+
+	// Proactively add the seeder as a peer before AddMagnet so metadata
+	// arrives immediately instead of waiting on tracker-only discovery.
+	tMagnet, _ := app.Client.AddMagnet(magnet.String())
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	_, _ = fmt.Sscanf(port, "%d", &p)
+	tMagnet.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	route := "downloads"
+	require.NoError(t, app.Service.AddMagnet(route, magnet.String()))
+
+	// Wait for the torrent to appear at its original route path.
+	origPath := "/" + route + "/movie.mkv"
+	require.Eventually(t, func() bool {
+		f, err := app.FS.Open(origPath)
+		if err != nil {
+			return false
+		}
+		_ = f.Close()
+		return true
+	}, 15*time.Second, 200*time.Millisecond, "torrent file did not appear in route")
+
+	// Simulate Radarr hardlinking the download into its library folder.
+	linkPath := "/library/Movie (2024)/movie.mkv"
+	require.NoError(t, app.Service.AddLink(origPath, linkPath))
+	require.Eventually(t, func() bool {
+		f, err := app.FS.Open(linkPath)
+		if err != nil {
+			return false
+		}
+		_ = f.Close()
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "link did not appear")
+
+	// Simulate Radarr deleting the hardlinked library entry — the only path
+	// it manages, and the only one reachable for deletion via the mount.
+	require.NoError(t, app.FS.Remove(linkPath))
+
+	// The torrent must be fully torn down: dropped from the client and gone
+	// from stats/routes, not just have its link record removed.
+	require.Eventually(t, func() bool {
+		_, ok := app.Client.Torrent(magnet.InfoHash)
+		return !ok
+	}, 5*time.Second, 100*time.Millisecond, "torrent was not dropped from the client after its last reference was deleted")
+
+	require.Empty(t, app.Stats.GetRouteFromHash(magnet.InfoHash.HexString()), "torrent stats should be removed after cascade")
+}

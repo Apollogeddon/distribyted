@@ -6,8 +6,9 @@ type ContainerFs struct {
 	mu sync.RWMutex
 	s  *storage
 
-	onLinkAdded   func(oldpath, newpath string)
-	onLinkRemoved func(path string)
+	onLinkAdded      func(oldpath, newpath string)
+	onLinkRemoved    func(path string)
+	onLastRefRemoved func(hash string)
 }
 
 func (fs *ContainerFs) OnLinkAdded(f func(oldpath, newpath string)) {
@@ -20,6 +21,18 @@ func (fs *ContainerFs) OnLinkRemoved(f func(path string)) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	fs.onLinkRemoved = f
+}
+
+// OnLastReferenceRemoved registers a callback fired when removing a path
+// leaves no other entry in this filesystem's own storage (i.e. not counting
+// files served by mounted routes, only directly-added entries such as
+// links) matching that file's hash. This is how a hard-linked entry being
+// deleted — the only delete path Radarr/Sonarr and a raw FUSE unlink can
+// reach — can still trigger a full torrent teardown.
+func (fs *ContainerFs) OnLastReferenceRemoved(f func(hash string)) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.onLastRefRemoved = f
 }
 
 func NewContainerFs(fss map[string]Filesystem) (*ContainerFs, error) {
@@ -152,13 +165,32 @@ func (fs *ContainerFs) Create(path string) error {
 
 func (fs *ContainerFs) Remove(path string) error {
 	fs.mu.Lock()
-	defer fs.mu.Unlock()
+
+	hash := ""
+	if f, err := fs.s.Get(path); err == nil {
+		hash = f.Hash()
+	}
+
 	if err := fs.s.Remove(path); err != nil {
+		fs.mu.Unlock()
 		return err
 	}
 
-	if fs.onLinkRemoved != nil {
-		fs.onLinkRemoved(path)
+	lastRef := hash != "" && !fs.s.HasHash(hash)
+	onLinkRemoved := fs.onLinkRemoved
+	onLastRefRemoved := fs.onLastRefRemoved
+	fs.mu.Unlock()
+
+	// Callbacks run with the lock released: onLastRefRemoved can trigger a
+	// full torrent teardown (Service.RemoveFromHashOnly), which re-enters
+	// this filesystem via RemoveByHash — holding fs.mu across that call
+	// would deadlock.
+	if onLinkRemoved != nil {
+		onLinkRemoved(path)
+	}
+
+	if lastRef && onLastRefRemoved != nil {
+		onLastRefRemoved(hash)
 	}
 
 	return nil
