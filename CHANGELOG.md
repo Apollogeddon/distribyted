@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.26.0](https://github.com/Apollogeddon/distribyted/compare/v0.25.2...v0.26.0) (2026-07-26)
+
+
+### Features
+
+* Add /api/links endpoints for managing virtual links ([8c1be5d](https://github.com/Apollogeddon/distribyted/commit/8c1be5d4a872ba89aedf1efa133d56dbf4e023a1))
+* Add constant-time credential comparison helper ([ce9ce28](https://github.com/Apollogeddon/distribyted/commit/ce9ce2827cf597cdad6631a207e966d94ec30e32))
+* Add HTTP/WebDAV credential config fields with startup validation ([eb8448b](https://github.com/Apollogeddon/distribyted/commit/eb8448b58a58507e70d63d85e21a5fbdefa85395))
+* Add Links management page to the dashboard ([511f44b](https://github.com/Apollogeddon/distribyted/commit/511f44bb5912f2e5189e53e7f4301ae84f0bb457))
+* Add qBittorrent-style session auth and login page to HTTP server ([1912a64](https://github.com/Apollogeddon/distribyted/commit/1912a64bed36bb3717fa35fde1f37d4e8b549744))
+
+
+### Bug Fixes
+
+* Cascade torrent removal when a hard-linked entry's last reference is deleted ([cb25439](https://github.com/Apollogeddon/distribyted/commit/cb2543920e5ce00d6281df8a3fff7b15b26c77f6))
+* Check filepath.Walk error to avoid nil-deref crash on unreadable folders ([43057e9](https://github.com/Apollogeddon/distribyted/commit/43057e9ff484936049badf74ba03c7647b04a777))
+* Close remaining callback-reentrancy deadlocks in ContainerFs and Service.addRoute ([a28c8c2](https://github.com/Apollogeddon/distribyted/commit/a28c8c26f2fe8df5a0e9ea2e4b8f14c88a03d6c5))
+* Close WebDAV auth bypass on unset credentials ([94a0101](https://github.com/Apollogeddon/distribyted/commit/94a01017bf0a0677c36d6a549a02ade16d0a18ed))
+* Harden ContainerFs.Link against callback reentrancy, align testenv link wiring with production ([3fe9a4b](https://github.com/Apollogeddon/distribyted/commit/3fe9a4b5a9402c4594fd271359e37488e2e0b58c))
+* Pin anacrolix/missinggo/v2 to v2.10.0 to resolve roaring v1/v2 conflict ([11a99ce](https://github.com/Apollogeddon/distribyted/commit/11a99ce5c097649ef97360b5fa3c2a4f91e9efbc))
+* Prevent pooled read timer from being reused before its watchdog exits ([58f9a5d](https://github.com/Apollogeddon/distribyted/commit/58f9a5dc702fcd83887fd45bfa960ecfb83e9bbd))
+* Redirect to login instead of showing false results when a session expires ([c56fb15](https://github.com/Apollogeddon/distribyted/commit/c56fb1563a7de8f760d33205f35939b832204baf))
+* Remove torrent-removal data race and resurrection bug ([d713773](https://github.com/Apollogeddon/distribyted/commit/d713773c7d5e7f198870e05e686edbc62be80f9d))
+* Seed fake reader data in pooled-timer regression test to avoid infinite loop ([b87d702](https://github.com/Apollogeddon/distribyted/commit/b87d702aa73515f73b12cec6f6291fff5c3810f8))
+
 ## [0.25.2](https://github.com/Apollogeddon/distribyted/compare/v0.25.1...v0.25.2) (2026-07-20)
 
 
