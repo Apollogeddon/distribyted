@@ -41,6 +41,39 @@ graph TD
 
 ---
 
+## Workflow: Authentication (Login / Session)
+
+Every request to the Web UI, native API, qBittorrent-compatible API, and HTTPFS is gated behind a session cookie, except `/login` itself and static assets. There are two ways to obtain that session, depending on the caller.
+
+```mermaid
+sequenceDiagram
+    participant Browser as Browser (Web UI)
+    participant Arr as Radarr/Sonarr (qBit client)
+    participant HTTP as HTTP Server
+
+    Note over Browser, HTTP: Browser flow
+    Browser->>HTTP: GET /routes (no session cookie)
+    HTTP-->>Browser: 302 Redirect to /login?next=/routes
+    Browser->>HTTP: POST /login (username, password, next)
+    HTTP->>HTTP: Validate credentials (constant-time)
+    HTTP-->>Browser: 302 Redirect to /routes + Set-Cookie: SID
+    Browser->>HTTP: GET /routes (with SID cookie)
+    HTTP-->>Browser: 200 OK
+
+    Note over Arr, HTTP: qBittorrent-compatible API flow
+    Arr->>HTTP: POST /api/v2/auth/login (username, password)
+    HTTP->>HTTP: Validate credentials (constant-time)
+    HTTP-->>Arr: 200 "Ok." + Set-Cookie: SID
+    Arr->>HTTP: POST /api/v2/torrents/add (with SID cookie)
+    HTTP-->>Arr: 200 OK
+    Note over Arr, HTTP: Missing/expired session on any /api/v2/* route -> 403,<br/>which real qBittorrent clients treat as "re-authenticate"
+```
+
+- Credentials are `http.user`/`http.pass`; if unset (and `http.disable_auth` isn't `true`), the server refuses to start rather than run open.
+- WebDAV uses a separate, independent Basic Auth check against `webdav.user`/`webdav.pass` — it does not share the `SID` session.
+
+---
+
 ## Workflow: Adding a Torrent
 
 When you add a torrent via the Web UI or an automation tool like Radarr, the system follows this path:
@@ -94,6 +127,8 @@ sequenceDiagram
     participant TS as Torrent Service
     participant DB as BoltDB (Persistence)
     participant Engine as Torrent Engine
+
+    Note over User, Engine: All actions below require a valid session (SID cookie) or, for WebDAV, Basic Auth —<br/>see the Authentication workflow above. Omitted from individual steps for brevity.
 
     Note over User, Engine: Action: Add Torrent (Magnet/File)
     User->>API: Add Magnet Link (via UI/API)
