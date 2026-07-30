@@ -86,7 +86,13 @@ func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	} else {
 		stat.Mode |= fuse.S_IFREG
 		stat.Size = file.Size()
-		stat.Blocks = (stat.Size + 511) / 512
+		// Blocks intentionally left at 0, not derived from Size: this file's
+		// data lives in a shared, evictable cache (GlobalCacheSize), not a
+		// stable per-file disk allocation, so du-style "blocks actually
+		// used" doesn't have a meaningful, stable answer here. Reporting
+		// the full size as consumed blocks (the previous behavior) made du
+		// and disk-usage tools show entire torrents as occupying real disk
+		// space regardless of how much had actually been downloaded.
 	}
 
 	stat.Ino = file.Ino()
