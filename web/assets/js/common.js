@@ -87,6 +87,124 @@ Distribyted.poller = function (fn, activeMs, hiddenMs) {
     tick();
 };
 
+// Distribyted.api wraps the fetch+auth-check+offline-banner+JSON-parse
+// sequence that used to be copy-pasted in every page's JS file (dashboard.js,
+// routes.js, links.js, servers.js). request() resolves with the parsed JSON
+// body (or null for the empty-body 200s several handlers return, e.g.
+// apiAddTorrentHandler) and rejects with a real Error carrying the server's
+// {error: "..."} message when available.
+Distribyted.api = {
+    request: function (url, opts) {
+        return fetch(url, opts)
+            .then(function (response) {
+                if (Distribyted.auth.handleResponse(response)) {
+                    // Session expired; handleResponse already redirected.
+                    return Promise.reject(new Error('session expired'));
+                }
+
+                Distribyted.offline.hide();
+
+                if (response.status === 204) return null;
+
+                return response.text().then(function (text) {
+                    var body = null;
+                    if (text) {
+                        try { body = JSON.parse(text); } catch (e) { body = null; }
+                    }
+
+                    if (!response.ok) {
+                        var message = (body && body.error) ? body.error : ('Request failed: ' + response.status);
+                        throw new Error(message);
+                    }
+
+                    return body;
+                });
+            })
+            .catch(function (error) {
+                if (error.message !== 'session expired') {
+                    Distribyted.offline.show();
+                }
+                throw error;
+            });
+    },
+
+    get: function (url) {
+        return this.request(url);
+    },
+
+    post: function (url, body) {
+        return this.request(url, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
+    },
+
+    del: function (url) {
+        return this.request(url, { method: 'DELETE' });
+    }
+};
+
+// Distribyted.template memoises fetching + compiling a Handlebars partial
+// from /assets/templates/<name>.html, replacing the identical block that
+// used to be duplicated in routes.js, links.js, and servers.js.
+Distribyted.template = function (name) {
+    Distribyted._templates = Distribyted._templates || {};
+    if (Distribyted._templates[name]) return Distribyted._templates[name];
+
+    var compiled = fetch('/assets/templates/' + name + '.html')
+        .then(function (response) {
+            if (response.ok) return response.text();
+            Distribyted.message.error('Error getting data from server. Response: ' + response.status);
+        })
+        .then(function (t) {
+            return Handlebars.compile(t);
+        })
+        .catch(function (error) {
+            Distribyted.message.error('Error getting ' + name + ' template: ' + error.message);
+        });
+
+    Distribyted._templates[name] = compiled;
+    return compiled;
+};
+
+// Distribyted.confirm replaces native confirm(), which is unstyled, blocks
+// the page's pollers mid-tick, and is unreliable on mobile. Returns a
+// Promise<boolean> resolving true if the user confirmed. The modal markup
+// lives once in footer.html, included by every page.
+Distribyted.confirm = function (opts) {
+    opts = opts || {};
+    var modalEl = document.getElementById('distribyted-confirm');
+    if (!modalEl) {
+        // Fallback for any page that hasn't picked up the updated footer yet.
+        return Promise.resolve(window.confirm(opts.body || 'Are you sure?'));
+    }
+
+    document.getElementById('distribyted-confirm-title').textContent = opts.title || 'Please confirm';
+    document.getElementById('distribyted-confirm-body').textContent = opts.body || 'Are you sure?';
+
+    var confirmBtn = document.getElementById('distribyted-confirm-ok');
+    confirmBtn.textContent = opts.confirmLabel || 'Confirm';
+    confirmBtn.classList.toggle('btn-danger', !!opts.danger);
+    confirmBtn.classList.toggle('btn-primary', !opts.danger);
+
+    var modal = $(modalEl);
+
+    return new Promise(function (resolve) {
+        var settled = false;
+        var onConfirm = function () {
+            settled = true;
+            modal.modal('hide');
+            resolve(true);
+        };
+        var onHide = function () {
+            confirmBtn.removeEventListener('click', onConfirm);
+            modalEl.removeEventListener('hidden.bs.modal', onHide);
+            if (!settled) resolve(false);
+        };
+
+        confirmBtn.addEventListener('click', onConfirm);
+        modalEl.addEventListener('hidden.bs.modal', onHide);
+        modal.modal('show');
+    });
+};
+
 Distribyted.message = {
 
     _toastr: function () {

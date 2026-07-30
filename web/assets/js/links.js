@@ -44,8 +44,14 @@ Distribyted.links = {
     },
 
     confirmDelete: function (newPath) {
-        if (!confirm('Delete link "' + newPath + '"?\n\nIf this is the last reference to a torrent, the torrent will be removed too.')) return;
-        this.deleteLink(newPath);
+        Distribyted.confirm({
+            title: 'Delete link',
+            body: 'Delete link "' + newPath + '"? If this is the last reference to a torrent, the torrent will be removed too.',
+            confirmLabel: 'Delete',
+            danger: true
+        }).then((ok) => {
+            if (ok) this.deleteLink(newPath);
+        });
     },
 
     deleteLink: function (newPath) {
