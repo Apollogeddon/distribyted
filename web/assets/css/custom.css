@@ -170,17 +170,34 @@ th, td {
   vertical-align: middle;
   border-color: var(--glass-border) !important;
 }
-.torrent-name {
+.path-truncate, .torrent-name {
   max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 @media (min-width: 768px) {
-  .torrent-name { max-width: 250px; }
+  .path-truncate, .torrent-name { max-width: 250px; }
 }
 @media (min-width: 1200px) {
-  .torrent-name { max-width: 400px; }
+  .path-truncate, .torrent-name { max-width: 400px; }
+}
+
+/* Logs panel: viewport-relative height instead of a hardcoded 1000px, which
+   overflowed the page on short/mobile screens. */
+.logs-card {
+  height: calc(100vh - 190px);
+  min-height: 320px;
+  overflow: hidden;
+}
+@media (max-width: 767.98px) {
+  .logs-card { height: calc(100vh - 150px); }
+}
+#log-filters {
+  flex-wrap: wrap;
+}
+@media (max-width: 399.98px) {
+  #log-filters .btn { padding-left: 0.5rem; padding-right: 0.5rem; }
 }
 .table-responsive {
   width: 100%;
@@ -217,6 +234,31 @@ th, td {
   #log_table td:nth-child(5) {
     display: none;
   }
+}
+
+/* Piece-state progress bar */
+.piece-bar {
+  height: 0.75rem;
+  gap: 1px;
+}
+.piece-bar .progress-bar {
+  min-width: 1px;
+}
+
+/* Confirm modal (Distribyted.confirm) */
+.modal-content {
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--card-shadow) !important;
+  color: var(--text-main);
+}
+.modal-header, .modal-footer {
+  border-color: var(--glass-border) !important;
+}
+.modal-backdrop.show {
+  opacity: 0.6;
 }
 
 /* Logs Table Readability */

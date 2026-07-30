@@ -22,7 +22,7 @@
                             <td>
                                 <div class="torrent-name mb-2" title="{{name}}">{{name}}</div>
                                 <div>
-                                    {{{torrent_status pieceChunks totalPieces}}}
+                                    {{{torrent_status pieceChunks totalPieces pieceSize}}}
                                 </div>
                             </td>
                             <td>
@@ -30,7 +30,11 @@
                                 <div class="text-primary font-weight-bold text-nowrap" style="font-size:0.9rem"><i class="mdi mdi-arrow-up-bold"></i> {{ibytes uploadedBytes timePassed}}</div>
                             </td>
                             <td>{{{torrent_info peers seeders pieceSize}}}</td>
-                            <td><i class="mdi mdi-delete-forever" title="delete torrent" style="cursor:pointer" onclick='Distribyted.routes.confirmDelete("{{../name}}","{{hash}}","{{name}}")'></i></td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete torrent {{name}}" title="Delete torrent" onclick='Distribyted.routes.confirmDelete("{{../name}}","{{hash}}","{{name}}")'>
+                                    <i class="mdi mdi-delete-forever"></i>
+                                </button>
+                            </td>
                         </tr>
                         {{else}}
                         <tr>
