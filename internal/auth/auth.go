@@ -11,5 +11,7 @@ func CredentialsMatch(gotUser, gotPass, wantUser, wantPass string) bool {
 	}
 	u := subtle.ConstantTimeCompare([]byte(gotUser), []byte(wantUser))
 	p := subtle.ConstantTimeCompare([]byte(gotPass), []byte(wantPass))
+	// & instead of && : short-circuiting here would leak via timing which
+	// credential failed.
 	return u&p == 1
 }

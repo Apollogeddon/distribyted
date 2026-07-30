@@ -32,6 +32,10 @@ func NewFS(fs fs.Filesystem) fuse.FileSystemInterface {
 	}
 }
 
+// Statfs reports a fixed 100TB, all free: real capacity is meaningless here
+// (content is on-demand from the network, not locally allocated), and tools
+// like Sonarr/Radarr need to see ample free space to import into this mount
+// without false "disk full" warnings.
 func (fs *FS) Statfs(path string, stat *fuse.Statfs_t) int {
 	stat.Bsize = 4096
 	stat.Frsize = 4096
@@ -148,6 +152,10 @@ func (fs *FS) Write(path string, buf []byte, off int64, fh uint64) int {
 	return len(buf)
 }
 
+// Truncate, Mknod's mode/dev, Chmod, Chown, Utimens, and Access below are all
+// no-ops for the same reason as Write above: real POSIX write semantics
+// aren't supported, but returning success (rather than an error) is needed
+// for tools like Sonarr/Radarr that expect a writable filesystem.
 func (fs *FS) Truncate(path string, size int64, fh uint64) int {
 	return 0
 }
@@ -201,6 +209,9 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 		return -fuse.EIO
 	}
 
+	// Clamp to whatever's left in the file, not just the buffer size, so a
+	// read starting past EOF (off >= Size) returns 0 bytes instead of
+	// reading garbage/out-of-range data.
 	end := int(math.Min(float64(len(dest)), float64(int64(file.Size())-off)))
 	if end < 0 {
 		end = 0
@@ -310,6 +321,8 @@ func (fs *FS) Readdir(path string,
 	return 0
 }
 
+// fhNone is the sentinel for "no file handle" — max uint64, since 0 and
+// negative values are valid/unavailable respectively for this unsigned type.
 const fhNone = ^uint64(0)
 
 var ErrHolderEmpty = errors.New("file holder is empty")

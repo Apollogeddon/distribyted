@@ -198,9 +198,8 @@ func (s *storage) RemovePaths(p string) ([]string, error) {
 	return removed, err
 }
 
-// removeLocked removes p. If removed is non-nil, every path actually
-// deleted (p itself, plus any empty parent directories pruned as a result)
-// is appended to it.
+// removeLocked removes p, appending every path deleted — p itself plus any
+// pruned empty parents — to removed if non-nil.
 func (s *storage) removeLocked(p string, removed *[]string) error {
 	p = clean(p)
 	f, ok := s.files[p]
@@ -250,10 +249,9 @@ func (s *storage) HasHash(h string) bool {
 	return false
 }
 
-// RemoveByHash removes every entry directly held by this storage (not
-// delegated to a mounted sub-filesystem) matching hash h, and reports every
-// path actually deleted, including any empty parent directories pruned as
-// a result.
+// RemoveByHash removes entries matching hash h held directly by this
+// storage (not delegated to a mounted sub-filesystem), reporting every path
+// deleted including pruned parents.
 func (s *storage) RemoveByHash(h string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -289,7 +289,7 @@ var apiListLinksHandler = func(s torrentService, ss *torrent.Stats) gin.HandlerF
 		}
 
 		var routeNames []string
-		if ss != nil {
+		if ss != nil { // nil only in tests that don't exercise route resolution
 			routeNames = ss.RouteNames()
 		}
 

@@ -1,4 +1,6 @@
 Distribyted.files = {
+    // Current directory lives in location.hash rather than JS state, so
+    // back/forward and page refresh land on the same folder.
     _currentPath: function () {
         var hash = decodeURIComponent(location.hash.replace(/^#/, ''));
         return hash || '/';

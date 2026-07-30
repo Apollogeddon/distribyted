@@ -25,15 +25,12 @@ func (fs *ContainerFs) OnLinkRemoved(f func(path string)) {
 }
 
 // OnLinkRenamed registers a callback fired when Rename moves a
-// container-owned entry from oldpath to newpath. It exists separately from
-// OnLinkAdded/OnLinkRemoved because Rename used to fire
-// onLinkAdded(oldpath, newpath), persisting oldpath itself as newpath's
-// source — but oldpath stops existing the moment the rename completes. On
-// the next restart the loader tries to reconstruct the link by calling
-// Link(oldpath, newpath), which fails forever since oldpath is gone,
-// permanently orphaning the record. The handler wired to this callback
-// must instead look up whatever oldpath's own source was (if it was itself
-// a link) and re-persist *that* under newpath.
+// container-owned entry from oldpath to newpath. It's separate from
+// OnLinkAdded/OnLinkRemoved because firing those instead would persist
+// oldpath itself — which stops existing the moment rename completes — as
+// newpath's source, permanently breaking restart-time link reconstruction.
+// The handler must instead look up oldpath's own source (if it was itself
+// a link) and re-persist that under newpath.
 func (fs *ContainerFs) OnLinkRenamed(f func(oldpath, newpath string)) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -253,13 +250,12 @@ func (fs *ContainerFs) Remove(path string) error {
 	return nil
 }
 
-// RemoveByHash removes every entry matching hash h — used when a torrent is
-// torn down, to cascade-remove both its route-mounted entry and any virtual
-// links pointing at it. It fires onLinkRemoved for every path removed, the
-// same as Remove, so the persisted link DB stays in sync with the live
-// tree; without this, links to a deleted torrent's files would survive in
-// the DB forever with no way to delete them (their tree entry is already
-// gone, so a later Remove(path) would just fail with os.ErrNotExist).
+// RemoveByHash cascade-removes every entry matching hash h — a torrent's
+// route-mounted entry and any virtual links pointing at it — firing
+// onLinkRemoved for each so the persisted link DB stays in sync with the
+// live tree. Skipping this left links to a deleted torrent's files
+// permanently stuck: their tree entry gone, so a later Remove(path) would
+// just 404.
 //
 // It deliberately does NOT fire onLastRefRemoved: this method is itself
 // downstream of a torrent teardown (Service.RemoveFromHash ->

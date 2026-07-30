@@ -17,9 +17,7 @@ var Distribyted = Distribyted || {};
 Distribyted.auth = {
     _redirecting: false,
 
-    // Returns true if the response actually landed on the login page,
-    // meaning the caller's session expired. Redirects the browser there
-    // for real (once) so the user can log back in.
+    // Detects an expired-session redirect and re-authenticates once.
     handleResponse: function (response) {
         if (!response.redirected || response.url.indexOf('/login') === -1) {
             return false;
@@ -98,7 +96,6 @@ Distribyted.api = {
         return fetch(url, opts)
             .then(function (response) {
                 if (Distribyted.auth.handleResponse(response)) {
-                    // Session expired; handleResponse already redirected.
                     return Promise.reject(new Error('session expired'));
                 }
 
@@ -141,9 +138,8 @@ Distribyted.api = {
     }
 };
 
-// Distribyted.template memoises fetching + compiling a Handlebars partial
-// from /assets/templates/<name>.html, replacing the identical block that
-// used to be duplicated in routes.js, links.js, and servers.js.
+// Distribyted.template memoises fetching + compiling a Handlebars partial,
+// replacing per-page duplication in routes.js, links.js, and servers.js.
 Distribyted.template = function (name) {
     Distribyted._templates = Distribyted._templates || {};
     if (Distribyted._templates[name]) return Distribyted._templates[name];
@@ -164,10 +160,9 @@ Distribyted.template = function (name) {
     return compiled;
 };
 
-// Distribyted.confirm replaces native confirm(), which is unstyled, blocks
-// the page's pollers mid-tick, and is unreliable on mobile. Returns a
-// Promise<boolean> resolving true if the user confirmed. The modal markup
-// lives once in footer.html, included by every page.
+// Distribyted.confirm replaces native confirm(), which is unstyled and
+// unreliable on mobile. Returns a Promise<boolean> resolving true if the
+// user confirmed.
 Distribyted.confirm = function (opts) {
     opts = opts || {};
     var modalEl = document.getElementById('distribyted-confirm');
