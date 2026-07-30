@@ -161,9 +161,51 @@ func TestStorageRemoveByHash(t *testing.T) {
 	_ = s.Add(f1, "/f1.txt")
 	_ = s.Add(f2, "/f2.txt")
 
-	s.RemoveByHash("h1")
+	removed := s.RemoveByHash("h1")
 	require.False(s.Has("/f1.txt"))
 	require.True(s.Has("/f2.txt"))
+	require.Equal([]string{"/f1.txt"}, removed)
+}
+
+func TestStorageRemoveByHash_MultipleEntries(t *testing.T) {
+	require := require.New(t)
+	s := newStorage(nil)
+
+	// Simulate a torrent-backed file with a virtual link pointing at it:
+	// both entries share the same hash, and both must be reported removed.
+	f := &mockHashFile{hash: "h1"}
+	_ = s.Add(f, "/original.txt")
+	_ = s.Add(f, "/linked.txt")
+
+	removed := s.RemoveByHash("h1")
+	require.False(s.Has("/original.txt"))
+	require.False(s.Has("/linked.txt"))
+	require.ElementsMatch([]string{"/original.txt", "/linked.txt"}, removed)
+}
+
+func TestStorageRemovePaths_PrunesEmptyParent(t *testing.T) {
+	require := require.New(t)
+	s := newStorage(nil)
+
+	_ = s.Add(&Dummy{}, "/library/a/b/movie.mkv")
+	// A sibling under /library keeps it non-empty once /library/a is
+	// pruned, so we can assert pruning stops there instead of continuing
+	// all the way to root.
+	_ = s.Add(&Dummy{}, "/library/other.txt")
+	require.True(s.Has("/library/a/b"))
+	require.True(s.Has("/library/a"))
+
+	removed, err := s.RemovePaths("/library/a/b/movie.mkv")
+	require.NoError(err)
+	require.False(s.Has("/library/a/b/movie.mkv"))
+	require.False(s.Has("/library/a/b"))
+	require.False(s.Has("/library/a"))
+	require.ElementsMatch([]string{"/library/a/b/movie.mkv", "/library/a/b", "/library/a"}, removed)
+
+	// /library still has other.txt, so it's not pruned — only empty
+	// parents are removed.
+	require.True(s.Has("/library"))
+	require.True(s.Has("/library/other.txt"))
 }
 
 func TestStorageHasHash(t *testing.T) {

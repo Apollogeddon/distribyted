@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -300,10 +301,37 @@ func (s *Service) AddLink(oldpath, newpath string) error {
 }
 
 func (s *Service) RemoveLink(path string) error {
+	path = cleanRoute(path)
+
 	if s.onLinkRemoved != nil {
 		s.onLinkRemoved(path)
 	}
 	return s.db.RemoveLink(path)
+}
+
+// RenameLink persists a ContainerFs rename of a container-owned entry from
+// oldpath to newpath. If oldpath was itself a persisted link, newpath's
+// record must point to whatever oldpath's own source was — not oldpath
+// itself, which stops existing the moment the rename completes and so
+// can't be used to reconstruct the link on the next restart.
+func (s *Service) RenameLink(oldpath, newpath string) error {
+	oldpath = cleanRoute(oldpath)
+	newpath = cleanRoute(newpath)
+
+	links, err := s.db.ListLinks()
+	if err != nil {
+		return err
+	}
+
+	source, ok := links[strings.TrimPrefix(oldpath, "/")]
+	if !ok {
+		source = oldpath
+	}
+
+	if err := s.db.AddLink(source, newpath); err != nil {
+		return err
+	}
+	return s.db.RemoveLink(oldpath)
 }
 
 func (s *Service) OnLinkAdded(f func(string, string)) {
@@ -457,6 +485,7 @@ func (s *Service) RemoveFromHash(r, h string) error {
 
 	tfs.RemoveTorrent(h)
 	delete(s.lastHealth, h)
+	listeners := append([]func(string){}, s.torrentRemovedListeners...)
 	s.mu.Unlock()
 
 	// Remove from client
@@ -470,7 +499,10 @@ func (s *Service) RemoveFromHash(r, h string) error {
 		t.Drop()
 	}
 
-	for _, f := range s.torrentRemovedListeners {
+	// Listeners run with the lock released, same as addRoute's
+	// routeAddedListeners: a listener (e.g. cascading to ContainerFs) may
+	// re-enter this Service, which would deadlock if s.mu were still held.
+	for _, f := range listeners {
 		f(h)
 	}
 

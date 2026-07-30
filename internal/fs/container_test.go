@@ -109,6 +109,101 @@ func TestContainer_LastReferenceRemoved_CallbackReentry(t *testing.T) {
 	}
 }
 
+// TestContainer_RemoveByHash_FiresLinkRemoved is the regression test for the
+// orphaned-link bug: RemoveByHash (the cascade fired when a torrent is torn
+// down) must fire onLinkRemoved for every container-owned path it evicts —
+// both the original entry and any virtual links sharing its hash — so the
+// persisted link DB record is cleaned up in step with the live tree instead
+// of surviving forever as an undeletable orphan.
+func TestContainer_RemoveByHash_FiresLinkRemoved(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+
+	var removedPaths []string
+	c.OnLinkRemoved(func(path string) {
+		removedPaths = append(removedPaths, path)
+	})
+
+	f := &mockHashFile{hash: "cascade-hash"}
+	require.NoError(c.s.Add(f, "/original.txt"))
+	require.NoError(c.Link("/original.txt", "/library/linked.txt"))
+
+	c.RemoveByHash("cascade-hash")
+
+	require.False(c.s.Has("/original.txt"))
+	require.False(c.s.Has("/library/linked.txt"))
+	// /library is pruned too since the link was its only content — and
+	// onLinkRemoved must fire for it as well, or a directory link record
+	// created via Mkdir would be orphaned the same way the file link would.
+	require.False(c.s.Has("/library"))
+	require.ElementsMatch([]string{"/original.txt", "/library/linked.txt", "/library"}, removedPaths)
+}
+
+// TestContainer_RemoveByHash_DoesNotFireLastRef guards a deliberate design
+// choice: RemoveByHash must NOT fire onLastRefRemoved. It is itself the
+// downstream of a torrent teardown (Service.RemoveFromHash -> a
+// ts.OnTorrentRemoved listener -> RemoveByHash); firing onLastRefRemoved
+// would call back into Service.RemoveFromHashOnly -> RemoveFromHash ->
+// RemoveByHash a second time.
+func TestContainer_RemoveByHash_DoesNotFireLastRef(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+
+	lastRefFired := false
+	c.OnLastReferenceRemoved(func(hash string) {
+		lastRefFired = true
+	})
+
+	f := &mockHashFile{hash: "no-lastref"}
+	require.NoError(c.s.Add(f, "/only-ref.txt"))
+
+	c.RemoveByHash("no-lastref")
+
+	require.False(c.s.Has("/only-ref.txt"))
+	require.False(lastRefFired)
+}
+
+// TestContainer_RemoveByHash_CallbackReentry guards against the same
+// deadlock class as TestContainer_LastReferenceRemoved_CallbackReentry:
+// onLinkRemoved fired from RemoveByHash may re-enter this ContainerFs (in
+// production, Service.RemoveLink -> DB write, but a caller could also read
+// the tree), which would deadlock if fs.mu were still held.
+func TestContainer_RemoveByHash_CallbackReentry(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+
+	c.OnLinkRemoved(func(path string) {
+		_, _ = c.ReadDir("/")
+	})
+
+	f := &mockHashFile{hash: "reentrant-hash"}
+	require.NoError(c.s.Add(f, "/source.txt"))
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.RemoveByHash("reentrant-hash")
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("RemoveByHash deadlocked when its callback re-entered ContainerFs")
+	}
+}
+
 // TestContainer_Link_CallbackReentry guards against the same deadlock class
 // as TestContainer_LastReferenceRemoved_CallbackReentry, but for Link: a
 // caller-supplied onLinkAdded callback may re-enter this ContainerFs (e.g.
@@ -159,10 +254,7 @@ func TestContainer_Rename_CallbackReentry(t *testing.T) {
 	c, err := NewContainerFs(nil)
 	require.NoError(err)
 
-	c.OnLinkAdded(func(oldpath, newpath string) {
-		_, _ = c.ReadDir("/")
-	})
-	c.OnLinkRemoved(func(path string) {
+	c.OnLinkRenamed(func(oldpath, newpath string) {
 		_, _ = c.ReadDir("/")
 	})
 

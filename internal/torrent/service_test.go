@@ -331,7 +331,7 @@ func TestService_LinkCallbacks(t *testing.T) {
 	require.Equal(t, "/n", addedNew)
 
 	_ = svc.RemoveLink("n")
-	require.Equal(t, "n", removedPath)
+	require.Equal(t, "/n", removedPath)
 }
 
 func TestService_RemoveFromHashOnly(t *testing.T) {

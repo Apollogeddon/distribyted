@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -427,4 +428,92 @@ func TestRegression_LinksAPIEndToEnd(t *testing.T) {
 	linksAfter, err := app.Service.ListLinks()
 	require.NoError(t, err)
 	require.NotContains(t, linksAfter, strings.TrimPrefix(newPath, "/"), "link record should be gone from the DB")
+}
+
+// TestRegression_TorrentDeleteRemovesLinkRecords is the end-to-end proof
+// that the reported bug ("can't delete a link once its file is gone") can't
+// recur: deleting a torrent must remove every link record pointing into it
+// immediately, not just from the live tree — and that removal must survive
+// a restart, proving it was actually written to the on-disk DB and not just
+// cleared from the in-memory ContainerFs. Covers two links onto the same
+// torrent (multiple links share a hash) and a link nested two directories
+// deep (exercises the empty-parent-directory pruning path).
+func TestRegression_TorrentDeleteRemovesLinkRecords(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tracker := NewTracker()
+	require.NoError(t, tracker.Start())
+	defer tracker.Stop()
+
+	seeder, err := NewSeeder()
+	require.NoError(t, err)
+	defer seeder.Stop()
+
+	content := []byte("torrent delete removes link records test data")
+	magnet, err := seeder.AddFile("movie.mkv", content, tracker.AnnounceURL())
+	require.NoError(t, err)
+	tracker.RegisterPeer(magnet.InfoHash, seeder.PeerAddr())
+
+	// A real on-disk DB (not testenv's default in-memory one) so the
+	// restart check below actually proves persistence.
+	tempDir, err := os.MkdirTemp("", "distribyted-test-orphan-links")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	app, err := NewTestAppWithDir(tempDir)
+	require.NoError(t, err)
+	app.KeepTempDir = true
+
+	tMagnet, _ := app.Client.AddMagnet(magnet.String())
+	host, port, _ := net.SplitHostPort(seeder.PeerAddr())
+	var p uint16
+	_, _ = fmt.Sscanf(port, "%d", &p)
+	tMagnet.AddPeers([]torrent.PeerInfo{{
+		Addr: &net.TCPAddr{IP: net.ParseIP(host), Port: int(p)},
+	}})
+
+	route := "downloads"
+	require.NoError(t, app.Service.AddMagnet(route, magnet.String()))
+
+	origPath := "/" + route + "/movie.mkv"
+	require.Eventually(t, func() bool {
+		f, err := app.FS.Open(origPath)
+		if err != nil {
+			return false
+		}
+		_ = f.Close()
+		return true
+	}, 15*time.Second, 200*time.Millisecond, "torrent file did not appear in route")
+
+	flatLink := "/library/movie.mkv"
+	nestedLink := "/library2/a/b/movie.mkv"
+	require.NoError(t, app.FS.Link(origPath, flatLink))
+	require.NoError(t, app.FS.Link(origPath, nestedLink))
+
+	links, err := app.Service.ListLinks()
+	require.NoError(t, err)
+	require.Len(t, links, 2, "both links should be persisted before the delete")
+
+	require.NoError(t, app.Service.RemoveFromHash(route, magnet.InfoHash.HexString()))
+
+	// The cascade must remove both link records immediately, not just the
+	// live tree entries — this is what would have 500'd forever pre-fix.
+	require.Eventually(t, func() bool {
+		links, err := app.Service.ListLinks()
+		return err == nil && len(links) == 0
+	}, 5*time.Second, 100*time.Millisecond, "link records were not removed by the torrent-delete cascade")
+
+	app.Close()
+
+	// Reopen against the same on-disk DB to prove the records were actually
+	// deleted from BoltDB, not just cleared from the in-memory tree.
+	app2, err := NewTestAppWithDir(tempDir)
+	require.NoError(t, err)
+	defer app2.Close()
+
+	linksAfterRestart, err := app2.Service.ListLinks()
+	require.NoError(t, err)
+	require.Empty(t, linksAfterRestart, "link records reappeared after restart — cascade did not persist to the DB")
 }

@@ -302,6 +302,12 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		}
 	})
 
+	cfs.OnLinkRenamed(func(oldpath, newpath string) {
+		if err := ts.RenameLink(oldpath, newpath); err != nil {
+			log.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem persisting renamed link to database")
+		}
+	})
+
 	cfs.OnLastReferenceRemoved(func(hash string) {
 		if err := ts.RemoveFromHashOnly(hash); err != nil {
 			log.Warn().Err(err).Str(dlog.KeyHash, hash).Msg("problem removing torrent after its last reference was deleted")

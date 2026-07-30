@@ -195,8 +195,14 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 	cfs.OnLinkRemoved(func(path string) {
 		_ = ts.RemoveLink(path)
 	})
+	cfs.OnLinkRenamed(func(oldpath, newpath string) {
+		_ = ts.RenameLink(oldpath, newpath)
+	})
 	cfs.OnLastReferenceRemoved(func(hash string) {
 		_ = ts.RemoveFromHashOnly(hash)
+	})
+	ts.OnTorrentRemoved(func(h string) {
+		cfs.RemoveByHash(h)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

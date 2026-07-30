@@ -86,6 +86,22 @@ func (s *storage) Has(path string) bool {
 	return s.hasLocked(path)
 }
 
+// IsOwned reports whether p is a plain entry held directly in s.files (a
+// link, a Mkdir/Create'd directory or file) — the only kind Remove/Rename
+// can safely act on. It deliberately excludes s.filesystems: an entry there
+// is either a route mount point or a transparently-mounted archive, and
+// while removeLocked *will* delete an s.filesystems entry without error
+// (nothing guards against it), doing so silently unmounts it rather than
+// going through proper route teardown, so callers must never treat that as
+// a safe, "ownable" delete target.
+func (s *storage) IsOwned(p string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	_, ok := s.files[clean(p)]
+	return ok
+}
+
 func (s *storage) hasLocked(p string) bool {
 	p = clean(p)
 
@@ -168,10 +184,24 @@ func (s *storage) Remove(p string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.removeLocked(p)
+	return s.removeLocked(p, nil)
 }
 
-func (s *storage) removeLocked(p string) error {
+// RemovePaths removes p and reports every path actually deleted, including
+// any empty parent directories pruned as a side effect.
+func (s *storage) RemovePaths(p string) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var removed []string
+	err := s.removeLocked(p, &removed)
+	return removed, err
+}
+
+// removeLocked removes p. If removed is non-nil, every path actually
+// deleted (p itself, plus any empty parent directories pruned as a result)
+// is appended to it.
+func (s *storage) removeLocked(p string, removed *[]string) error {
 	p = clean(p)
 	f, ok := s.files[p]
 	if !ok {
@@ -185,6 +215,9 @@ func (s *storage) removeLocked(p string) error {
 
 	delete(s.files, p)
 	delete(s.filesystems, p)
+	if removed != nil {
+		*removed = append(*removed, p)
+	}
 
 	base, filename := path.Split(p)
 	base = clean(base)
@@ -195,7 +228,7 @@ func (s *storage) removeLocked(p string) error {
 		if len(s.children[base]) == 0 && base != separator {
 			// Don't prune if it's a mountpoint
 			if _, isMount := s.filesystems[base]; !isMount {
-				_ = s.removeLocked(base) //nolint:errcheck // best-effort empty-dir pruning
+				_ = s.removeLocked(base, removed) //nolint:errcheck // best-effort empty-dir pruning
 			}
 		}
 	}
@@ -217,17 +250,23 @@ func (s *storage) HasHash(h string) bool {
 	return false
 }
 
-func (s *storage) RemoveByHash(h string) {
+// RemoveByHash removes every entry directly held by this storage (not
+// delegated to a mounted sub-filesystem) matching hash h, and reports every
+// path actually deleted, including any empty parent directories pruned as
+// a result.
+func (s *storage) RemoveByHash(h string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	var removed []string
 	for p, f := range s.files {
 		if f.MatchHash(h) {
-			if err := s.removeLocked(p); err != nil {
+			if err := s.removeLocked(p, &removed); err != nil {
 				s.log.Error().Err(err).Str(dlog.KeyPath, p).Msg("failed to remove file from storage during hash eviction")
 			}
 		}
 	}
+	return removed
 }
 
 func (s *storage) createParentLocked(p string, f File) error {
