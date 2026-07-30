@@ -30,6 +30,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # v2.11.0+ reintroduces a github.com/RoaringBitmap/roaring v1/v2 type
+      # conflict with github.com/anacrolix/torrent (see 11a99ce). Pinned to
+      # v2.10.0 until torrent/roaring versions are reconciled upstream.
+      - dependency-name: "github.com/anacrolix/missinggo/v2"
+        versions: [">2.10.0"]
 
   # 3. Docker (Root)
   - package-ecosystem: "docker"
