@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 
+	"github.com/Apollogeddon/distribyted/internal/config"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/gin-gonic/gin"
 )
@@ -29,4 +30,10 @@ var serversFoldersHandler = func() gin.HandlerFunc {
 
 var linksPageHandler = func(c *gin.Context) {
 	c.HTML(http.StatusOK, "links.html", nil)
+}
+
+var filesPageHandler = func(conf *config.Root) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.HTML(http.StatusOK, "files.html", gin.H{"HTTPFS": conf.HTTPGlobal.HTTPFS})
+	}
 }

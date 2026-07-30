@@ -140,6 +140,22 @@ func (s *Stats) GetAllTorrents() map[string]fs.Torrent {
 	return out
 }
 
+// RouteNames returns the names of every route that currently has torrents
+// registered. It's a plain key listing (no piece-state computation, unlike
+// RoutesStats), cheap enough to call on every poll of a page that needs to
+// know which route a path falls under.
+func (s *Stats) RouteNames() []string {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	names := make([]string, 0, len(s.torrentsByRoute))
+	for route := range s.torrentsByRoute {
+		names = append(names, route)
+	}
+	sort.Strings(names)
+	return names
+}
+
 func (s *Stats) GetRouteFromHash(hash string) string {
 	s.mut.Lock()
 	defer s.mut.Unlock()

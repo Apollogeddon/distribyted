@@ -1,0 +1,67 @@
+{{#each .}}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-table-border-none">
+            <div class="card-body pt-0 pb-0">
+                <div class="table-responsive">
+                <table class="table card-table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{#this}}
+                        <tr>
+                            <td>
+                                {{#if isDir}}
+                                <a href="#" class="text-nowrap" onclick='Distribyted.files.open("{{path}}"); return false;'>
+                                    <i class="mdi mdi-folder"></i> {{name}}
+                                </a>
+                                {{else}}
+                                <div class="text-nowrap path-truncate" title="{{name}}">
+                                    <i class="mdi mdi-file-outline"></i> {{name}}
+                                </div>
+                                {{/if}}
+                                {{#unless owned}}
+                                <span class="badge badge-secondary ml-1" title="part of a torrent's route content">route</span>
+                                {{/unless}}
+                            </td>
+                            <td>{{#unless isDir}}{{bytes size}}{{/unless}}</td>
+                            <td>
+                                {{#if owned}}
+                                <button type="button" class="btn btn-sm btn-link p-0 mr-3" aria-label="Rename {{name}}" title="Rename" onclick='Distribyted.files.promptRename("{{path}}")'>
+                                    <i class="mdi mdi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete {{name}}" title="Delete" onclick='Distribyted.files.confirmDelete("{{path}}", {{isDir}})'>
+                                    <i class="mdi mdi-delete-forever"></i>
+                                </button>
+                                {{else if hash}}
+                                <a class="btn btn-sm btn-link p-0" aria-label="Download {{name}}" title="Download" href="/fs{{path}}" target="_blank">
+                                    <i class="mdi mdi-download"></i>
+                                </a>
+                                {{/if}}
+                            </td>
+                        </tr>
+                        {{/this}}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{else}}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="mdi mdi-file-tree text-muted" style="font-size:3rem"></i>
+                <p class="text-muted mt-3 mb-0">This folder is empty.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{{/each}}

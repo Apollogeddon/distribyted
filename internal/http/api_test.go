@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
+	dfs "github.com/Apollogeddon/distribyted/internal/fs"
 	dtorrent "github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
@@ -23,6 +24,7 @@ type mockTorrentService struct {
 	removeFromHashFunc     func(r, h string) error
 	removeFromHashOnlyFunc func(h string) error
 	listLinksFunc          func() (map[string]string, error)
+	removeLinkFunc         func(path string) error
 }
 
 func (m *mockTorrentService) AddMagnet(r, magnet string) error {
@@ -41,13 +43,49 @@ func (m *mockTorrentService) ListLinks() (map[string]string, error) {
 	return m.listLinksFunc()
 }
 
+func (m *mockTorrentService) RemoveLink(path string) error {
+	return m.removeLinkFunc(path)
+}
+
 type mockLinkFs struct {
-	linkFunc   func(oldpath, newpath string) error
-	removeFunc func(path string) error
+	linkFunc    func(oldpath, newpath string) error
+	removeFunc  func(path string) error
+	readDirFunc func(path string) (map[string]dfs.File, error)
+	renameFunc  func(oldpath, newpath string) error
+	mkdirFunc   func(path string) error
+	isOwnedFunc func(path string) bool
 }
 
 func (m *mockLinkFs) Link(oldpath, newpath string) error {
 	return m.linkFunc(oldpath, newpath)
+}
+
+func (m *mockLinkFs) ReadDir(path string) (map[string]dfs.File, error) {
+	if m.readDirFunc == nil {
+		return nil, os.ErrNotExist
+	}
+	return m.readDirFunc(path)
+}
+
+func (m *mockLinkFs) Rename(oldpath, newpath string) error {
+	if m.renameFunc == nil {
+		return nil
+	}
+	return m.renameFunc(oldpath, newpath)
+}
+
+func (m *mockLinkFs) Mkdir(path string) error {
+	if m.mkdirFunc == nil {
+		return nil
+	}
+	return m.mkdirFunc(path)
+}
+
+func (m *mockLinkFs) IsOwned(path string) bool {
+	if m.isOwnedFunc == nil {
+		return false
+	}
+	return m.isOwnedFunc(path)
 }
 
 func (m *mockLinkFs) Remove(path string) error {
@@ -271,6 +309,46 @@ func TestApiListLinksHandler_Empty(t *testing.T) {
 	assert.Equal(t, "[]", w.Body.String())
 }
 
+func TestApiListLinksHandler_ResolvesRoute(t *testing.T) {
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return map[string]string{
+				"library/movie.mkv":   "/downloads/movie.mkv",
+				"library/unknown.mkv": "/somewhere-else/file.mkv",
+				"some/dir":            "/",
+			}, nil
+		},
+	}
+	ss := dtorrent.NewStats()
+	ss.AddRoute("downloads")
+	ss.AddRoute("tv")
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, ss, mockSvc, nil, nil, nil, "", conf, "", nil)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/links", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var links []Link
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &links))
+	require.Len(t, links, 3)
+
+	byNewPath := map[string]Link{}
+	for _, l := range links {
+		byNewPath[l.NewPath] = l
+	}
+
+	assert.Equal(t, "downloads", byNewPath["/library/movie.mkv"].Route)
+	assert.Equal(t, "", byNewPath["/library/unknown.mkv"].Route, "no route matches a path outside any known route")
+	assert.Equal(t, "", byNewPath["/some/dir"].Route, "directory links have no route")
+}
+
 func TestApiListLinksHandler_Error(t *testing.T) {
 	mockSvc := &mockTorrentService{
 		listLinksFunc: func() (map[string]string, error) {
@@ -418,6 +496,78 @@ func TestApiDelLinkHandler_RootRejected(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+// TestApiDelLinkHandler_OrphanedRecordSelfHeals is the regression test for
+// the bug report: a link whose DB record survives (ListLinks still returns
+// it) but whose ContainerFs tree entry is already gone (e.g. because the
+// backing torrent's deletion cascaded via RemoveByHash before this fix
+// shipped) must still be deletable from the UI, by reconciling the DB
+// record directly instead of returning a 500 and leaving it stuck forever.
+func TestApiDelLinkHandler_OrphanedRecordSelfHeals(t *testing.T) {
+	removeLinkCalledWith := ""
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return map[string]string{"library/movie.mkv": "/downloads/movie.mkv"}, nil
+		},
+		removeLinkFunc: func(path string) error {
+			removeLinkCalledWith = path
+			return nil
+		},
+	}
+	mockLfs := &mockLinkFs{
+		removeFunc: func(path string) error {
+			return os.ErrNotExist
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/api/links/library/movie.mkv", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "/library/movie.mkv", removeLinkCalledWith)
+}
+
+// TestApiDelLinkHandler_OtherErrorsStillFail confirms the self-heal path is
+// scoped to os.ErrNotExist specifically, not a blanket "always succeed" —
+// any other error from lfs.Remove must still surface as a 500 and must not
+// trigger the DB reconciliation path.
+func TestApiDelLinkHandler_OtherErrorsStillFail(t *testing.T) {
+	removeLinkCalled := false
+	mockSvc := &mockTorrentService{
+		listLinksFunc: func() (map[string]string, error) {
+			return map[string]string{"library/movie.mkv": "/downloads/movie.mkv"}, nil
+		},
+		removeLinkFunc: func(path string) error {
+			removeLinkCalled = true
+			return nil
+		},
+	}
+	mockLfs := &mockLinkFs{
+		removeFunc: func(path string) error {
+			return errors.New("boom")
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/api/links/library/movie.mkv", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.False(t, removeLinkCalled)
+}
+
 func TestApiDelLinkHandler_UnknownPathNotFound(t *testing.T) {
 	mockSvc := &mockTorrentService{
 		listLinksFunc: func() (map[string]string, error) {
@@ -436,6 +586,172 @@ func TestApiDelLinkHandler_UnknownPathNotFound(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestApiFsListHandler(t *testing.T) {
+	f := dfs.NewMemoryFile([]byte("hello"))
+	mockLfs := &mockLinkFs{
+		readDirFunc: func(path string) (map[string]dfs.File, error) {
+			assert.Equal(t, "/library", path)
+			return map[string]dfs.File{"movie.mkv": f}, nil
+		},
+		isOwnedFunc: func(path string) bool {
+			return path == "/library/movie.mkv"
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/fs/library", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var entries []FSEntry
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	assert.Equal(t, "movie.mkv", entries[0].Name)
+	assert.Equal(t, "/library/movie.mkv", entries[0].Path)
+	assert.False(t, entries[0].IsDir)
+	assert.Equal(t, int64(5), entries[0].Size)
+	assert.True(t, entries[0].Owned)
+}
+
+func TestApiFsListHandler_NotFound(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		readDirFunc: func(path string) (map[string]dfs.File, error) {
+			return nil, os.ErrNotExist
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/fs/nope", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestApiFsDeleteHandler(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		removeFunc: func(path string) error {
+			assert.Equal(t, "/library/movie.mkv", path)
+			return nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/api/fs/library/movie.mkv", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestApiFsDeleteHandler_RouteContentNotFound(t *testing.T) {
+	// Route-mounted content isn't in ContainerFs's own storage, so Remove
+	// returns os.ErrNotExist for it — the file browser must surface that as
+	// a 404, not a 500, since it's an expected outcome for non-owned entries.
+	mockLfs := &mockLinkFs{
+		removeFunc: func(path string) error {
+			return os.ErrNotExist
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/api/fs/downloads/movie.mkv", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestApiFsMkdirHandler(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		mkdirFunc: func(path string) error {
+			assert.Equal(t, "/library/new-folder", path)
+			return nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	body, _ := json.Marshal(MkdirRequest{Path: "/library/new-folder"})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/fs/mkdir", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestApiFsRenameHandler_RejectsUnownedPath(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		isOwnedFunc: func(path string) bool { return false },
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	body, _ := json.Marshal(RenameRequest{OldPath: "/downloads/movie.mkv", NewPath: "/downloads/movie2.mkv"})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/fs/rename", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestApiFsRenameHandler(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		isOwnedFunc: func(path string) bool { return true },
+		renameFunc: func(oldpath, newpath string) error {
+			assert.Equal(t, "/library/old.mkv", oldpath)
+			assert.Equal(t, "/library/new.mkv", newpath)
+			return nil
+		},
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
+	body, _ := json.Marshal(RenameRequest{OldPath: "/library/old.mkv", NewPath: "/library/new.mkv"})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/fs/rename", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestQBitTorrentsAddHandler(t *testing.T) {

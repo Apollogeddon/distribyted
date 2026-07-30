@@ -47,6 +47,16 @@
             <span class="nav-text">Links</span>
           </a>
         </li>
+        {{if eq . "files"}}
+        <li class="active">
+          {{else}}
+        <li>
+          {{end}}
+          <a class="sidenav-item-link" href="/files">
+            <i class="mdi mdi-file-tree"></i>
+            <span class="nav-text">Files</span>
+          </a>
+        </li>
         {{if eq . "served-folders"}}
         <li class="active">
           {{else}}

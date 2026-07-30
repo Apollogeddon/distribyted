@@ -16,7 +16,7 @@ import (
 	"github.com/Apollogeddon/distribyted/web"
 )
 
-func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs linkFs) error {
+func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS) error {
 	r, err := NewHandler(fc, ss, s, ch, tss, fs, logPath, conf, fusePath, lfs)
 	if err != nil {
 		return err
@@ -31,7 +31,7 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 	return nil
 }
 
-func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs linkFs) (*gin.Engine, error) {
+func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS) (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.RedirectFixedPath = true
@@ -78,6 +78,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		pages.GET("/logs", logsHandler)
 		pages.GET("/servers", serversFoldersHandler())
 		pages.GET("/links", linksPageHandler)
+		pages.GET("/files", filesPageHandler(conf))
 		pages.GET("/version/api", qBitWebapiVersionHandler)
 	}
 
@@ -91,9 +92,14 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		api.POST("/routes/:route/torrent", apiAddTorrentHandler(s))
 		api.DELETE("/routes/:route/torrent/:torrent_hash", apiDelTorrentHandler(s))
 
-		api.GET("/links", apiListLinksHandler(s))
+		api.GET("/links", apiListLinksHandler(s, ss))
 		api.POST("/links", apiAddLinkHandler(lfs))
 		api.DELETE("/links/*path", apiDelLinkHandler(lfs, s))
+
+		api.GET("/fs/*path", apiFsListHandler(lfs))
+		api.DELETE("/fs/*path", apiFsDeleteHandler(lfs))
+		api.POST("/fs/mkdir", apiFsMkdirHandler(lfs))
+		api.POST("/fs/rename", apiFsRenameHandler(lfs))
 	}
 
 	cs := newCategoryStore()

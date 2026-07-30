@@ -9,6 +9,7 @@
                         <tr>
                             <th>New Path</th>
                             <th>Source</th>
+                            <th>Route</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -22,7 +23,18 @@
                                 <div class="text-nowrap">{{oldPath}}</div>
                                 {{/if}}
                             </td>
-                            <td><i class="mdi mdi-delete-forever" title="delete link" style="cursor:pointer" onclick='Distribyted.links.confirmDelete("{{newPath}}")'></i></td>
+                            <td>
+                                {{#if route}}
+                                <span class="badge badge-info">{{route}}</span>
+                                {{else}}
+                                <span class="text-muted">&mdash;</span>
+                                {{/if}}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete link {{newPath}}" title="Delete link" onclick='Distribyted.links.confirmDelete("{{newPath}}")'>
+                                    <i class="mdi mdi-delete-forever"></i>
+                                </button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

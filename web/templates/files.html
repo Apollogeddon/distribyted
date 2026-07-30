@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+
+<head>
+    {{template "header.html" "Files"}}
+</head>
+
+
+<body class="header-fixed sidebar-fixed sidebar-dark header-dark" id="body">
+    <div class="wrapper">
+        {{template "navbar.html" "files"}}
+
+        <div class="page-wrapper">
+            <!-- Header -->
+            <header class="main-header " id="header">
+                <nav class="navbar navbar-static-top navbar-expand-lg">
+                    <!-- Sidebar toggle button -->
+                    <button id="sidebar-toggler" class="sidebar-toggle">
+                        <span class="sr-only">Toggle navigation</span>
+                    </button>
+                </nav>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="content">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card card-default">
+                                <div class="card-body d-flex flex-wrap align-items-center justify-content-between">
+                                    <nav aria-label="breadcrumb" class="mb-0">
+                                        <ol class="breadcrumb bg-transparent mb-0 p-0" id="file-breadcrumb"></ol>
+                                    </nav>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="file-new-folder" title="New folder">
+                                            <i class="mdi mdi-folder-plus"></i> New folder
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="template_target" data-httpfs="{{.HTTPFS}}"></div>
+                </div>
+
+                <footer class="footer mt-auto">
+                    <div class="copyright bg-white">
+                    </div>
+                </footer>
+            </div>
+
+            {{template "footer.html"}}
+
+            <script src="assets/js/files.js"></script>
+            <script>
+                Distribyted.poller(function () {
+                    Distribyted.files.loadView();
+                }, 5000, 60000)
+
+            </script>
+</body>
+
+</html>
