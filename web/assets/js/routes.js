@@ -1,33 +1,48 @@
-Handlebars.registerHelper("torrent_status", function (chunks, totalPieces) {
+Handlebars.registerHelper("torrent_status", function (chunks, totalPieces, pieceSize) {
     const pieceStatus = {
-        "H": { class: "bg-warning", tooltip: "checking pieces" },
-        "P": { class: "bg-info", tooltip: "" },
-        "C": { class: "bg-success", tooltip: "downloaded pieces" },
-        "W": { class: "bg-transparent" },
-        "?": { class: "bg-danger", tooltip: "erroed pieces" },
+        "H": { class: "bg-warning", label: "checking" },
+        "P": { class: "bg-info", label: "partial" },
+        "C": { class: "bg-success", label: "downloaded" },
+        "W": { class: "bg-transparent", label: "waiting" },
+        "?": { class: "bg-danger", label: "errored" },
     };
+
+    // Torrent metadata (piece layout) hasn't arrived yet — chunks/totalPieces
+    // are unset until then, and totalPieces === 0 would otherwise divide by
+    // zero below.
+    if (!chunks || !totalPieces) {
+        return '<div class="progress mb-1"><div class="progress-bar progress-bar-striped progress-bar-animated bg-secondary" role="progressbar" style="width: 100%"></div></div>'
+            + '<div class="text-muted" style="font-size:0.75rem">fetching metadata&hellip;</div>';
+    }
+
+    let completePieces = 0;
+    let pieceIndex = 0;
     const chunksAsHTML = chunks.map(chunk => {
-        const percentage = totalPieces * chunk.numPieces / 100;
-        const pcMeta = pieceStatus[chunk.status]
-        const pieceStatusClass = pcMeta.class;
-        const pieceStatusTip = pcMeta.tooltip;
+        const startPiece = pieceIndex;
+        pieceIndex += chunk.numPieces;
+        const endPiece = pieceIndex - 1;
+
+        const percentage = chunk.numPieces * 100 / totalPieces;
+        const pcMeta = pieceStatus[chunk.status] || { class: "bg-secondary", label: chunk.status };
+        if (chunk.status === "C") completePieces += chunk.numPieces;
 
         const div = document.createElement("div");
-        div.className = "progress-bar " + pieceStatusClass;
+        div.className = "progress-bar " + pcMeta.class;
         div.setAttribute("role", "progressbar");
-
-        if (pieceStatusTip) {
-            div.setAttribute("data-toggle", "tooltip");
-            div.setAttribute("data-placement", "top");
-            div.setAttribute("title", pieceStatusTip);
-        }
-
+        div.setAttribute("data-toggle", "tooltip");
+        div.setAttribute("data-placement", "top");
+        div.setAttribute("title", "pieces " + startPiece + "–" + endPiece + " (" + pcMeta.label + ")");
         div.style.cssText = "width: " + percentage + "%";
 
         return div.outerHTML;
     });
 
-    return '<div class="progress mb-3">' + chunksAsHTML.join("\n"); + '</div>'
+    const pct = Math.round(completePieces * 100 / totalPieces);
+    const sizeLabel = pieceSize ? Humanize.bytes(completePieces * pieceSize, 1024) : "";
+
+    return '<div class="progress mb-1 piece-bar">' + chunksAsHTML.join("") + '</div>'
+        + '<div class="text-muted" style="font-size:0.75rem">' + pct + '% &middot; ' + completePieces + ' / ' + totalPieces + ' pieces'
+        + (sizeLabel ? ' &middot; ' + sizeLabel : '') + '</div>';
 });
 
 Handlebars.registerHelper("torrent_info", function (peers, seeders, pieceSize) {
@@ -124,8 +139,14 @@ Distribyted.routes = {
     },
 
     confirmDelete: function (route, torrentHash, torrentName) {
-        if (!confirm('Delete "' + torrentName + '"?\n\nThis will remove the torrent and cannot be undone.')) return;
-        this.deleteTorrent(route, torrentHash);
+        Distribyted.confirm({
+            title: 'Delete torrent',
+            body: 'Delete "' + torrentName + '"? This will remove the torrent and cannot be undone.',
+            confirmLabel: 'Delete',
+            danger: true
+        }).then((ok) => {
+            if (ok) this.deleteTorrent(route, torrentHash);
+        });
     },
 
     deleteTorrent: function (route, torrentHash) {
