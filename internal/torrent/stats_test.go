@@ -87,6 +87,40 @@ func TestStats(t *testing.T) {
 	})
 }
 
+// TestStats_AgeSeconds guards the fix for premature "seeders too low"
+// warnings: Seeders only counts currently-connected, confirmed-seeding
+// peers, which takes time to ramp up after a torrent is added — a healthy
+// swarm can briefly show 0-1 seeders right at startup. AgeSeconds lets
+// consumers withhold that warning until enough time has passed, so it must
+// reflect real elapsed time since Add(), not reset on every poll.
+func TestStats_AgeSeconds(t *testing.T) {
+	s := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	mockT := &mockTorrent{
+		hash: hash,
+		name: "test-torrent",
+		statsFunc: func() torrent.TorrentStats {
+			return torrent.TorrentStats{}
+		},
+		info: &metainfo.Info{PieceLength: 16384, Name: "test-torrent"},
+	}
+
+	s.AddRoute("test-route")
+	s.Add("test-route", mockT)
+
+	ts, err := s.Stats(hash.String())
+	require.NoError(t, err)
+	require.InDelta(t, 0, ts.AgeSeconds, 1, "a freshly-added torrent should have ~0 age")
+
+	// Backdate as if the torrent was added 30s ago, simulating polling well
+	// after startup — AgeSeconds must reflect that, not reset to ~0 again.
+	s.addedAt[hash.String()] = time.Now().Add(-30 * time.Second)
+
+	ts, err = s.Stats(hash.String())
+	require.NoError(t, err)
+	require.InDelta(t, 30, ts.AgeSeconds, 1)
+}
+
 func TestStats_Sorting(t *testing.T) {
 	require := require.New(t)
 

@@ -29,7 +29,7 @@
                                 <div class="text-success font-weight-bold text-nowrap" style="font-size:0.9rem"><i class="mdi mdi-arrow-down-bold"></i> {{ibytes downloadedBytes timePassed}}</div>
                                 <div class="text-primary font-weight-bold text-nowrap" style="font-size:0.9rem"><i class="mdi mdi-arrow-up-bold"></i> {{ibytes uploadedBytes timePassed}}</div>
                             </td>
-                            <td>{{{torrent_info peers seeders pieceSize}}}</td>
+                            <td>{{{torrent_info peers seeders pieceSize ageSeconds}}}</td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete torrent {{name}}" title="Delete torrent" onclick='Distribyted.routes.confirmDelete("{{../name}}","{{hash}}","{{name}}")'>
                                     <i class="mdi mdi-delete-forever"></i>

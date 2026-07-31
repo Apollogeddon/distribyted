@@ -45,21 +45,31 @@ Handlebars.registerHelper("torrent_status", function (chunks, totalPieces, piece
         + (sizeLabel ? ' &middot; ' + sizeLabel : '') + '</div>';
 });
 
-Handlebars.registerHelper("torrent_info", function (peers, seeders, pieceSize) {
+Handlebars.registerHelper("torrent_info", function (peers, seeders, pieceSize, ageSeconds) {
     const MB = 1048576;
+    // Seeders only counts currently-connected, confirmed-seeding peers —
+    // right after a torrent is added, connections and bitfield exchange
+    // haven't had time to ramp up yet, so a low count here doesn't yet mean
+    // the swarm itself is unhealthy. Withhold the seeders-too-low warning
+    // until enough time has passed for that ramp-up to settle.
+    const SEEDER_GRACE_SECONDS = 20;
 
     var messages = [];
 
     var errorLevels = [];
-    const seedersMsg = "- Number of seeders is too low (" + seeders + ")."
-    if (seeders < 2) {
-        errorLevels[0] = 2;
-        messages.push(seedersMsg);
-    } else if (seeders >= 2 && seeders < 4) {
-        errorLevels[0] = 1;
-        messages.push(seedersMsg);
-    } else {
+    if ((ageSeconds || 0) < SEEDER_GRACE_SECONDS) {
         errorLevels[0] = 0;
+    } else {
+        const seedersMsg = "- Number of seeders is too low (" + seeders + ")."
+        if (seeders < 2) {
+            errorLevels[0] = 2;
+            messages.push(seedersMsg);
+        } else if (seeders >= 2 && seeders < 4) {
+            errorLevels[0] = 1;
+            messages.push(seedersMsg);
+        } else {
+            errorLevels[0] = 0;
+        }
     }
 
     const pieceSizeMsg = "- Piece size is too big (" + Humanize.bytes(pieceSize, 1024) + "). Recommended size is 1MB or less."

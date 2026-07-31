@@ -37,6 +37,14 @@ type TorrentStats struct {
 	PieceChunks     []*PieceChunk `json:"pieceChunks"`
 	TotalPieces     int           `json:"totalPieces"`
 	PieceSize       int64         `json:"pieceSize"`
+	// AgeSeconds is how long ago this torrent was added. Seeders is only
+	// currently-connected, confirmed-seeding peers (see Stats.stats) — right
+	// after adding a torrent, connections and bitfield exchange haven't had
+	// time to ramp up yet, so a low count here doesn't yet mean the swarm is
+	// unhealthy. Consumers should use this to withhold low-seeder warnings
+	// for a grace period rather than alarming on a number that hasn't
+	// stabilized yet.
+	AgeSeconds float64 `json:"ageSeconds"`
 }
 
 type byName []*TorrentStats
@@ -77,6 +85,7 @@ type Stats struct {
 	torrents        map[string]fs.Torrent
 	torrentsByRoute map[string]map[string]fs.Torrent
 	previousStats   map[string]*stat
+	addedAt         map[string]time.Time
 
 	gTime time.Time
 }
@@ -87,6 +96,7 @@ func NewStats() *Stats {
 		torrents:        make(map[string]fs.Torrent),
 		torrentsByRoute: make(map[string]map[string]fs.Torrent),
 		previousStats:   make(map[string]*stat),
+		addedAt:         make(map[string]time.Time),
 	}
 }
 
@@ -107,6 +117,7 @@ func (s *Stats) Add(route string, t fs.Torrent) {
 
 	s.torrents[h] = t
 	s.previousStats[h] = &stat{}
+	s.addedAt[h] = time.Now()
 
 	_, ok := s.torrentsByRoute[route]
 	if !ok {
@@ -121,6 +132,7 @@ func (s *Stats) Del(route, hash string) {
 	defer s.mut.Unlock()
 	delete(s.torrents, hash)
 	delete(s.previousStats, hash)
+	delete(s.addedAt, hash)
 	ts, ok := s.torrentsByRoute[route]
 	if !ok {
 		return
@@ -272,10 +284,12 @@ func (s *Stats) GlobalStats() *GlobalTorrentStats {
 
 func (s *Stats) stats(now time.Time, t fs.Torrent, chunks bool) *TorrentStats {
 	ts := &TorrentStats{}
-	prev, ok := s.previousStats[t.InfoHash().String()]
+	hash := t.InfoHash().String()
+	prev, ok := s.previousStats[hash]
 	if !ok {
 		return &TorrentStats{}
 	}
+	ts.AgeSeconds = now.Sub(s.addedAt[hash]).Seconds()
 	if s.returnPreviousMeasurements(now) {
 		ts.DownloadedBytes = prev.downloadBytes
 		ts.UploadedBytes = prev.uploadBytes
@@ -298,7 +312,7 @@ func (s *Stats) stats(now time.Time, t fs.Torrent, chunks bool) *TorrentStats {
 		ts.Peers = ist.peers
 		ts.Seeders = ist.seeders
 
-		s.previousStats[t.InfoHash().String()] = ist
+		s.previousStats[hash] = ist
 	}
 
 	ts.TimePassed = now.Sub(prev.time).Seconds()
