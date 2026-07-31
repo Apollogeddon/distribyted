@@ -69,7 +69,7 @@ Handlebars.registerHelper("torrent_info", function (peers, seeders, pieceSize) {
         errorLevels[1] = 1;
         messages.push(pieceSizeMsg);
     } else {
-        errorLevels[2] = 2;
+        errorLevels[1] = 2;
         messages.push(pieceSizeMsg);
     }
 
@@ -87,7 +87,7 @@ Handlebars.registerHelper("torrent_info", function (peers, seeders, pieceSize) {
         <div class="text-muted" style="font-size:0.8rem">
             <i class="mdi mdi-puzzle"></i> ${Humanize.bytes(pieceSize, 1024)} chunks
         </div>
-        <div class="${level[errIndex]} mt-1" style="font-size:0.8rem" title="${messages.join('\\n')}">
+        <div class="${level[errIndex]} mt-1" style="font-size:0.8rem" title="${messages.join('\n')}">
             <i class="mdi ${icon[errIndex]}"></i> ${errIndex === 0 ? "Healthy" : "Warning"}
         </div>
     </div>`;
