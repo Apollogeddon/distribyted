@@ -54,7 +54,7 @@ type TestApp struct {
 }
 
 func NewTestApp() (*TestApp, error) {
-	return newTestApp("", nil, true)
+	return newTestApp("", nil, true, false)
 }
 
 func NewTestAppLimited(limit int64) (*TestApp, error) {
@@ -62,14 +62,25 @@ func NewTestAppLimited(limit int64) (*TestApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newTestApp(tempDir, &limit, false)
+	return newTestApp(tempDir, &limit, false, false)
 }
 
 func NewTestAppWithDir(tempDir string) (*TestApp, error) {
-	return newTestApp(tempDir, nil, false)
+	return newTestApp(tempDir, nil, false, false)
 }
 
-func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
+// NewTestAppNoDefaultDialer is like NewTestApp, but disables TCP so the
+// client never registers its listen socket as a default dialer (see
+// anacrolix/torrent's Client.dialers / DialForPeerConns). Without this, a
+// custom Dialer added via Client.AddDialer (e.g. ThrottledDialer) still
+// loses every connection race to the fast, unthrottled default dialer,
+// making the addition a no-op. A manually-added dialer still connects fine
+// over TCP regardless of this flag — it isn't gated the same way.
+func NewTestAppNoDefaultDialer() (*TestApp, error) {
+	return newTestApp("", nil, true, true)
+}
+
+func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDialer bool) (*TestApp, error) {
 	actualTempDir := tempDir
 	if actualTempDir == "" {
 		var err error
@@ -88,6 +99,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool) (*TestApp, error) {
 			GlobalCacheSize:        100,
 			DisableIPv6:            true,
 			DisableUTP:             true,
+			DisableTCP:             disableDefaultDialer,
 			DisableUPnP:            true,
 			DisableDHT:             true,
 			ListenPort:             -1,
