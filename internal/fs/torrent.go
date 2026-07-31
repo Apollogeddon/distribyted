@@ -371,40 +371,75 @@ type torrentFileHandle struct {
 	*torrentFile
 	reader reader
 	mu     sync.Mutex
+	closed bool
 }
 
-func (h *torrentFileHandle) load() {
+// load returns the current reader, creating it on first call, or nil if the
+// handle has been closed. The caller must use only the returned value for
+// the rest of its operation — never re-read h.reader afterward — since a
+// concurrent Close() nils h.reader at any time. Re-reading the field later
+// (a previously-fixed bug here) let Close() race between a caller's
+// nil-check and its use, causing a nil-interface panic on the following
+// method call.
+//
+// The closed flag (rather than just checking h.reader == nil) exists so
+// that once Close() has run, load() can never reconstruct a fresh reader
+// behind it: without it, a Read/ReadAt racing after Close() would see
+// h.reader == nil — indistinguishable from "not yet loaded" — and silently
+// reopen a new underlying torrent reader for an already-closed handle.
+// readahead is a static prefetch window applied to every newly opened
+// torrent.Reader (see load() below). Left unset, torrent.Reader's default
+// readahead function computes readahead as (current position - contiguous
+// read start position) — i.e. it starts at *zero* on every fresh Open/Seek
+// and only grows as a read continues contiguously. That default is exactly
+// why a freshly opened stream is slow to start: the first read gets almost
+// no prefetch and has to wait piece-by-piece. A modest static window fixes
+// the cold-start case without being so large that briefly-opened files
+// (e.g. a media server probing container headers) waste bandwidth
+// prefetching data nobody reads, or that multiple simultaneously-open files
+// starve each other for swarm bandwidth.
+const readahead = 4 * 1024 * 1024 // 4MB
+
+func (h *torrentFileHandle) load() reader {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.reader != nil {
-		return
+	if h.closed {
+		return nil
 	}
-	h.reader = newReadAtWrapper(h.readerFunc(), h.file, h.timeout, h.log)
+	if h.reader == nil {
+		r := h.readerFunc()
+		if r != nil {
+			r.SetReadahead(readahead)
+		}
+		h.reader = newReadAtWrapper(r, h.file, h.timeout, h.log)
+	}
+	return h.reader
 }
 
 func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
-	h.load()
-	if h.reader == nil {
+	r := h.load()
+	if r == nil {
 		return 0, io.EOF
 	}
 	return withReadTimeout(h.timeout, func() {
 		h.log.Warn().Msg("Read handle timeout")
 	}, func(ctx context.Context) (int, error) {
-		return h.reader.ReadContext(ctx, p)
+		return r.ReadContext(ctx, p)
 	})
 }
 
 func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
-	h.load()
-	if h.reader == nil {
+	r := h.load()
+	if r == nil {
 		return 0, io.EOF
 	}
-	return h.reader.ReadAt(p, off)
+	return r.ReadAt(p, off)
 }
 
 func (h *torrentFileHandle) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.closed = true
 	if h.reader != nil {
 		err := h.reader.Close()
 		h.reader = nil

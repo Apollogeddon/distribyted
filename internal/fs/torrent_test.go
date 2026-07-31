@@ -310,3 +310,111 @@ func TestReadAtLeast_PooledTimerNotStolen(t *testing.T) {
 		t.Fatal("readAtLeast hung, likely because a stolen pooled timer starved its watchdog")
 	}
 }
+
+// raceFakeReader is a minimal `reader` (internal/fs/torrent.go) fake used to
+// exercise torrentFileHandle's locking, independent of a real torrent.Reader.
+type raceFakeReader struct {
+	mu     sync.Mutex
+	closed bool
+}
+
+func (f *raceFakeReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+	time.Sleep(time.Millisecond) // widen the window for a concurrent Close
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return 0, io.ErrClosedPipe
+	}
+	return len(p), nil
+}
+
+func (f *raceFakeReader) Read(p []byte) (int, error) { return f.ReadContext(context.Background(), p) }
+
+func (f *raceFakeReader) ReadAt(p []byte, off int64) (int, error) {
+	return f.ReadContext(context.Background(), p)
+}
+
+func (f *raceFakeReader) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.closed = true
+	return nil
+}
+
+// TestTorrentFileHandle_ReadCloseRace guards against a previously-fixed bug:
+// Read/ReadAt used to re-read h.reader from the struct after load() released
+// h.mu, rather than using the value load() returned. A concurrent Close()
+// could nil h.reader in between, so the nil-check would pass but the field
+// read moments later for the actual call would see nil, panicking on a
+// nil-interface method call. Read/ReadAt now capture load()'s return value
+// once and never touch h.reader again, so a race here should only ever
+// surface as the harmless io.ErrClosedPipe from raceFakeReader, never a
+// panic — this test's only real assertion is "runs clean under -race".
+func TestTorrentFileHandle_ReadCloseRace(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		h := &torrentFileHandle{
+			torrentFile: &torrentFile{timeout: 5, log: zerolog.Nop()},
+			reader:      &raceFakeReader{},
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			buf := make([]byte, 4)
+			_, _ = h.Read(buf)
+		}()
+		go func() {
+			defer wg.Done()
+			buf := make([]byte, 4)
+			_, _ = h.ReadAt(buf, 0)
+		}()
+		go func() {
+			defer wg.Done()
+			_ = h.Close()
+		}()
+		wg.Wait()
+	}
+}
+
+// fakeTorrentReader is a minimal torrent.Reader implementation for testing
+// load()'s readahead configuration without a real torrent.
+type fakeTorrentReader struct {
+	readaheadSet int64
+}
+
+func (f *fakeTorrentReader) SetContext(ctx context.Context)                         {}
+func (f *fakeTorrentReader) Read(p []byte) (int, error)                             { return 0, io.EOF }
+func (f *fakeTorrentReader) Seek(offset int64, whence int) (int64, error)           { return 0, nil }
+func (f *fakeTorrentReader) Close() error                                           { return nil }
+func (f *fakeTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) { return 0, io.EOF }
+func (f *fakeTorrentReader) SetReadahead(a int64)                                   { f.readaheadSet = a }
+func (f *fakeTorrentReader) SetReadaheadFunc(fn torrent.ReadaheadFunc)              {}
+func (f *fakeTorrentReader) SetResponsive()                                         {}
+
+// TestTorrentFileHandle_Load_SetsReadahead is the regression test for the
+// slow-stream-start fix: a freshly opened torrent.Reader must get a static
+// readahead window, since the library's default readahead function starts
+// at zero on every fresh Open/Seek and only grows as a read continues
+// contiguously.
+func TestTorrentFileHandle_Load_SetsReadahead(t *testing.T) {
+	fake := &fakeTorrentReader{}
+	h := &torrentFileHandle{
+		torrentFile: &torrentFile{
+			timeout:    5,
+			log:        zerolog.Nop(),
+			readerFunc: func() torrent.Reader { return fake },
+		},
+	}
+
+	r := h.load()
+	require.NotNil(t, r)
+	require.Equal(t, int64(readahead), fake.readaheadSet)
+
+	// A second load() call must reuse the existing reader, not create (and
+	// configure) a new one.
+	fake.readaheadSet = 0
+	r2 := h.load()
+	require.Same(t, r, r2)
+	require.Zero(t, fake.readaheadSet)
+}
