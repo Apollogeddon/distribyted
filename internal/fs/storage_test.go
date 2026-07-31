@@ -151,6 +151,80 @@ func TestStorageAddFs(t *testing.T) {
 	require.Error(err)
 }
 
+// recordingFs records the path it was asked to Open/ReadDir, so a test can
+// assert not just that lookup succeeded, but which mount it was routed to.
+type recordingFs struct {
+	DummyFs
+	openedPath string
+}
+
+func (r *recordingFs) Open(filename string) (File, error) {
+	r.openedPath = filename
+	return &Dummy{}, nil
+}
+
+func (r *recordingFs) ReadDir(path string) (map[string]File, error) {
+	r.openedPath = path
+	return map[string]File{}, nil
+}
+
+// TestStorageGetFileFromFs_SiblingPrefixCollision is the regression test for
+// BACKLOG.md's "Route lookup collides on prefix": getFileFromFsLocked used
+// to match mounts with a bare strings.HasPrefix, so mount "/movies" would
+// also match path "/movies-4k/file.mkv" (no separator boundary), and since
+// map iteration order is randomized, which mount actually served the
+// request varied run to run. Rebuild storage many times so the random
+// iteration order is exercised repeatedly; the fix must win regardless.
+func TestStorageGetFileFromFs_SiblingPrefixCollision(t *testing.T) {
+	require := require.New(t)
+
+	for i := 0; i < 20; i++ {
+		s := newStorage(nil)
+		movies := &recordingFs{}
+		movies4k := &recordingFs{}
+		require.NoError(s.AddFS(movies, "/movies"))
+		require.NoError(s.AddFS(movies4k, "/movies-4k"))
+
+		_, err := s.Get("/movies-4k/file.mkv")
+		require.NoError(err)
+		// getFileFromFsLocked prepends its own separator on top of the
+		// leading "/" already left by TrimPrefix — pre-existing, harmless,
+		// unrelated to the matching fix under test here.
+		require.Equal("//file.mkv", movies4k.openedPath, "iteration %d: wrong mount served the request", i)
+		require.Empty(movies.openedPath, "iteration %d: /movies should never have been asked", i)
+	}
+}
+
+// TestStorageGetFileFromFs_NestedMountLongestMatch guards the other half of
+// the same fix: picking whichever mount an unordered map iteration reaches
+// first (rather than the longest/most specific match) misroutes a nested
+// mount — e.g. an archive file mounted inside a route — to its parent route
+// instead.
+func TestStorageGetFileFromFs_NestedMountLongestMatch(t *testing.T) {
+	require := require.New(t)
+
+	for i := 0; i < 20; i++ {
+		s := newStorage(nil)
+		route := &recordingFs{}
+		archive := &recordingFs{}
+		// Set up directly rather than via AddFS: AddFS's own pre-existence
+		// check (is something already there?) would itself consult this
+		// same lookup path we're testing, and recordingFs.Open unconditionally
+		// succeeding for any path would make it think "/movies/archive.zip"
+		// already exists as a plain file under the "/movies" mount before
+		// we ever get to register the nested mount. Real archive mounts are
+		// created this same direct way, via addLocked's factory dispatch,
+		// not through AddFS.
+		s.filesystems["/movies"] = route
+		s.filesystems["/movies/archive.zip"] = archive
+
+		_, err := s.Get("/movies/archive.zip/inside/file.txt")
+		require.NoError(err)
+		require.Equal("//inside/file.txt", archive.openedPath, "iteration %d: wrong mount served the request", i)
+		require.Empty(route.openedPath, "iteration %d: /movies should never have been asked", i)
+	}
+}
+
 func TestStorageRemoveByHash(t *testing.T) {
 	require := require.New(t)
 	s := newStorage(nil)

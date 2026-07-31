@@ -337,13 +337,11 @@ func (s *storage) getLocked(path string) (File, error) {
 }
 
 func (s *storage) getFileFromFsLocked(p string) (File, error) {
-	for fsp, fs := range s.filesystems {
-		if strings.HasPrefix(p, fsp) {
-			return fs.Open(separator + strings.TrimPrefix(p, fsp))
-		}
+	fsp, fs, ok := s.matchFilesystemLocked(p)
+	if !ok {
+		return nil, os.ErrNotExist
 	}
-
-	return nil, os.ErrNotExist
+	return fs.Open(separator + strings.TrimPrefix(p, fsp))
 }
 
 func (s *storage) getDirFromFsLocked(p string) (map[string]File, error) {
@@ -351,14 +349,35 @@ func (s *storage) getDirFromFsLocked(p string) (map[string]File, error) {
 		return nil, os.ErrNotExist
 	}
 
+	fsp, fs, ok := s.matchFilesystemLocked(p)
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return fs.ReadDir(strings.TrimPrefix(p, fsp))
+}
+
+// matchFilesystemLocked finds the mounted filesystem whose mount path is the
+// longest match for p — either exactly p, or a proper path-segment prefix
+// of it (fsp followed by "/"). Two things a plain strings.HasPrefix(p, fsp)
+// gets wrong: (1) it treats mount "/movies" as matching path
+// "/movies-4k/file.mkv" too, since there's no separator boundary; (2)
+// picking whichever mount an unordered map iteration happens to reach
+// first — rather than the longest/most specific match — misroutes a nested
+// mount (e.g. an archive file mounted inside a route) to its parent route
+// instead, non-deterministically depending on iteration order.
+func (s *storage) matchFilesystemLocked(p string) (string, Filesystem, bool) {
+	bestFsp := ""
+	var bestFs Filesystem
+	found := false
 	for fsp, fs := range s.filesystems {
-		if strings.HasPrefix(p, fsp) {
-			path := strings.TrimPrefix(p, fsp)
-			return fs.ReadDir(path)
+		if p != fsp && !strings.HasPrefix(p, fsp+separator) {
+			continue
+		}
+		if !found || len(fsp) > len(bestFsp) {
+			bestFsp, bestFs, found = fsp, fs, true
 		}
 	}
-
-	return nil, os.ErrNotExist
+	return bestFsp, bestFs, found
 }
 
 func clean(p string) string {
