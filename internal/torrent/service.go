@@ -237,7 +237,23 @@ func (s *Service) Load() (map[string]fs.Filesystem, error) {
 		}
 	}
 
-	return s.fss, nil
+	// Return a snapshot, not the live map: every route key above was already
+	// inserted synchronously (addRoute runs in load()'s loop, before any of
+	// its magnets' background goroutines are spawned), but those goroutines
+	// go on to call addTorrent -> addRoute again for the same routes well
+	// after Load() returns. That's harmless by itself (existing keys, no
+	// further writes), but the caller (main.go) ranges the returned map with
+	// no access to s.mu at all, so any future change here that adds a
+	// genuinely-async write path would turn "was always safe by
+	// coincidence" into a real concurrent-map crash with no warning. A copy
+	// costs nothing at startup and removes that foot-gun entirely.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	snapshot := make(map[string]fs.Filesystem, len(s.fss))
+	for k, v := range s.fss {
+		snapshot[k] = v
+	}
+	return snapshot, nil
 }
 
 func (s *Service) load(l loader.Loader) error {

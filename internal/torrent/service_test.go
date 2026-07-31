@@ -85,6 +85,35 @@ func TestService_Load_Full(t *testing.T) {
 	require.Contains(t, fss, "/r1")
 }
 
+// TestService_Load_ReturnsSnapshot guards against a data race (BACKLOG.md,
+// Medium: "Service.Load() returns a map still being mutated"): Load() used
+// to return the live s.fss map itself. addRoute — called both from
+// background goroutines Load() spawns and from any later route
+// registration — keeps writing to that same map indefinitely, but the
+// caller (main.go) ranges the returned map with no access to Service's
+// internal mutex at all. Every route known at Load() time is (today)
+// inserted synchronously before it returns, so this wasn't an active crash,
+// but it was a foot-gun: any future write path added to the live map would
+// become a real concurrent-map crash with no warning. Load() must return
+// an independent copy that later route additions can't reach.
+func TestService_Load_ReturnsSnapshot(t *testing.T) {
+	stats := NewStats()
+	ml := &MockLoaderAdder{
+		MockLoader: MockLoader{
+			Magnets: map[string][]string{"r1": {}},
+		},
+	}
+	svc := NewService(nil, ml, stats, nil, 1, 1, true)
+
+	fss, err := svc.Load()
+	require.NoError(t, err)
+	require.Contains(t, fss, "/r1")
+
+	svc.addRoute("r2")
+
+	require.NotContains(t, fss, "/r2", "the map returned by Load() must not observe routes added afterward")
+}
+
 func TestService_Load(t *testing.T) {
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DataDir = t.TempDir()
