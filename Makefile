@@ -32,6 +32,14 @@ test-short:
 test:
 	go test -coverprofile=coverage.out ./...
 
+## bench: run performance/latency benchmarks (streaming start latency, mount
+## lookup scaling, HTTP API serving latency). Compare a saved run against a
+## later one with benchstat to catch regressions: go install
+## golang.org/x/perf/cmd/benchstat@latest; make bench > old.txt; (change
+## code); make bench > new.txt; benchstat old.txt new.txt
+bench:
+	go test -bench=. -benchmem -run='^$$' ./internal/fs/... ./internal/http/... ./internal/testenv/...
+
 go-build:
 	@echo "  >  Building binary on $(BIN_OUTPUT)..."
 	go build -o $(BIN_OUTPUT) -tags "release" -ldflags='$(LDFLAGS)' cmd/distribyted/main.go
