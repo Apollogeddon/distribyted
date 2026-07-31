@@ -33,12 +33,13 @@ test:
 	go test -coverprofile=coverage.out ./...
 
 ## bench: run performance/latency benchmarks (streaming start latency, mount
-## lookup scaling, HTTP API serving latency). Compare a saved run against a
-## later one with benchstat to catch regressions: go install
+## and route lookup scaling, HTTP API/WebDAV serving latency, dashboard
+## polling costs, archive access). Compare a saved run against a later one
+## with benchstat to catch regressions: go install
 ## golang.org/x/perf/cmd/benchstat@latest; make bench > old.txt; (change
 ## code); make bench > new.txt; benchstat old.txt new.txt
 bench:
-	go test -bench=. -benchmem -run='^$$' ./internal/fs/... ./internal/http/... ./internal/testenv/...
+	go test -bench=. -benchmem -run='^$$' ./internal/fs/... ./internal/http/... ./internal/testenv/... ./internal/torrent/... ./internal/webdav/...
 
 go-build:
 	@echo "  >  Building binary on $(BIN_OUTPUT)..."
