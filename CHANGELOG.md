@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.27.0](https://github.com/Apollogeddon/distribyted/compare/v0.26.0...v0.27.0) (2026-07-31)
+
+
+### Features
+
+* Add shared Distribyted.api/template/confirm frontend utilities ([690cf6e](https://github.com/Apollogeddon/distribyted/commit/690cf6e804e349c5ea2e116c26e9a316a8a7bc66))
+* Add VFS file browser with /api/fs endpoints and link-to-route resolution ([21ae1b8](https://github.com/Apollogeddon/distribyted/commit/21ae1b8291633c71180f2e5ed7e4e0cdd0b1c942))
+
+
+### Bug Fixes
+
+* Close reader Close()/Read() race and add streaming readahead ([0fe3933](https://github.com/Apollogeddon/distribyted/commit/0fe3933a425f8f626985d4f541393f3829896bde))
+* Correct inverted piece-progress percentage and broken markup in routes.js ([e819152](https://github.com/Apollogeddon/distribyted/commit/e81915292da1e19a4fcd8f7b70d63e86d0880238))
+* Correct wrong array index causing NaN health warning for large piece sizes ([8e32cb8](https://github.com/Apollogeddon/distribyted/commit/8e32cb82afac9d9becccdd872c973d03ededafb7))
+* Prevent orphaned virtual links when a torrent-delete cascade removes them ([51c1e6f](https://github.com/Apollogeddon/distribyted/commit/51c1e6fc5c401d27b709d4f99827b68e46838c90))
+* Resolve mount lookup by longest path-segment match, not bare prefix ([595f541](https://github.com/Apollogeddon/distribyted/commit/595f5414757eca6e604cb92f80438c410d356d39))
+* Return an immutable snapshot from Service.Load() ([c2ada38](https://github.com/Apollogeddon/distribyted/commit/c2ada3808c9c1f68beeb5c0cb4276924a5a47388))
+* Stop FUSE Getattr reporting full torrent size as disk blocks used ([2f0a781](https://github.com/Apollogeddon/distribyted/commit/2f0a78111bfa6517a8c6fd2ed4ad95a7310d11d1))
+* Withhold seeders-too-low warning until connections have time to ramp up ([0733777](https://github.com/Apollogeddon/distribyted/commit/07337775ec71e4db0306e7f0ca1c46f973b457db))
+
 ## [0.26.0](https://github.com/Apollogeddon/distribyted/compare/v0.25.2...v0.26.0) (2026-07-26)
 
 
