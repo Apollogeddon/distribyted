@@ -108,7 +108,11 @@ h1, h2, h3, h4, h5, h6, .brand-name {
 .kpi-value {
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(to right, #48cae4, #0077b6);
+  /* #1e88e5 (not the original #0077b6) so the gradient's darker end still
+     clears 4.5:1 contrast against the card background — #0077b6 dropped to
+     ~3.7:1, borderline-failing WCAG AA for the most prominent numbers on
+     the dashboard. */
+  background: linear-gradient(to right, #48cae4, #1e88e5);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
@@ -138,6 +142,27 @@ h1, h2, h3, h4, h5, h6, .brand-name {
 
 .border-left {
   border-left: 1px solid var(--glass-border) !important;
+}
+
+/* Bootstrap's default .text-muted (#6c757d) is tuned for light backgrounds
+   and only comes out to ~3.8:1 against this dark theme, below the 4.5:1
+   WCAG AA minimum. Reuse the same muted color already tuned for dark
+   backgrounds elsewhere (sidebar nav, KPI labels). */
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+/* Bootstrap's default badge colors aren't part of the glass theme and
+   render as flat, unstyled rectangles against it. Both pass 4.5:1+. */
+.badge-secondary {
+  background-color: rgba(148, 163, 184, 0.2) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--glass-border);
+}
+.badge-info {
+  background-color: rgba(14, 165, 233, 0.2) !important;
+  color: #7dd3fc !important;
+  border: 1px solid rgba(14, 165, 233, 0.3);
 }
 
 /* Charts */
