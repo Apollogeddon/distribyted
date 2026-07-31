@@ -6,8 +6,8 @@ import (
 	"runtime"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
-	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/rs/zerolog/log"
+	"github.com/winfsp/cgofuse/fuse"
 
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 )

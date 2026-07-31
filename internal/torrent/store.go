@@ -8,7 +8,7 @@ import (
 
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/anacrolix/dht/v2/bep44"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 	"github.com/rs/zerolog/log"
 )
 

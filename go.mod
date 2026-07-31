@@ -9,15 +9,12 @@ require (
 	github.com/anacrolix/missinggo/v2 v2.10.0
 	github.com/anacrolix/multiless v0.4.0 // indirect
 	github.com/anacrolix/torrent v1.61.0
-	github.com/billziss-gh/cgofuse v1.5.0
 	github.com/bodgit/sevenzip v1.6.5
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.1 // indirect
 	github.com/goccy/go-yaml v1.19.2
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.15
@@ -37,7 +34,11 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/anacrolix/generics v0.2.0
+require (
+	github.com/anacrolix/generics v0.2.0
+	github.com/dgraph-io/badger/v4 v4.9.5
+	github.com/winfsp/cgofuse v1.6.0
+)
 
 require (
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
@@ -66,7 +67,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgraph-io/ristretto v0.2.0 // indirect
+	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/edsrzf/mmap-go v1.2.0 // indirect
 	github.com/felixge/fgprof v0.9.5 // indirect
@@ -79,9 +80,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
-	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/flatbuffers v25.9.23+incompatible // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20251213031049-b05bdaca462f // indirect
@@ -137,7 +135,6 @@ require (
 	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
 	go.etcd.io/bbolt v1.4.3 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
-	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.41.0 // indirect
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
