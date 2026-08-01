@@ -17,19 +17,21 @@ import (
 var _ Filesystem = &TorrentFS{}
 
 type TorrentFS struct {
-	mu          sync.Mutex
-	s           *storage
-	ts          map[string]Torrent
-	readTimeout int
-	log         zerolog.Logger
+	mu              sync.Mutex
+	s               *storage
+	ts              map[string]Torrent
+	readTimeout     int
+	responsiveReads bool
+	log             zerolog.Logger
 }
 
-func NewTorrent(readTimeout int) *TorrentFS {
+func NewTorrent(readTimeout int, responsiveReads bool) *TorrentFS {
 	return &TorrentFS{
-		s:           newStorage(GetSupportedFactories()),
-		ts:          make(map[string]Torrent),
-		readTimeout: readTimeout,
-		log:         dlog.Logger("torrent-fs"),
+		s:               newStorage(GetSupportedFactories()),
+		ts:              make(map[string]Torrent),
+		readTimeout:     readTimeout,
+		responsiveReads: responsiveReads,
+		log:             dlog.Logger("torrent-fs"),
 	}
 }
 
@@ -64,6 +66,7 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			readerFunc: file.NewReader,
 			len:        file.Length(),
 			timeout:    fs.readTimeout,
+			responsive: fs.responsiveReads,
 			log:        fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
 		tf.SetIno(HashIno(ih + file.Path()))
@@ -328,6 +331,7 @@ type torrentFile struct {
 	readerFunc func() torrent.Reader
 	len        int64
 	timeout    int
+	responsive bool
 	log        zerolog.Logger
 }
 
@@ -398,7 +402,24 @@ type torrentFileHandle struct {
 // (e.g. a media server probing container headers) waste bandwidth
 // prefetching data nobody reads, or that multiple simultaneously-open files
 // starve each other for swarm bandwidth.
+//
+// Tried and reverted: swapping this for a SetReadaheadFunc that grows the
+// window with contiguous progress (up to a ceiling) to help sustained
+// throughput. Measured no improvement on sequential throughput, and a
+// statistically significant time-to-first-byte regression (+67% cable,
+// +27% DSL) — the per-call function invocation this requires runs under the
+// client-wide lock on every Read/Seek, unlike a plain static field read.
+// See docs/benchmarking.md.
 const readahead = 4 * 1024 * 1024 // 4MB
+
+// responsive (torrentFile.responsive, set from config.TorrentGlobal.ResponsiveReads)
+// controls torrent.Reader.SetResponsive(): a read normally waits for its
+// covering piece to finish downloading AND pass hash verification before
+// returning. Responsive mode returns as soon as the covering chunks have
+// arrived, skipping that wait — faster, especially with large piece
+// lengths, but the returned bytes have not yet been confirmed to match the
+// torrent's hash. Off by default for that reason; see docs/benchmarking.md
+// for the measured latency trade-off.
 
 func (h *torrentFileHandle) load() reader {
 	h.mu.Lock()
@@ -410,6 +431,9 @@ func (h *torrentFileHandle) load() reader {
 		r := h.readerFunc()
 		if r != nil {
 			r.SetReadahead(readahead)
+			if h.responsive {
+				r.SetResponsive()
+			}
 		}
 		h.reader = newReadAtWrapper(r, h.file, h.timeout, h.log)
 	}

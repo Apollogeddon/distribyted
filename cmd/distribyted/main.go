@@ -127,7 +127,17 @@ func initStorageLayer(conf *config.Root) (storageLayer, error) {
 		return storageLayer{}, fmt.Errorf("error creating piece completion db: %w", err)
 	}
 
-	st := storage.NewResourcePieces(fc.AsResourceProvider())
+	// Without a capacity func, the client doesn't know the cache evicts
+	// pieces under it (SetCapacity is only called on fc, below, after
+	// startup completes), which affects its piece-eviction/retry logic. A
+	// negative filecache capacity means unlimited (see filecache.Cache).
+	capFunc := func() (int64, bool) {
+		if c := fc.Info().Capacity; c >= 0 {
+			return c, true
+		}
+		return 0, false
+	}
+	st := storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc})
 	// cache is not working with windows
 	if runtime.GOOS == "windows" {
 		st = storage.NewFileWithCompletion(cf, pc)
@@ -224,6 +234,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		conf.Torrent.AddTimeout,
 		conf.Torrent.ReadTimeout,
 		conf.Torrent.ContinueWhenAddTimeout,
+		conf.Torrent.ResponsiveReads,
 	)
 
 	var mh *fuse.Handler

@@ -54,7 +54,7 @@ type TestApp struct {
 }
 
 func NewTestApp() (*TestApp, error) {
-	return newTestApp("", nil, true, false)
+	return newTestApp("", nil, true, false, false, false)
 }
 
 func NewTestAppLimited(limit int64) (*TestApp, error) {
@@ -62,11 +62,11 @@ func NewTestAppLimited(limit int64) (*TestApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newTestApp(tempDir, &limit, false, false)
+	return newTestApp(tempDir, &limit, false, false, false, false)
 }
 
 func NewTestAppWithDir(tempDir string) (*TestApp, error) {
-	return newTestApp(tempDir, nil, false, false)
+	return newTestApp(tempDir, nil, false, false, false, false)
 }
 
 // NewTestAppNoDefaultDialer is like NewTestApp, but disables TCP so the
@@ -77,10 +77,43 @@ func NewTestAppWithDir(tempDir string) (*TestApp, error) {
 // making the addition a no-op. A manually-added dialer still connects fine
 // over TCP regardless of this flag — it isn't gated the same way.
 func NewTestAppNoDefaultDialer() (*TestApp, error) {
-	return newTestApp("", nil, true, true)
+	return newTestApp("", nil, true, true, false, false)
 }
 
-func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDialer bool) (*TestApp, error) {
+// NewTestAppNoDefaultDialerResponsive is NewTestAppNoDefaultDialer with
+// config.TorrentGlobal.ResponsiveReads on, for benchmarks comparing
+// responsive vs. default read latency under the same throttled-dialer
+// conditions (see internal/fs/torrent.go's responsive field).
+func NewTestAppNoDefaultDialerResponsive() (*TestApp, error) {
+	return newTestApp("", nil, true, true, false, true)
+}
+
+// NewTestAppProductionStorage is like NewTestApp, but backs torrent data
+// with storage.NewResourcePiecesOpts(filecache, ...) instead of the
+// in-memory or FileWithCompletion backends the other constructors use.
+// This is what cmd/distribyted/main.go actually uses in production
+// (FileWithCompletion is only a Windows fallback), and its incomplete-piece
+// read path (a directory scan plus one file open per 16KiB chunk) has a
+// real cost that MapClientImpl/FileWithCompletion don't — needed to measure
+// changes like responsive reads whose production impact can otherwise look
+// free in a benchmark.
+//
+// KNOWN UNRELIABLE as of this writing: a manual end-to-end check against a
+// loopback seeder reproducibly failed piece hash verification ("piece
+// failed hash. banning peer") on this storage backend, with or without a
+// Capacity func, and without -race — so this is broader than the
+// previously-documented -race-only MarkComplete rename race (see the
+// FileWithCompletion comment below). Root cause not identified; suspect a
+// read-during-write race in piecePerResource itself, since it reproduces on
+// fast loopback where a piece's chunks can arrive and be verified almost
+// immediately after being written. Do not rely on benchmarks using this
+// constructor until that's understood — treat failures/hangs as expected,
+// not as a regression in whatever you're testing.
+func NewTestAppProductionStorage() (*TestApp, error) {
+	return newTestApp("", nil, false, false, true, false)
+}
+
+func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDialer bool, resourcePieces bool, responsiveReads bool) (*TestApp, error) {
 	actualTempDir := tempDir
 	if actualTempDir == "" {
 		var err error
@@ -104,6 +137,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 			DisableDHT:             true,
 			ListenPort:             -1,
 			Seed:                   true,
+			ResponsiveReads:        responsiveReads,
 		},
 		HTTPGlobal: &config.HTTPGlobal{
 			Port:   0, // random
@@ -122,10 +156,28 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 	var st storage.ClientImpl
 	var fc *filecache.Cache
 	var pc storage.PieceCompletion
-	if inMemory {
+	switch {
+	case inMemory:
 		// Pure in-memory storage for torrent data
 		st = NewMapClientImpl()
-	} else {
+	case resourcePieces:
+		cf := filepath.Join(actualTempDir, "cache")
+		var err error
+		fc, err = filecache.NewCache(cf)
+		if err != nil {
+			return nil, err
+		}
+		// Block until filecache's background rescan goroutine releases the
+		// mutex, or concurrent piece writes stall behind it early on.
+		_ = fc.Info()
+
+		// Mirrors cmd/distribyted/main.go's production storage, capacity
+		// wiring included. See NewTestAppProductionStorage's doc comment
+		// for why this exists as a separate path from the default below,
+		// and for a known reliability caveat with this storage backend.
+		capFunc := func() (int64, bool) { return -1, false }
+		st = storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc})
+	default:
 		cf := filepath.Join(actualTempDir, "cache")
 		var err error
 		fc, err = filecache.NewCache(cf)
@@ -150,7 +202,9 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		// (filecache). ResourcePieces has a race under -race: MarkComplete renames
 		// the piece file before the data is fully readable, causing unexpected EOF.
 		// FileWithCompletion only renames at the per-file level (all pieces done),
-		// so there is no piece-level rename race.
+		// so there is no piece-level rename race. NewTestAppProductionStorage uses
+		// ResourcePieces directly for benchmarks that need the real behavior and
+		// deliberately don't run under -race.
 		pieceDir := filepath.Join(actualTempDir, "pieces")
 		if err := os.MkdirAll(pieceDir, 0744); err != nil {
 			return nil, err
@@ -193,6 +247,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		conf.Torrent.AddTimeout,
 		conf.Torrent.ReadTimeout,
 		conf.Torrent.ContinueWhenAddTimeout,
+		conf.Torrent.ResponsiveReads,
 	)
 
 	fss, _ := ts.Load()

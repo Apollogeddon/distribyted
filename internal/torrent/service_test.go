@@ -78,7 +78,7 @@ func TestService_Load_Full(t *testing.T) {
 		Links: map[string]string{"o1": "n1"},
 	}
 
-	svc := NewService(nil, ml, stats, mockC, 1, 1, true)
+	svc := NewService(nil, ml, stats, mockC, 1, 1, true, false)
 
 	fss, err := svc.Load()
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestService_Load_ReturnsSnapshot(t *testing.T) {
 			Magnets: map[string][]string{"r1": {}},
 		},
 	}
-	svc := NewService(nil, ml, stats, nil, 1, 1, true)
+	svc := NewService(nil, ml, stats, nil, 1, 1, true, false)
 
 	fss, err := svc.Load()
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestService_Load(t *testing.T) {
 		},
 	}
 
-	svc := NewService([]loader.Loader{l1}, db, stats, &ClientWrapper{client}, 1, 1, true)
+	svc := NewService([]loader.Loader{l1}, db, stats, &ClientWrapper{client}, 1, 1, true, false)
 
 	fss, err := svc.Load()
 	require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestService_addTorrent_Timeout(t *testing.T) {
 		},
 	}
 
-	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false)
 
 	// This should not return error even if it timeouts
 	err := svc.addMagnet("test", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
@@ -206,7 +206,7 @@ func TestService_RemoveFromHash(t *testing.T) {
 	}
 
 	db := &MockLoaderAdder{}
-	svc := NewService(nil, db, stats, mockC, 1, 1, true)
+	svc := NewService(nil, db, stats, mockC, 1, 1, true, false)
 
 	err := svc.AddMagnet("route1", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestService_Listeners(t *testing.T) {
 		},
 	}
 
-	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false)
 
 	routeAddedCalled := false
 	svc.OnRouteAdded(func(r string, f fs.Filesystem) {
@@ -277,7 +277,7 @@ func TestService_AddRoute_ListenerReentry(t *testing.T) {
 		},
 	}
 
-	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false)
 
 	svc.OnRouteAdded(func(r string, f fs.Filesystem) {
 		svc.OnRouteAdded(func(string, fs.Filesystem) {}) // re-enters Service, would deadlock if s.mu were still held
@@ -298,7 +298,7 @@ func TestService_AddRoute_ListenerReentry(t *testing.T) {
 
 func TestService_AddLink(t *testing.T) {
 	db := &MockLoaderAdder{}
-	svc := NewService(nil, db, nil, nil, 1, 1, true)
+	svc := NewService(nil, db, nil, nil, 1, 1, true, false)
 
 	err := svc.AddLink("old", "new")
 	require.NoError(t, err)
@@ -324,7 +324,7 @@ func TestService_PublicMethods(t *testing.T) {
 		},
 	}
 
-	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false)
 
 	// Test AddTorrentFromFile
 	err := svc.AddTorrentFromFile("r1", "p1")
@@ -343,7 +343,7 @@ func TestService_PublicMethods(t *testing.T) {
 }
 
 func TestService_LinkCallbacks(t *testing.T) {
-	svc := NewService(nil, &MockLoaderAdder{}, nil, nil, 1, 1, true)
+	svc := NewService(nil, &MockLoaderAdder{}, nil, nil, 1, 1, true, false)
 
 	addedOld, addedNew := "", ""
 	svc.OnLinkAdded(func(o, n string) {
@@ -382,7 +382,7 @@ func TestService_RemoveFromHashOnly(t *testing.T) {
 		},
 	}
 
-	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false)
 
 	// Should fail if not added yet
 	err := svc.RemoveFromHashOnly(hash.HexString())
@@ -411,7 +411,7 @@ func TestService_addTorrent_TimeoutError(t *testing.T) {
 	}
 
 	// continueWhenAddTimeout=false: must return an error when GotInfo never fires
-	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, false)
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, false, false)
 	defer svc.Close()
 
 	err := svc.addMagnet("test", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
@@ -435,7 +435,7 @@ func TestService_logSwarmHealth_NoPanic(t *testing.T) {
 		},
 	}
 
-	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true)
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false)
 	defer svc.Close()
 
 	// Empty stats — should be a no-op without panic
@@ -470,7 +470,7 @@ func TestService_ConcurrentMagnetAdds(t *testing.T) {
 	}
 
 	db := &MockLoaderAdder{}
-	svc := NewService(nil, db, stats, mockC, 1, 1, true)
+	svc := NewService(nil, db, stats, mockC, 1, 1, true, false)
 
 	errCh := make(chan error, 100)
 	for i := 0; i < 100; i++ {

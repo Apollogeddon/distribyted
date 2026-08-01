@@ -11,7 +11,7 @@ import (
 
 func TestBehavior_ReadSeekConsistency(t *testing.T) {
 	require := require.New(t)
-	tfs := NewTorrent(10)
+	tfs := NewTorrent(10, false)
 
 	// Add a manual file (simulating a torrent file or manual creation)
 	err := tfs.Create("/test.txt")
@@ -37,7 +37,7 @@ func TestBehavior_ReadSeekConsistency(t *testing.T) {
 
 func TestBehavior_HardLinks(t *testing.T) {
 	require := require.New(t)
-	tfs := NewTorrent(10)
+	tfs := NewTorrent(10, false)
 
 	err := tfs.Create("/original.txt")
 	require.NoError(err)
@@ -77,17 +77,17 @@ func TestBehavior_RestartReset(t *testing.T) {
 	// But since our mock returns nil files, we'll just verify the logic of transience
 	// by showing that a new TorrentFS starts clean.
 
-	tfs1 := NewTorrent(10)
+	tfs1 := NewTorrent(10, false)
 	_ = tfs1.Create("/manual.txt")
 
-	tfs2 := NewTorrent(10)
+	tfs2 := NewTorrent(10, false)
 	files, _ := tfs2.ReadDir("/")
 	require.NotContains(files, "manual.txt")
 }
 
 func TestBehavior_ReadSeek(t *testing.T) {
 	require := require.New(t)
-	tfs := NewTorrent(10)
+	tfs := NewTorrent(10, false)
 
 	data := []byte("hello world")
 	err := tfs.s.Add(NewMemoryFile(data), "/test.txt")
@@ -119,7 +119,7 @@ func TestBehavior_ReadSeek(t *testing.T) {
 
 func TestBehavior_DirectoryRecursion(t *testing.T) {
 	require := require.New(t)
-	tfs := NewTorrent(10)
+	tfs := NewTorrent(10, false)
 
 	err := tfs.s.Add(NewMemoryFile([]byte("data")), "/a/b/c/d.txt")
 	require.NoError(err)
@@ -142,7 +142,7 @@ func TestBehavior_DirectoryRecursion(t *testing.T) {
 
 func TestBehavior_PathResolution(t *testing.T) {
 	require := require.New(t)
-	tfs := NewTorrent(10)
+	tfs := NewTorrent(10, false)
 
 	err := tfs.s.Add(NewMemoryFile([]byte("data")), "/test.txt")
 	require.NoError(err)
@@ -164,7 +164,7 @@ func TestBehavior_PathResolution(t *testing.T) {
 
 func TestBehavior_ConcurrentAccess(t *testing.T) {
 	require := require.New(t)
-	tfs := NewTorrent(10)
+	tfs := NewTorrent(10, false)
 
 	data := make([]byte, 1024*1024) // 1MB
 	for i := range data {
@@ -196,7 +196,7 @@ func TestBehavior_ConcurrentAccess(t *testing.T) {
 
 func TestBehavior_OOM_MassiveTorrent(t *testing.T) {
 	// Create a storage that has 50,000 files
-	tfs := NewTorrent(10)
+	tfs := NewTorrent(10, false)
 
 	const numFiles = 50000
 	for i := 0; i < numFiles; i++ {

@@ -35,6 +35,12 @@ type TorrentGlobal struct {
 	ListenPort             int    `yaml:"listen_port,omitempty"`
 	Seed                   bool   `yaml:"seed,omitempty"`
 	MaxConnsPerTorrent     int    `yaml:"max_conns_per_torrent,omitempty"`
+	// ResponsiveReads lets a read return as soon as its covering chunks have
+	// arrived, instead of waiting for the whole piece to finish downloading
+	// AND pass hash verification. Cuts time-to-first-byte, especially with
+	// large piece lengths, at the cost of occasionally serving data from a
+	// peer before its integrity has been confirmed. Off by default.
+	ResponsiveReads bool `yaml:"responsive_reads,omitempty"`
 }
 
 type WebDAVGlobal struct {
