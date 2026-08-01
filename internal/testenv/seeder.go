@@ -59,6 +59,16 @@ func (s *Seeder) Stop() {
 }
 
 func (s *Seeder) AddFile(name string, content []byte, announceURL string) (metainfo.Magnet, error) {
+	return s.AddFileWithPieceLength(name, content, announceURL, 256*1024)
+}
+
+// AddFileWithPieceLength is AddFile with a caller-chosen piece length.
+// Piece length changes the cost profile of reads against an incomplete
+// piece (bigger piece = more to hash/re-fetch before a read past it can
+// return), so benchmarks that care about that cost need to control it
+// directly instead of inheriting AddFile's fixed 256KiB, which is far
+// smaller than typical media torrents (often 2-8MiB).
+func (s *Seeder) AddFileWithPieceLength(name string, content []byte, announceURL string, pieceLength int64) (metainfo.Magnet, error) {
 	path := filepath.Join(s.tmpDir, name)
 	if err := os.WriteFile(path, content, 0644); err != nil {
 		return metainfo.Magnet{}, err
@@ -69,7 +79,7 @@ func (s *Seeder) AddFile(name string, content []byte, announceURL string) (metai
 	}
 
 	info := metainfo.Info{
-		PieceLength: 256 * 1024,
+		PieceLength: pieceLength,
 		Name:        name,
 	}
 	if err := info.BuildFromFilePath(path); err != nil {
