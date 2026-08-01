@@ -63,8 +63,33 @@ jobs:
         shell: powershell
         run: |
           $ProgressPreference = 'SilentlyContinue'
-          choco install --allow-empty-checksums -y winfsp zip
+
+          function Install-WingetPackage($id) {
+            $maxAttempts = 5
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              # --exact avoids winget's fuzzy id matching picking an
+              # unrelated/beta package (e.g. WinFsp.WinFsp.Beta) instead of
+              # the pinned id below.
+              winget install --exact --id $id --source winget --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+              if ($LASTEXITCODE -eq 0) { return }
+              if ($attempt -eq $maxAttempts) {
+                Write-Error "winget install $id failed after $maxAttempts attempts (exit $LASTEXITCODE)"
+                exit $LASTEXITCODE
+              }
+              $delay = 10 * $attempt
+              Write-Warning "winget install $id failed (attempt $attempt/$maxAttempts, exit $LASTEXITCODE); retrying in ${delay}s..."
+              Start-Sleep -Seconds $delay
+            }
+          }
+
+          Install-WingetPackage 'WinFsp.WinFsp'
+          Install-WingetPackage 'GnuWin32.Zip'
+
           echo "CPATH=C:\Program Files\WinFsp\inc\fuse;C:\Program Files (x86)\WinFsp\inc\fuse" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          # winget doesn't reliably add an installed package's directory to
+          # PATH the way choco's shims did — add GnuWin32's bin explicitly
+          # so `zip` stays resolvable.
+          "C:\Program Files (x86)\GnuWin32\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           # Copy mingw32-make.exe to make.exe so the same command line
           # can be used on Windows as on macOS and Linux
           $path = (get-command mingw32-make.exe).Path
