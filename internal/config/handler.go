@@ -1,6 +1,9 @@
 package config
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +25,16 @@ func NewHandler(path string) *Handler {
 	return &Handler{p: path}
 }
 
+// generateRandomPassword mirrors the session-ID generation in
+// internal/http/auth.go's sessionStore.create().
+func generateRandomPassword() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
 func (c *Handler) createFromTemplateFile() ([]byte, error) {
 	t, err := web.Templates.Open("templates/config_template.yaml")
 	if err != nil {
@@ -33,6 +46,13 @@ func (c *Handler) createFromTemplateFile() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	pass, err := generateRandomPassword()
+	if err != nil {
+		return nil, fmt.Errorf("error generating default password: %w", err)
+	}
+	tb = bytes.ReplaceAll(tb, []byte("pass: admin"), []byte("pass: "+pass))
+	log.Warn().Str("password", pass).Msg("generated a random default password for http/webdav auth on first run — save it, it will not be shown again")
 
 	if err := os.MkdirAll(filepath.Dir(c.p), 0750); err != nil {
 		return nil, fmt.Errorf("error creating path for configuration file: %s, %w", c.p, err)

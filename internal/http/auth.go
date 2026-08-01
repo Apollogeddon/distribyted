@@ -120,8 +120,8 @@ func qBitLoginHandler(ac authConfig, st *sessionStore) gin.HandlerFunc {
 			return
 		}
 
-		user := firstNonEmpty(c.PostForm("username"), c.Query("username"))
-		pass := firstNonEmpty(c.PostForm("password"), c.Query("password"))
+		user := c.PostForm("username")
+		pass := c.PostForm("password")
 
 		if !auth.CredentialsMatch(user, pass, ac.user, ac.pass) {
 			c.String(http.StatusOK, "Fails.")
@@ -219,11 +219,4 @@ func safeNext(next string) string {
 		return "/"
 	}
 	return next
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
