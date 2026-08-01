@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.27.1](https://github.com/Apollogeddon/distribyted/compare/v0.27.0...v0.27.1) (2026-08-01)
+
+
+### Bug Fixes
+
+* Correct the throttled benchmark's dial race and add-magnet ordering ([426c337](https://github.com/Apollogeddon/distribyted/commit/426c337cadefc39bb83953733c17776a49312f63))
+* Wait for link-retry goroutines before closing the DB on shutdown ([23cc71c](https://github.com/Apollogeddon/distribyted/commit/23cc71ccdbdda02914eb007c4defd1e3f948de47))
+
+
+### Performance Improvements
+
+* Add opt-in responsive reads and fix missing storage capacity wiring ([73d58c7](https://github.com/Apollogeddon/distribyted/commit/73d58c7c4ed8565a84e2129553fb9d9e3a95afd0))
+
 ## [0.27.0](https://github.com/Apollogeddon/distribyted/compare/v0.26.0...v0.27.0) (2026-07-31)
 
 
