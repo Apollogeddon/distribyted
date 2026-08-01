@@ -86,6 +86,12 @@ func (d *MemoryFile) Read(p []byte) (n int, err error) {
 	return d.Reader.Read(p)
 }
 
+func (d *MemoryFile) Seek(offset int64, whence int) (int64, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.Reader.Seek(offset, whence)
+}
+
 func (d *MemoryFile) Size() int64 {
 	return d.size
 }
