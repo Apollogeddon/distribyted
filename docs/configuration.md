@@ -47,6 +47,8 @@ Core settings for the BitTorrent engine.
 | `disable_tcp` | Disable TCP protocol. | `false` |
 | `disable_utp` | Disable uTP protocol. | `false` |
 | `ip` | Public IP to report to trackers/DHT. | (Auto-detected) |
+| `max_conns_per_torrent` | Maximum peer connections per torrent. Distribyted defaults to half of the underlying torrent library's own default (25 established / 12 half-open vs. the library's 50/25) — raise it on a fast connection if a torrent has many available peers. Not yet benchmarked against time-to-first-byte, only known to affect steady-state peer count. | `25` |
+| `responsive_reads` | Return reads as soon as their data has arrived, instead of waiting for the whole covering piece to finish downloading *and* pass hash verification. Substantially reduces time-to-first-byte, especially with large piece lengths (see `docs/benchmarking.md`) — but bytes may reach a reader before their integrity against the torrent's hash has been confirmed. | `false` |
 
 ### `log`
 Configures application logging.

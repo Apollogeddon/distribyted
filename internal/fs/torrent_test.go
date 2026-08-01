@@ -60,7 +60,7 @@ func TestTorrentFilesystem(t *testing.T) {
 
 	<-to.GotInfo()
 
-	tfs := NewTorrent(600)
+	tfs := NewTorrent(600, false)
 	tfs.AddTorrent(TorrentWrapper{to})
 
 	files, err := tfs.ReadDir("/")
@@ -213,7 +213,7 @@ func TestTorrentFS_ConcurrentAddRemove(t *testing.T) {
 
 		to, _ := Cli.AddTorrentOpt(torrent.AddTorrentOpts{InfoHash: ih})
 
-		tfs := NewTorrent(5)
+		tfs := NewTorrent(5, false)
 		tfs.AddTorrent(TorrentWrapper{to})
 
 		start := make(chan struct{})
@@ -380,7 +380,8 @@ func TestTorrentFileHandle_ReadCloseRace(t *testing.T) {
 // fakeTorrentReader is a minimal torrent.Reader implementation for testing
 // load()'s readahead configuration without a real torrent.
 type fakeTorrentReader struct {
-	readaheadSet int64
+	readaheadSet  int64
+	responsiveSet bool
 }
 
 func (f *fakeTorrentReader) SetContext(ctx context.Context)                         {}
@@ -390,7 +391,7 @@ func (f *fakeTorrentReader) Close() error                                       
 func (f *fakeTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) { return 0, io.EOF }
 func (f *fakeTorrentReader) SetReadahead(a int64)                                   { f.readaheadSet = a }
 func (f *fakeTorrentReader) SetReadaheadFunc(fn torrent.ReadaheadFunc)              {}
-func (f *fakeTorrentReader) SetResponsive()                                         {}
+func (f *fakeTorrentReader) SetResponsive()                                         { f.responsiveSet = true }
 
 // TestTorrentFileHandle_Load_SetsReadahead is the regression test for the
 // slow-stream-start fix: a freshly opened torrent.Reader must get a static
@@ -410,6 +411,7 @@ func TestTorrentFileHandle_Load_SetsReadahead(t *testing.T) {
 	r := h.load()
 	require.NotNil(t, r)
 	require.Equal(t, int64(readahead), fake.readaheadSet)
+	require.False(t, fake.responsiveSet, "responsive must default off")
 
 	// A second load() call must reuse the existing reader, not create (and
 	// configure) a new one.

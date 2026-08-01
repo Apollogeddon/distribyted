@@ -92,6 +92,7 @@ type Service struct {
 	log                     zerolog.Logger
 	addTimeout, readTimeout int
 	continueWhenAddTimeout  bool
+	responsiveReads         bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -105,7 +106,7 @@ type healthState struct {
 	progress string
 }
 
-func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c TorrentClient, addTimeout, readTimeout int, continueWhenAddTimeout bool) *Service {
+func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c TorrentClient, addTimeout, readTimeout int, continueWhenAddTimeout, responsiveReads bool) *Service {
 	l := dlog.Logger("torrent-service")
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Service{
@@ -118,6 +119,7 @@ func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c 
 		addTimeout:             addTimeout,
 		readTimeout:            readTimeout,
 		continueWhenAddTimeout: continueWhenAddTimeout,
+		responsiveReads:        responsiveReads,
 		ctx:                    ctx,
 		cancel:                 cancel,
 		lastHealth:             make(map[string]healthState),
@@ -405,7 +407,7 @@ func (s *Service) addRoute(r string) {
 	var tfs *fs.TorrentFS
 	var listeners []func(string, fs.Filesystem)
 	if !exists {
-		tfs = fs.NewTorrent(s.readTimeout)
+		tfs = fs.NewTorrent(s.readTimeout, s.responsiveReads)
 		s.fss[folder] = tfs
 		listeners = append(listeners, s.routeAddedListeners...)
 	}
