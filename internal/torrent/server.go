@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,16 +59,23 @@ type Server struct {
 	mu sync.RWMutex
 	t  *torrent.Torrent
 	si ServerInfo
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func NewServer(c *torrent.Client, pc storage.PieceCompletion, cfg *config.Server) *Server {
 	l := dlog.Logger("server").With().Str(dlog.KeyName, cfg.Name).Logger()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Server{
-		cfg: cfg,
-		log: l,
-		c:   c,
-		pc:  pc,
+		cfg:    cfg,
+		log:    l,
+		c:      c,
+		pc:     pc,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
@@ -87,7 +95,10 @@ func (s *Server) Start() error {
 	}
 
 	s.fw = w
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
+
 		if err := s.makeMagnet(); err != nil {
 			s.updateState(ERROR)
 			s.log.Error().Err(err).Msg("error generating magnet on start")
@@ -96,7 +107,10 @@ func (s *Server) Start() error {
 		s.watch()
 	}()
 
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
+
 		for {
 			select {
 			case event, ok := <-w.Events:
@@ -113,6 +127,8 @@ func (s *Server) Start() error {
 
 				s.updateState(STOPPED)
 				s.log.Error().Err(err).Msg("error watching server folder")
+			case <-s.ctx.Done():
+				return
 			}
 		}
 	}()
@@ -150,15 +166,22 @@ func (s *Server) watch() {
 	if interval == 0 {
 		interval = 5 * time.Second
 	}
-	for range time.Tick(interval) {
-		ec := s.popEvents()
-		if ec == 0 {
-			continue
-		}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			ec := s.popEvents()
+			if ec == 0 {
+				continue
+			}
 
-		if err := s.makeMagnet(); err != nil {
-			s.updateState(ERROR)
-			s.log.Error().Err(err).Msg("error generating magnet")
+			if err := s.makeMagnet(); err != nil {
+				s.updateState(ERROR)
+				s.log.Error().Err(err).Msg("error generating magnet")
+			}
 		}
 	}
 }
@@ -268,10 +291,17 @@ func (s *Server) trackers() []string {
 }
 
 func (s *Server) Close() error {
-	if s.fw == nil {
-		return nil
+	if s.cancel != nil {
+		s.cancel()
 	}
-	return s.fw.Close()
+
+	var err error
+	if s.fw != nil {
+		err = s.fw.Close()
+	}
+	s.wg.Wait()
+
+	return err
 }
 
 func (s *Server) GetMagnet() string {

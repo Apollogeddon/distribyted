@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -245,8 +246,17 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	var linkRetryWg sync.WaitGroup
+	done := make(chan struct{})
+
 	go func() {
 		<-sigChan
+		// Signal link-retry goroutines to stop and wait for them to actually
+		// exit before closing the databases below — a retry firing after
+		// close would panic inside badger with a nil-pointer dereference.
+		close(done)
+		linkRetryWg.Wait()
+
 		if mh != nil {
 			log.Info().Msg("unmounting fuse filesystem...")
 			mh.Unmount()
@@ -289,12 +299,20 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		if op == "" {
 			_ = cfs.Mkdir(np) //nolint:errcheck // link dir may already exist
 		} else {
+			linkRetryWg.Add(1)
 			go func(op, np string) {
+				defer linkRetryWg.Done()
+				ticker := time.NewTicker(linkRetryInterval)
+				defer ticker.Stop()
 				for i := 0; i < linkRetryMaxIter; i++ {
-					if err := cfs.Link(op, np); err == nil {
+					select {
+					case <-done:
 						return
+					case <-ticker.C:
+						if err := cfs.Link(op, np); err == nil {
+							return
+						}
 					}
-					time.Sleep(linkRetryInterval)
 				}
 				log.Warn().Str("old", op).Str("new", np).Msg("giving up creating virtual link after max retries")
 			}(op, np)

@@ -96,6 +96,7 @@ type Service struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	loadWg sync.WaitGroup
 
 	lastHealth map[string]healthState
 }
@@ -269,7 +270,9 @@ func (s *Service) load(l loader.Loader) error {
 		s.addRoute(r)
 		for _, m := range ms {
 			// Run in background to avoid blocking Load()
+			s.loadWg.Add(1)
 			go func(r, m string) {
+				defer s.loadWg.Done()
 				if err := s.addMagnet(r, m); err != nil {
 					s.log.Error().Err(err).Str("route", r).Msg("error loading magnet in background")
 				}
@@ -284,7 +287,9 @@ func (s *Service) load(l loader.Loader) error {
 	for r, ms := range list {
 		s.addRoute(r)
 		for _, p := range ms {
+			s.loadWg.Add(1)
 			go func(r, p string) {
+				defer s.loadWg.Done()
 				if err := s.addTorrentPath(r, p); err != nil {
 					s.log.Error().Err(err).Str("route", r).Msg("error loading torrent path in background")
 				}
@@ -435,6 +440,8 @@ func (s *Service) addTorrent(r string, t fs.Torrent) error {
 			s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("ignoring timeout error and continuing in background")
 		case <-t.GotInfo():
 			s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("obtained torrent info")
+		case <-s.ctx.Done():
+			return nil
 		}
 
 	}
@@ -550,5 +557,6 @@ func (s *Service) Torrent(h string) (fs.Torrent, bool) {
 
 func (s *Service) Close() {
 	s.cancel()
+	s.loadWg.Wait()
 	s.c.Close()
 }
