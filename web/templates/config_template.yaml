@@ -18,6 +18,11 @@ http:
   # Set to true to run the HTTP interface with no authentication at all.
   # disable_auth: false
 
+  # Expose net/http/pprof under /debug/pprof (behind the same session auth
+  # as the dashboard). Off by default — this is a diagnostic tool, not
+  # something to leave reachable normally.
+  # pprof: false
+
 # WebDAV specific configuration. Remove this to disable WebDAV.
 webdav:
   port: 36911
@@ -49,8 +54,11 @@ torrent:
   # Timeout in seconds when adding a magnet or a torrent.
   add_timeout: 60
 
-  # Timeout in seconds when reading any torrent content. Usefult when reading 
-  # archived content from .rar, .zip or .7z.
+  # Seconds a torrent read may go without making forward progress before it's
+  # abandoned and fails. Usefult when reading archived content from .rar,
+  # .zip or .7z. This is a deadline that resets on progress, not a total
+  # time budget — a legitimately slow read that keeps trickling in data can
+  # take longer than this in total.
   read_timeout: 120
 
   # IP will change the default obtained IP from the default connection. Useful when

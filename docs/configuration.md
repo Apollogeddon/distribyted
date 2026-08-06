@@ -15,6 +15,7 @@ Configures the web dashboard and management API.
 | `user` | Username for the web interface, native API and qBittorrent-compatible API. | `admin` |
 | `pass` | Password for the web interface, native API and qBittorrent-compatible API. | `admin` |
 | `disable_auth` | Set to `true` to run the HTTP interface with no authentication at all. | `false` |
+| `pprof` | Expose `net/http/pprof` under `/debug/pprof`, behind the same session auth as the dashboard. Diagnostic tool — leave off unless actively investigating goroutine/memory growth (see `read_timeout` below). | `false` |
 
 ### `webdav`
 Configures the WebDAV server for remote filesystem access.
@@ -40,7 +41,7 @@ Core settings for the BitTorrent engine.
 | :--- | :--- | :--- |
 | `global_cache_size` | Maximum size of the file cache in MB. | `2048` (2GB) |
 | `metadata_folder` | Path to store metadata, databases, and cache. | `./distribyted-data/metadata` |
-| `read_timeout` | Timeout in seconds for filesystem read operations. | `120` |
+| `read_timeout` | Seconds a filesystem read may go without making forward progress before it's abandoned and fails. Resets on progress rather than being a total time budget, so a legitimately slow read on a thin swarm can still take longer than this in total — it only bounds *stalls*. Any read that blows this deadline is guaranteed to return within it rather than hang the mount, even if the underlying torrent library never would on its own (see `internal/fs/torrent.go`'s `readAtWrapper` doc comment). | `120` |
 | `add_timeout` | Timeout in seconds when adding a new torrent (metadata fetch). | `60` |
 | `continue_when_add_timeout` | If true, continues even if metadata fetch fails during startup. | `false` |
 | `disable_ipv6` | Disable IPv6 support in the torrent engine. | `false` |
