@@ -277,6 +277,8 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		os.Exit(0)
 	}()
 
+	go runtimeStatsLogger(done)
+
 	log.Info().Msg(fmt.Sprintf("setting cache size to %d MB", conf.Torrent.GlobalCacheSize))
 	sl.fc.SetCapacity(conf.Torrent.GlobalCacheSize * 1024 * 1024)
 
@@ -369,6 +371,35 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		log.Error().Err(err).Msg("error initializing HTTP server")
 	}
 	return err
+}
+
+const runtimeStatsInterval = 5 * time.Minute
+
+// runtimeStatsLogger periodically logs goroutine count and stack memory
+// usage. A stuck torrent read that blows its deadline gets abandoned
+// rather than left to hang the mount (see internal/fs/torrent.go's
+// readAtWrapper), but the abandoned goroutine itself keeps running until
+// its underlying read eventually returns — or, for a piece that can never
+// complete, forever, slowly growing its stack. That's otherwise invisible
+// short of attaching a profiler; this line is the cheap early-warning
+// signal that goroutines/stack memory are climbing instead of plateauing.
+func runtimeStatsLogger(done <-chan struct{}) {
+	ticker := time.NewTicker(runtimeStatsInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			var ms runtime.MemStats
+			runtime.ReadMemStats(&ms)
+			log.Info().
+				Int("goroutines", runtime.NumGoroutine()).
+				Uint64("stack_sys_mb", ms.StackSys/1024/1024).
+				Uint64("heap_alloc_mb", ms.HeapAlloc/1024/1024).
+				Msg("runtime stats")
+		}
+	}
 }
 
 func forceUnmount(mnt string) {

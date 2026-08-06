@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"path"
 
 	"github.com/anacrolix/missinggo/v2/filecache"
@@ -69,6 +70,23 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		fsGroup := r.Group("/fs", browserAuth)
 		fsGroup.GET("/*filepath", h)
 		fsGroup.HEAD("/*filepath", h)
+	}
+
+	if conf.HTTPGlobal.Pprof {
+		log.Warn().Msg("pprof debug endpoints enabled at /debug/pprof — diagnostic only, disable when not actively investigating")
+		pg := r.Group("/debug/pprof", browserAuth)
+		pg.GET("/", gin.WrapF(pprof.Index))
+		pg.GET("/cmdline", gin.WrapF(pprof.Cmdline))
+		pg.GET("/profile", gin.WrapF(pprof.Profile))
+		pg.GET("/symbol", gin.WrapF(pprof.Symbol))
+		pg.POST("/symbol", gin.WrapF(pprof.Symbol))
+		pg.GET("/trace", gin.WrapF(pprof.Trace))
+		pg.GET("/allocs", gin.WrapH(pprof.Handler("allocs")))
+		pg.GET("/block", gin.WrapH(pprof.Handler("block")))
+		pg.GET("/goroutine", gin.WrapH(pprof.Handler("goroutine")))
+		pg.GET("/heap", gin.WrapH(pprof.Handler("heap")))
+		pg.GET("/mutex", gin.WrapH(pprof.Handler("mutex")))
+		pg.GET("/threadcreate", gin.WrapH(pprof.Handler("threadcreate")))
 	}
 
 	pages := r.Group("", browserAuth)

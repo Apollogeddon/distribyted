@@ -56,6 +56,16 @@ type HTTPGlobal struct {
 	User        string `yaml:"user"`
 	Pass        string `yaml:"pass"`
 	DisableAuth bool   `yaml:"disable_auth,omitempty"`
+	// Pprof exposes net/http/pprof under /debug/pprof, behind the same
+	// session auth as the dashboard. Off by default: profiling endpoints
+	// (especially /debug/pprof/profile, which blocks the server for the
+	// requested CPU-profile duration) are a diagnostic tool, not something
+	// to leave reachable by default. Useful for confirming goroutine/stack
+	// growth during an investigation like the one that produced
+	// internal/fs/torrent.go's readAtWrapper — see runtimeStatsLogger in
+	// cmd/distribyted/main.go for a lighter-weight always-on signal of the
+	// same thing.
+	Pprof bool `yaml:"pprof,omitempty"`
 }
 
 type FuseGlobal struct {
