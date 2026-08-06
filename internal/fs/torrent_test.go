@@ -6,7 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -142,6 +144,7 @@ func TestReadAtTorrent(t *testing.T) {
 		readerFunc: torrFile.NewReader,
 		len:        torrFile.Length(),
 		timeout:    500,
+		stats:      &readStats{},
 	}
 	h := tf.NewHandle()
 	defer func() { _ = h.Close() }()
@@ -172,7 +175,7 @@ func TestReadAtWrapper(t *testing.T) {
 	<-to.GotInfo()
 	torrFile := to.Files()[0]
 
-	r := newReadAtWrapper(torrFile.NewReader(), torrFile, 10, zerolog.Nop())
+	r := newReadAtWrapper(torrFile.NewReader(), 10*time.Second, &readStats{}, zerolog.Nop())
 	defer func() { _ = r.Close() }()
 
 	toRead := make([]byte, 5)
@@ -244,70 +247,61 @@ func TestTorrentFS_ConcurrentAddRemove(t *testing.T) {
 	}
 }
 
+// multiChunkReader is a minimal missinggo.ReadContexter returning one
+// pre-set chunk per call, then io.EOF.
+type multiChunkReader struct {
+	chunks [][]byte
+	i      int
+}
+
+func (m *multiChunkReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+	if m.i >= len(m.chunks) {
+		return 0, io.EOF
+	}
+	n := copy(p, m.chunks[m.i])
+	m.i++
+	return n, nil
+}
+
 func TestReadAtLeast(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
 
 	// test short buffer error
-	n, err := readAtLeast(nil, 1, make([]byte, 1), 2, zerolog.Nop())
+	n, err := readAtLeast(nil, make([]byte, 1), 2, nil)
 	require.Equal(0, n)
 	require.ErrorIs(err, io.ErrShortBuffer)
 }
 
-// fakeContextReader is a minimal missinggo.ReadContexter for exercising
-// readAtLeast's timer handling without a real torrent.
-type fakeContextReader struct {
-	delay time.Duration
-	data  []byte
-}
+// TestReadAtLeast_ReportsProgressAndAccumulates guards readAtLeast's basic
+// contract: keep calling ReadContext until min bytes are gathered,
+// signalling prog (non-blockingly) after every partial read.
+//
+// This replaces a previous test (TestReadAtLeast_PooledTimerNotStolen) that
+// guarded a race in a since-removed pooled *time.Timer shared between
+// readAtLeast's own per-iteration watchdog goroutine and its caller (see
+// BACKLOG.md, "Pooled timer released before its watchdog stops", and commit
+// a10f063). That whole mechanism — a per-iteration timeout inside
+// readAtLeast, with a watchdog goroutine racing a caller over a pooled
+// timer — no longer exists: timeout enforcement moved entirely to
+// readAtWrapper.doRead, which owns its own timers and never shares one
+// across goroutines, so the bug class that test guarded (a stale watchdog
+// reading from a timer a new caller had already Reset()) is now
+// structurally impossible rather than merely fixed.
+func TestReadAtLeast_ReportsProgressAndAccumulates(t *testing.T) {
+	multi := &multiChunkReader{chunks: [][]byte{[]byte("ab"), []byte("cd"), []byte("ef")}}
+	buf := make([]byte, 6)
+	prog := make(chan struct{}, 1)
 
-func (f *fakeContextReader) ReadContext(ctx context.Context, p []byte) (int, error) {
-	select {
-	case <-time.After(f.delay):
-		return copy(p, f.data), nil
-	case <-ctx.Done():
-		return 0, ctx.Err()
-	}
-}
-
-// TestReadAtLeast_PooledTimerNotStolen guards against a previously-fixed bug
-// in readAtLeast (internal/fs/torrent.go): timerPool.Put(timer) used to run
-// before the watchdog goroutine was guaranteed to have exited, so a
-// concurrent caller could Get() and Reset() the same *time.Timer while the
-// previous call's watchdog was still selecting on it, silently starving that
-// read's timeout and hanging it indefinitely. This was the suspected root
-// cause of the 10s->90s integration-test timeout bump in commit a10f063 (see
-// BACKLOG.md, Medium: "Pooled timer released before its watchdog stops").
-// withReadTimeout now waits on a watchdogDone channel before returning the
-// timer to the pool, closing the race.
-func TestReadAtLeast_PooledTimerNotStolen(t *testing.T) {
-	l := zerolog.Nop()
-	buf := make([]byte, 4)
-
-	// Churn the timer pool: many short-timeout reads that return immediately,
-	// each pooling a timer whose watchdog goroutine may still be alive.
-	fast := &fakeContextReader{delay: 0, data: []byte("fast")}
-	for i := 0; i < 50; i++ {
-		_, _ = readAtLeast(fast, 1, buf, 4, l)
-	}
-
-	// A read that legitimately needs longer than the churn's 1s timeout
-	// window to arrive, but well within its own 30s timeout.
-	slow := &fakeContextReader{delay: 2 * time.Second, data: []byte("data")}
-	done := make(chan struct{})
-	var n int
-	var err error
-	go func() {
-		n, err = readAtLeast(slow, 30, buf, 4, l)
-		close(done)
-	}()
+	n, err := readAtLeast(multi, buf, 6, prog)
+	require.NoError(t, err)
+	require.Equal(t, 6, n)
+	require.Equal(t, "abcdef", string(buf))
 
 	select {
-	case <-done:
-		require.NoError(t, err)
-		require.Equal(t, 4, n)
-	case <-time.After(10 * time.Second):
-		t.Fatal("readAtLeast hung, likely because a stolen pooled timer starved its watchdog")
+	case <-prog:
+	default:
+		t.Fatal("expected at least one non-blocking progress signal")
 	}
 }
 
@@ -318,7 +312,7 @@ type raceFakeReader struct {
 	closed bool
 }
 
-func (f *raceFakeReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+func (f *raceFakeReader) readLocked(p []byte) (int, error) {
 	time.Sleep(time.Millisecond) // widen the window for a concurrent Close
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -328,11 +322,9 @@ func (f *raceFakeReader) ReadContext(ctx context.Context, p []byte) (int, error)
 	return len(p), nil
 }
 
-func (f *raceFakeReader) Read(p []byte) (int, error) { return f.ReadContext(context.Background(), p) }
-
-func (f *raceFakeReader) ReadAt(p []byte, off int64) (int, error) {
-	return f.ReadContext(context.Background(), p)
-}
+func (f *raceFakeReader) Read(p []byte) (int, error)              { return f.readLocked(p) }
+func (f *raceFakeReader) ReadAt(p []byte, off int64) (int, error) { return f.readLocked(p) }
+func (f *raceFakeReader) abandoned() bool                         { return false }
 
 func (f *raceFakeReader) Close() error {
 	f.mu.Lock()
@@ -353,7 +345,7 @@ func (f *raceFakeReader) Close() error {
 func TestTorrentFileHandle_ReadCloseRace(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		h := &torrentFileHandle{
-			torrentFile: &torrentFile{timeout: 5, log: zerolog.Nop()},
+			torrentFile: &torrentFile{timeout: 5, stats: &readStats{}, log: zerolog.Nop()},
 			reader:      &raceFakeReader{},
 		}
 
@@ -403,6 +395,7 @@ func TestTorrentFileHandle_Load_SetsReadahead(t *testing.T) {
 	h := &torrentFileHandle{
 		torrentFile: &torrentFile{
 			timeout:    5,
+			stats:      &readStats{},
 			log:        zerolog.Nop(),
 			readerFunc: func() torrent.Reader { return fake },
 		},
@@ -419,4 +412,420 @@ func TestTorrentFileHandle_Load_SetsReadahead(t *testing.T) {
 	r2 := h.load()
 	require.Same(t, r, r2)
 	require.Zero(t, fake.readaheadSet)
+}
+
+// stubTorrentReader is a configurable torrent.Reader fake for exercising
+// readAtWrapper's stuck-read handling without a real torrent or network.
+// Its ReadContext deliberately does not select on ctx.Done() while blocked:
+// that's what reproduces "underlying reader that never honours
+// cancellation and never returns" — the exact anacrolix/torrent v1.61.0
+// behavior (see readAtWrapper's doc comment in torrent.go) that motivated
+// this whole redesign.
+type stubTorrentReader struct {
+	block chan struct{} // if non-nil, ReadContext blocks here until closed
+	data  []byte        // bytes copied into p once unblocked (or immediately if block == nil)
+
+	reads  atomic.Int64
+	closes atomic.Int64
+}
+
+func (s *stubTorrentReader) SetContext(context.Context)                    {}
+func (s *stubTorrentReader) SetReadahead(int64)                            {}
+func (s *stubTorrentReader) SetReadaheadFunc(f torrent.ReadaheadFunc)      {}
+func (s *stubTorrentReader) SetResponsive()                                {}
+func (s *stubTorrentReader) Seek(off int64, whence int) (int64, error)     { return off, nil }
+func (s *stubTorrentReader) Close() error                                  { s.closes.Add(1); return nil }
+func (s *stubTorrentReader) Read(p []byte) (int, error)                    { return s.ReadContext(context.Background(), p) }
+
+func (s *stubTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+	s.reads.Add(1)
+	if s.block != nil {
+		<-s.block
+	}
+	return copy(p, s.data), nil
+}
+
+// trickleTorrentReader returns 1 byte per ReadContext call after a fixed
+// delay, to exercise readAtWrapper's per-progress deadline reset: a single
+// read can legitimately take longer than one wrapper timeout, provided it
+// keeps making forward progress within each window.
+type trickleTorrentReader struct {
+	delay  time.Duration
+	remain int
+}
+
+func (t *trickleTorrentReader) SetContext(context.Context)                {}
+func (t *trickleTorrentReader) SetReadahead(int64)                        {}
+func (t *trickleTorrentReader) SetReadaheadFunc(torrent.ReadaheadFunc)    {}
+func (t *trickleTorrentReader) SetResponsive()                            {}
+func (t *trickleTorrentReader) Seek(off int64, whence int) (int64, error) { return off, nil }
+func (t *trickleTorrentReader) Close() error                              { return nil }
+func (t *trickleTorrentReader) Read(p []byte) (int, error)                { return t.ReadContext(context.Background(), p) }
+
+func (t *trickleTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+	if t.remain <= 0 {
+		return 0, io.EOF
+	}
+	time.Sleep(t.delay)
+	t.remain--
+	p[0] = 'x'
+	return 1, nil
+}
+
+// TestReadAtWrapper_StuckRead_ReturnsWithinDeadline is the core regression
+// test for the OOM fix: a read whose underlying torrent.Reader never
+// returns (and never honours context cancellation — see stubTorrentReader)
+// must still surface an error within its configured deadline, instead of
+// blocking forever while its goroutine's stack grows without bound.
+func TestReadAtWrapper_StuckRead_ReturnsWithinDeadline(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	stub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+
+	timeout := 100 * time.Millisecond
+	r := newReadAtWrapper(stub, timeout, &readStats{}, zerolog.Nop())
+
+	start := time.Now()
+	n, err := r.ReadAt(make([]byte, 4), 0)
+	elapsed := time.Since(start)
+
+	require.Equal(t, 0, n)
+	require.ErrorIs(t, err, ErrReadTimeout)
+	require.GreaterOrEqual(t, elapsed, timeout)
+	require.Less(t, elapsed, 3*timeout)
+	require.True(t, r.(*readAtWrapper).abandoned())
+}
+
+// TestReadAtWrapper_DoesNotWriteCallerBufferAfterTimeout is the test that
+// justifies doRead's scratch buffer: the abandoned worker keeps writing
+// into whatever buffer it was given long after ReadAt has returned. If that
+// were the caller's own p (e.g. a FUSE kernel read buffer that gets
+// recycled for an unrelated file the instant this call returns), the result
+// would be memory corruption and cross-file data disclosure, not just a
+// stale value.
+func TestReadAtWrapper_DoesNotWriteCallerBufferAfterTimeout(t *testing.T) {
+	block := make(chan struct{})
+	stub := &stubTorrentReader{block: block, data: []byte{0xFF, 0xFF, 0xFF, 0xFF}}
+
+	timeout := 80 * time.Millisecond
+	r := newReadAtWrapper(stub, timeout, &readStats{}, zerolog.Nop())
+
+	p := make([]byte, 4)
+	for i := range p {
+		p[i] = 0xAA
+	}
+
+	n, err := r.ReadAt(p, 0)
+	require.Equal(t, 0, n)
+	require.ErrorIs(t, err, ErrReadTimeout)
+	require.Equal(t, []byte{0xAA, 0xAA, 0xAA, 0xAA}, p, "caller buffer must be untouched by a timed-out read")
+
+	close(block) // let the abandoned worker finally proceed
+	require.Eventually(t, func() bool { return stub.closes.Load() == 1 }, time.Second, 5*time.Millisecond)
+
+	require.Equal(t, []byte{0xAA, 0xAA, 0xAA, 0xAA}, p, "caller buffer must stay untouched even after the abandoned worker finally completes")
+}
+
+// TestReadAtWrapper_SubsequentReadReturnsPoisonedAfterAbandon proves a dead
+// wrapper fails fast rather than waiting out another full deadline — the
+// second read must not wedge behind the first read's abandoned goroutine.
+func TestReadAtWrapper_SubsequentReadReturnsPoisonedAfterAbandon(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	stub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+
+	r := newReadAtWrapper(stub, 50*time.Millisecond, &readStats{}, zerolog.Nop())
+
+	_, err := r.ReadAt(make([]byte, 4), 0)
+	require.ErrorIs(t, err, ErrReadTimeout)
+
+	start := time.Now()
+	n, err := r.ReadAt(make([]byte, 4), 0)
+	elapsed := time.Since(start)
+	require.Equal(t, 0, n)
+	require.ErrorIs(t, err, errReaderAbandoned)
+	require.Less(t, elapsed, 20*time.Millisecond, "a poisoned wrapper must fail fast, not wait out another deadline")
+}
+
+// TestReadAtWrapper_QueuedReadReleasedWhenHolderAbandons is the cascade
+// regression test: a second read queued behind a stuck one must be released
+// promptly when the holder abandons, not wedged for its own separate full
+// deadline counted from when it queued.
+func TestReadAtWrapper_QueuedReadReleasedWhenHolderAbandons(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	stub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+
+	timeout := 400 * time.Millisecond
+	r := newReadAtWrapper(stub, timeout, &readStats{}, zerolog.Nop())
+
+	go func() { _, _ = r.ReadAt(make([]byte, 4), 0) }()
+	time.Sleep(100 * time.Millisecond) // let read #1 grab sem well before read #2 starts
+
+	start := time.Now()
+	n, err := r.ReadAt(make([]byte, 4), 8)
+	elapsed := time.Since(start)
+
+	require.Equal(t, 0, n)
+	require.ErrorIs(t, err, errReaderAbandoned)
+	require.Less(t, elapsed, timeout, "queued read must be released by the holder's abandonment, not wait out its own separate deadline")
+}
+
+// TestReadAtWrapper_CloseDuringStuckRead confirms Close is bounded by the
+// in-flight read's own deadline (never longer, since every read
+// self-terminates) and never touches the underlying reader while a
+// goroutine might still be inside it.
+func TestReadAtWrapper_CloseDuringStuckRead(t *testing.T) {
+	block := make(chan struct{})
+	stub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+
+	timeout := 150 * time.Millisecond
+	r := newReadAtWrapper(stub, timeout, &readStats{}, zerolog.Nop())
+
+	go func() { _, _ = r.ReadAt(make([]byte, 4), 0) }()
+	time.Sleep(10 * time.Millisecond)
+
+	start := time.Now()
+	err := r.Close()
+	elapsed := time.Since(start)
+
+	require.NoError(t, err)
+	require.Less(t, elapsed, 2*timeout, "Close must be bounded by the stuck read's own deadline")
+	require.Equal(t, int64(0), stub.closes.Load(), "must not close a reader a goroutine is still inside")
+
+	close(block)
+	require.Eventually(t, func() bool { return stub.closes.Load() == 1 }, time.Second, 5*time.Millisecond)
+}
+
+// TestReadAtWrapper_CloseDuringNormalRead preserves the pre-redesign
+// contract: Close waits out a genuinely in-flight (non-stuck) read, then
+// closes the underlying reader exactly once.
+func TestReadAtWrapper_CloseDuringNormalRead(t *testing.T) {
+	release := make(chan struct{})
+	stub := &stubTorrentReader{block: release, data: []byte("DATA")}
+	r := newReadAtWrapper(stub, time.Second, &readStats{}, zerolog.Nop())
+
+	type readOutcome struct {
+		n   int
+		err error
+	}
+	readCh := make(chan readOutcome, 1)
+	go func() {
+		n, err := r.ReadAt(make([]byte, 4), 0)
+		readCh <- readOutcome{n, err}
+	}()
+	time.Sleep(10 * time.Millisecond)
+
+	closeErrCh := make(chan error, 1)
+	go func() {
+		closeErrCh <- r.Close()
+	}()
+	time.Sleep(10 * time.Millisecond)
+
+	close(release)
+
+	ro := <-readCh
+	require.NoError(t, ro.err)
+	require.Equal(t, 4, ro.n)
+	require.NoError(t, <-closeErrCh)
+	require.Equal(t, int64(1), stub.closes.Load())
+}
+
+// TestReadAtWrapper_ProgressExtendsDeadline guards against regressing
+// legitimately slow reads on a thin swarm: the deadline resets on every
+// partial read, so a call can take longer in total than one timeout window
+// provided it never goes a full window without making progress.
+func TestReadAtWrapper_ProgressExtendsDeadline(t *testing.T) {
+	trickle := &trickleTorrentReader{delay: 60 * time.Millisecond, remain: 5}
+	timeout := 100 * time.Millisecond // > each 60ms gap, < the ~300ms total
+
+	r := newReadAtWrapper(trickle, timeout, &readStats{}, zerolog.Nop())
+
+	n, err := r.ReadAt(make([]byte, 5), 0)
+	require.NoError(t, err)
+	require.Equal(t, 5, n)
+}
+
+// TestTorrentFileHandle_RecoversAfterAbandonedRead is goal 3's regression
+// test: after a read is abandoned, the handle must recover on its own —
+// discarding the dead reader and building a fresh one — rather than staying
+// wedged for the life of the handle.
+func TestTorrentFileHandle_RecoversAfterAbandonedRead(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	stuckStub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+	workingStub := &stubTorrentReader{data: []byte("GOOD")}
+
+	var calls atomic.Int64
+	h := &torrentFileHandle{
+		torrentFile: &torrentFile{
+			timeout: 1, // seconds — torrentFile.timeout's smallest practical unit
+			stats:   &readStats{},
+			log:     zerolog.Nop(),
+			readerFunc: func() torrent.Reader {
+				if calls.Add(1) == 1 {
+					return stuckStub
+				}
+				return workingStub
+			},
+		},
+	}
+
+	buf := make([]byte, 4)
+	n, err := h.ReadAt(buf, 0)
+	require.Equal(t, 0, n)
+	require.ErrorIs(t, err, ErrReadTimeout)
+	require.Equal(t, int64(0), stuckStub.closes.Load(), "must not close a reader that still has a goroutine inside it")
+
+	n, err = h.ReadAt(buf, 0)
+	require.NoError(t, err)
+	require.Equal(t, 4, n)
+	require.Equal(t, "GOOD", string(buf))
+	require.Equal(t, int64(2), calls.Load(), "readerFunc must be called again to build the fresh reader")
+}
+
+// TestTorrentFileHandle_ReadAtRetriesOnReaderPoisonedConcurrently covers the
+// case Read/ReadAt's single-retry exists for: a reader poisoned by a
+// *different* concurrent caller sharing the same handle, not just a caller
+// retrying after its own previous call.
+func TestTorrentFileHandle_ReadAtRetriesOnReaderPoisonedConcurrently(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	stuckStub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+	workingStub := &stubTorrentReader{data: []byte("GOOD")}
+
+	var calls atomic.Int64
+	h := &torrentFileHandle{
+		torrentFile: &torrentFile{
+			timeout: 1,
+			stats:   &readStats{},
+			log:     zerolog.Nop(),
+			readerFunc: func() torrent.Reader {
+				if calls.Add(1) == 1 {
+					return stuckStub
+				}
+				return workingStub
+			},
+		},
+	}
+
+	// Both goroutines below share this same, soon-to-be-poisoned reader.
+	_ = h.load()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var err1, err2 error
+	var n2 int
+	go func() {
+		defer wg.Done()
+		_, err1 = h.ReadAt(make([]byte, 4), 0) // occupies sem, abandons at its deadline
+	}()
+	time.Sleep(20 * time.Millisecond)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 4)
+		n2, err2 = h.ReadAt(buf, 8) // queued behind the dying reader; must recover
+	}()
+	wg.Wait()
+
+	require.ErrorIs(t, err1, ErrReadTimeout)
+	require.NoError(t, err2)
+	require.Equal(t, 4, n2)
+}
+
+// TestTorrentFile_StuckHandleDoesNotAffectOtherHandles: each Open()/NewHandle
+// gets its own reader (see ContainerFs.Open's doc comment), so a stuck read
+// on one handle must never affect reads on another handle of the same file.
+func TestTorrentFile_StuckHandleDoesNotAffectOtherHandles(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+
+	var calls atomic.Int64
+	tf := &torrentFile{
+		timeout: 1,
+		stats:   &readStats{},
+		log:     zerolog.Nop(),
+		readerFunc: func() torrent.Reader {
+			if calls.Add(1) == 1 {
+				return &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+			}
+			return &stubTorrentReader{data: []byte("OK")}
+		},
+	}
+
+	h1 := tf.NewHandle()
+	h2 := tf.NewHandle()
+
+	go func() { _, _ = h1.ReadAt(make([]byte, 4), 0) }()
+	time.Sleep(20 * time.Millisecond)
+
+	buf := make([]byte, 2)
+	n, err := h2.ReadAt(buf, 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, n)
+	require.Equal(t, "OK", string(buf))
+}
+
+// TestReadAtWrapper_AbandonedGoroutinesAreBounded is the direct regression
+// test for the OOM mechanism itself: N abandoned reads must leak roughly N
+// parked goroutines (one worker each), not a runaway multiple, and they
+// must all exit once their underlying read finally (or never — here,
+// deliberately) returns.
+func TestReadAtWrapper_AbandonedGoroutinesAreBounded(t *testing.T) {
+	if testing.Short() {
+		t.Skip("goroutine-count test is slow")
+	}
+	const n = 25
+	block := make(chan struct{})
+
+	before := runtime.NumGoroutine()
+
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			stub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+			r := newReadAtWrapper(stub, 60*time.Millisecond, &readStats{}, zerolog.Nop())
+			_, _ = r.ReadAt(make([]byte, 4), 0)
+		}()
+	}
+	wg.Wait() // every read above has abandoned by now
+
+	// A loose lower bound rather than a tight band: this suite can run
+	// alongside real-network tests (TestReadAtWrapper et al. against a real
+	// magnet, unskipped outside -short) whose own background goroutines are
+	// unrelated noise that only ever adds to the count, never subtracts.
+	require.GreaterOrEqual(t, runtime.NumGoroutine(), before+n, "each abandoned read should leave its worker goroutine parked")
+	peak := runtime.NumGoroutine()
+
+	close(block) // release all n stuck goroutines
+
+	// Measure the drop relative to peak, not a fresh absolute baseline: this
+	// isolates the effect of closing block from any ambient goroutine churn
+	// elsewhere in the suite, while still proving abandoned goroutines
+	// actually exit once their read returns rather than leaking forever.
+	require.Eventually(t, func() bool {
+		return runtime.NumGoroutine() <= peak-n+5
+	}, 2*time.Second, 10*time.Millisecond, "abandoned goroutines must exit once their read finally returns — closing block should free roughly n of them")
+}
+
+// BenchmarkReadAtWrapper_ReadAt_Cached isolates readAtWrapper's own overhead
+// (goroutine spawn, channel handoff, scratch-buffer copy) from real I/O, by
+// serving every read from memory in a single ReadContext call. Compare
+// before/after any change here with benchstat per docs/benchmarking.md.
+func BenchmarkReadAtWrapper_ReadAt_Cached(b *testing.B) {
+	data := make([]byte, 128*1024)
+	stub := &stubTorrentReader{data: data}
+	r := newReadAtWrapper(stub, 30*time.Second, &readStats{}, zerolog.Nop())
+	defer func() { _ = r.Close() }()
+
+	buf := make([]byte, len(data))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := r.ReadAt(buf, 0); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
