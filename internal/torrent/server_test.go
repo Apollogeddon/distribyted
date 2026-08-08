@@ -23,7 +23,6 @@ func TestServer_StartAndWatch(t *testing.T) {
 	cfg.NoDefaultPortForwarding = true
 	cfg.DisableIPv6 = true
 	cfg.DisableUTP = true
-	cfg.DisableWebseeds = true
 
 	client, err := torrent.NewClient(cfg)
 	require.NoError(t, err)
@@ -125,7 +124,6 @@ func TestServer_Start_UnreadableSubdir(t *testing.T) {
 	cfg.NoDefaultPortForwarding = true
 	cfg.DisableIPv6 = true
 	cfg.DisableUTP = true
-	cfg.DisableWebseeds = true
 
 	client, err := torrent.NewClient(cfg)
 	require.NoError(t, err)
