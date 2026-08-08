@@ -192,7 +192,27 @@ reliability issue above is understood.
   contributor to real-world "slow to start streaming" reports — time to
   find *any* peer, not time-to-first-byte once connected — but there's no
   DHT swarm or public tracker in the loopback test harness, and building
-  one is a research project, not a benchmarkable optimization. No code
-  changed for this; worth instrumenting with a
-  magnet-added→peer-connected→first-byte timing log line in production if
-  this keeps coming up, to get real data instead of guessing.
+  one is a research project, not a benchmarkable optimization.
+
+  **Update**: this is no longer purely guesswork. `internal/torrent.Timings`
+  now logs exactly this — magnet-added → metadata → first-peer → first-data
+  → first-read — as a structured `torrent cold start` / `file first read`
+  line, in production, on every torrent. And `make probe` (`cmd/probe`) runs
+  that same instrumentation against a real magnet over the real internet
+  (real DHT, real trackers, no synthetic throttling) from a dev machine —
+  no production deploy needed to get *a* real number.
+
+  The caveat that still matters: a dev machine's network conditions aren't
+  production's. Production runs behind a VPN (`disable_utp`/`disable_ipv6`
+  are set specifically for that — see the deploy config), which changes NAT
+  and UDP behaviour in ways a bare dev sandbox doesn't replicate. A `make
+  probe` run in a plain container (no VPN, restrictive egress) has reliably
+  shown fast metadata (~750ms, via the magnet's `xs=` HTTP source) but zero
+  peer connections ever completing out of ~30 discovered candidates within
+  150s — a real result, but likely reflecting this sandbox's own outbound
+  connectivity rather than anything true of the production host. Treat
+  `make probe` output as mechanism validation (proof the instrumentation
+  correctly distinguishes "found peers" from "connected to peers") and a
+  rough sanity check, not a production stand-in — the actual production
+  `torrent cold start` log lines are still the source of truth for whether
+  this is worth acting on.

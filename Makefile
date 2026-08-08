@@ -41,6 +41,16 @@ test:
 bench:
 	go test -bench=. -benchmem -run='^$$' ./internal/fs/... ./internal/http/... ./internal/testenv/... ./internal/torrent/... ./internal/webdav/...
 
+## probe: add a real magnet over the real internet (real DHT/trackers, no
+## synthetic throttling) and print stage-by-stage cold-start timing
+## (metadata/first peer/first data/first read). Manual diagnostic tool, not
+## part of the release build or test suite — see cmd/probe/main.go and
+## docs/benchmarking.md for what it's for and its caveats.
+## Override the magnet: make probe MAGNET="magnet:?..."
+## Override the timeout: make probe TIMEOUT=30s
+probe:
+	go run ./cmd/probe $(if $(MAGNET),-magnet "$(MAGNET)") $(if $(TIMEOUT),-timeout "$(TIMEOUT)")
+
 go-build:
 	@echo "  >  Building binary on $(BIN_OUTPUT)..."
 	go build -o $(BIN_OUTPUT) -tags "release" -ldflags='$(LDFLAGS)' cmd/distribyted/main.go
