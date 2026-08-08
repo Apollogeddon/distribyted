@@ -25,6 +25,19 @@ type TorrentFS struct {
 	readTimeout     int
 	responsiveReads bool
 	log             zerolog.Logger
+	onFirstRead     func(hash, path string, sinceOpen time.Duration)
+}
+
+// OnFirstRead registers a callback fired at most once per file, the first
+// time a read on it succeeds, with how long that took since the file was
+// opened. Must be called before AddTorrent for any torrent whose files
+// should be covered — addFiles copies the current callback onto each
+// torrentFile it creates, so a call after AddTorrent has no effect on
+// already-added torrents.
+func (fs *TorrentFS) OnFirstRead(f func(hash, path string, sinceOpen time.Duration)) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.onFirstRead = f
 }
 
 func NewTorrent(readTimeout int, responsiveReads bool) *TorrentFS {
@@ -63,14 +76,16 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 	ih := t.InfoHash().HexString()
 	for _, file := range t.Files() {
 		tf := &torrentFile{
-			hash:       ih,
-			file:       file,
-			readerFunc: file.NewReader,
-			len:        file.Length(),
-			timeout:    fs.readTimeout,
-			responsive: fs.responsiveReads,
-			stats:      &readStats{},
-			log:        fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
+			hash:        ih,
+			file:        file,
+			path:        file.Path(),
+			readerFunc:  file.NewReader,
+			len:         file.Length(),
+			timeout:     fs.readTimeout,
+			responsive:  fs.responsiveReads,
+			stats:       &readStats{},
+			onFirstRead: fs.onFirstRead,
+			log:         fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
 		tf.SetIno(HashIno(ih + file.Path()))
 		if err := fs.s.Add(tf, file.Path()); err != nil {
@@ -179,6 +194,11 @@ type readStats struct {
 	abandoned atomic.Int64
 	recovered atomic.Int64
 	poisoned  atomic.Int64
+
+	// firstReadReported guards the one-time OnFirstRead callback (see
+	// torrentFile.onFirstRead) so it fires at most once per file, ever,
+	// regardless of how many handles are opened on it.
+	firstReadReported atomic.Bool
 }
 
 // ErrReadTimeout is returned when a read makes no progress within its
@@ -493,19 +513,22 @@ var _ File = &torrentFile{}
 
 type torrentFile struct {
 	BaseFile
-	hash       string
-	file       *torrent.File
-	readerFunc func() torrent.Reader
-	len        int64
-	timeout    int
-	responsive bool
-	stats      *readStats
-	log        zerolog.Logger
+	hash        string
+	file        *torrent.File
+	path        string
+	readerFunc  func() torrent.Reader
+	len         int64
+	timeout     int
+	responsive  bool
+	stats       *readStats
+	onFirstRead func(hash, path string, sinceOpen time.Duration)
+	log         zerolog.Logger
 }
 
 func (d *torrentFile) NewHandle() *torrentFileHandle {
 	return &torrentFileHandle{
 		torrentFile: d,
+		openedAt:    time.Now(),
 	}
 }
 
@@ -541,9 +564,24 @@ var _ File = &torrentFileHandle{}
 
 type torrentFileHandle struct {
 	*torrentFile
-	reader reader
-	mu     sync.Mutex
-	closed bool
+	reader   reader
+	mu       sync.Mutex
+	closed   bool
+	openedAt time.Time
+}
+
+// reportFirstRead fires torrentFile.onFirstRead at most once per file
+// (guarded by the CAS on stats.firstReadReported, shared across every
+// handle opened on this file), with how long it took from this specific
+// handle's Open to its first successfully-read byte.
+func (h *torrentFileHandle) reportFirstRead() {
+	if h.onFirstRead == nil {
+		return
+	}
+	if !h.stats.firstReadReported.CompareAndSwap(false, true) {
+		return
+	}
+	h.onFirstRead(h.hash, h.path, time.Since(h.openedAt))
 }
 
 // load returns the current reader, creating it on first call, or nil if the
@@ -638,8 +676,11 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	n, err = r.Read(p)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
-			return r2.Read(p)
+			n, err = r2.Read(p)
 		}
+	}
+	if n > 0 {
+		h.reportFirstRead()
 	}
 	return n, err
 }
@@ -652,8 +693,11 @@ func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 	n, err = r.ReadAt(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
-			return r2.ReadAt(p, off)
+			n, err = r2.ReadAt(p, off)
 		}
+	}
+	if n > 0 {
+		h.reportFirstRead()
 	}
 	return n, err
 }

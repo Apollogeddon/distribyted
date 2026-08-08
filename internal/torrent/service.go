@@ -99,6 +99,7 @@ type Service struct {
 	loadWg sync.WaitGroup
 
 	lastHealth map[string]healthState
+	timings    *Timings
 }
 
 type healthState struct {
@@ -107,7 +108,7 @@ type healthState struct {
 	progress string
 }
 
-func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c TorrentClient, addTimeout, readTimeout int, continueWhenAddTimeout, responsiveReads bool) *Service {
+func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c TorrentClient, addTimeout, readTimeout int, continueWhenAddTimeout, responsiveReads bool, tm *Timings) *Service {
 	l := dlog.Logger("torrent-service")
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Service{
@@ -124,6 +125,7 @@ func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c 
 		ctx:                    ctx,
 		cancel:                 cancel,
 		lastHealth:             make(map[string]healthState),
+		timings:                tm,
 	}
 
 	go s.runHealthLogger()
@@ -413,6 +415,7 @@ func (s *Service) addRoute(r string) {
 	var listeners []func(string, fs.Filesystem)
 	if !exists {
 		tfs = fs.NewTorrent(s.readTimeout, s.responsiveReads)
+		tfs.OnFirstRead(s.timings.FirstRead)
 		s.fss[folder] = tfs
 		listeners = append(listeners, s.routeAddedListeners...)
 	}
@@ -428,22 +431,28 @@ func (s *Service) addRoute(r string) {
 }
 
 func (s *Service) addTorrent(r string, t fs.Torrent) error {
+	hash := t.InfoHash().String()
+	s.timings.Added(hash, r, t.Name(), webseedCount(t), t)
+
 	// only get info if name is not available
 	if t.Info() == nil {
-		s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("getting torrent info")
+		s.log.Info().Str(dlog.KeyHash, hash).Msg("getting torrent info")
 		select {
 		case <-time.After(time.Duration(s.addTimeout) * time.Second):
-			s.log.Warn().Str(dlog.KeyHash, t.InfoHash().String()).Msg("timeout getting torrent info")
+			s.log.Warn().Str(dlog.KeyHash, hash).Msg("timeout getting torrent info")
 			if !s.continueWhenAddTimeout {
 				return errors.New("timeout getting torrent info")
 			}
-			s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("ignoring timeout error and continuing in background")
+			s.log.Info().Str(dlog.KeyHash, hash).Msg("ignoring timeout error and continuing in background")
 		case <-t.GotInfo():
-			s.log.Info().Str(dlog.KeyHash, t.InfoHash().String()).Msg("obtained torrent info")
+			s.timings.GotInfo(hash)
+			s.log.Info().Str(dlog.KeyHash, hash).Msg("obtained torrent info")
 		case <-s.ctx.Done():
 			return nil
 		}
 
+	} else {
+		s.timings.GotInfo(hash)
 	}
 
 	// Add to stats
@@ -510,6 +519,7 @@ func (s *Service) RemoveFromHash(r, h string) error {
 
 	tfs.RemoveTorrent(h)
 	delete(s.lastHealth, h)
+	s.timings.Forget(h)
 	listeners := append([]func(string){}, s.torrentRemovedListeners...)
 	s.mu.Unlock()
 
@@ -559,4 +569,5 @@ func (s *Service) Close() {
 	s.cancel()
 	s.loadWg.Wait()
 	s.c.Close()
+	s.timings.Close()
 }

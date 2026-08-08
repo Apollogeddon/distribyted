@@ -34,9 +34,6 @@ func TestMain(m *testing.M) {
 	cfg.DisableIPv6 = true
 	cfg.DisableUTP = true
 
-	// disable webseeds to avoid a panic when closing client on tests
-	cfg.DisableWebseeds = true
-
 	client, err := torrent.NewClient(cfg)
 	if err != nil {
 		panic(err)
@@ -429,13 +426,15 @@ type stubTorrentReader struct {
 	closes atomic.Int64
 }
 
-func (s *stubTorrentReader) SetContext(context.Context)                    {}
-func (s *stubTorrentReader) SetReadahead(int64)                            {}
-func (s *stubTorrentReader) SetReadaheadFunc(f torrent.ReadaheadFunc)      {}
-func (s *stubTorrentReader) SetResponsive()                                {}
-func (s *stubTorrentReader) Seek(off int64, whence int) (int64, error)     { return off, nil }
-func (s *stubTorrentReader) Close() error                                  { s.closes.Add(1); return nil }
-func (s *stubTorrentReader) Read(p []byte) (int, error)                    { return s.ReadContext(context.Background(), p) }
+func (s *stubTorrentReader) SetContext(context.Context)                {}
+func (s *stubTorrentReader) SetReadahead(int64)                        {}
+func (s *stubTorrentReader) SetReadaheadFunc(f torrent.ReadaheadFunc)  {}
+func (s *stubTorrentReader) SetResponsive()                            {}
+func (s *stubTorrentReader) Seek(off int64, whence int) (int64, error) { return off, nil }
+func (s *stubTorrentReader) Close() error                              { s.closes.Add(1); return nil }
+func (s *stubTorrentReader) Read(p []byte) (int, error) {
+	return s.ReadContext(context.Background(), p)
+}
 
 func (s *stubTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) {
 	s.reads.Add(1)
@@ -460,7 +459,9 @@ func (t *trickleTorrentReader) SetReadaheadFunc(torrent.ReadaheadFunc)    {}
 func (t *trickleTorrentReader) SetResponsive()                            {}
 func (t *trickleTorrentReader) Seek(off int64, whence int) (int64, error) { return off, nil }
 func (t *trickleTorrentReader) Close() error                              { return nil }
-func (t *trickleTorrentReader) Read(p []byte) (int, error)                { return t.ReadContext(context.Background(), p) }
+func (t *trickleTorrentReader) Read(p []byte) (int, error) {
+	return t.ReadContext(context.Background(), p)
+}
 
 func (t *trickleTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) {
 	if t.remain <= 0 {
@@ -808,6 +809,105 @@ func TestReadAtWrapper_AbandonedGoroutinesAreBounded(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return runtime.NumGoroutine() <= peak-n+5
 	}, 2*time.Second, 10*time.Millisecond, "abandoned goroutines must exit once their read finally returns — closing block should free roughly n of them")
+}
+
+// TestTorrentFileHandle_FirstRead_FiresOnce guards the OnFirstRead hook
+// added for cold-start timing instrumentation (internal/torrent.Timings):
+// it must fire exactly once per file, regardless of how many handles are
+// opened or how many reads happen, with the duration measured from the
+// specific handle that produced the first byte.
+func TestTorrentFileHandle_FirstRead_FiresOnce(t *testing.T) {
+	type call struct {
+		hash, path string
+		sinceOpen  time.Duration
+	}
+	calls := make(chan call, 10)
+
+	tf := &torrentFile{
+		hash:    "deadbeef",
+		path:    "/movie.mkv",
+		timeout: 5,
+		stats:   &readStats{},
+		log:     zerolog.Nop(),
+		readerFunc: func() torrent.Reader {
+			return &stubTorrentReader{data: []byte{1, 2, 3, 4}}
+		},
+		onFirstRead: func(hash, path string, sinceOpen time.Duration) {
+			calls <- call{hash, path, sinceOpen}
+		},
+	}
+
+	h1 := tf.NewHandle()
+	time.Sleep(5 * time.Millisecond) // give sinceOpen something non-zero to measure
+	n, err := h1.ReadAt(make([]byte, 4), 0)
+	require.NoError(t, err)
+	require.Equal(t, 4, n)
+
+	h2 := tf.NewHandle()
+	_, err = h2.ReadAt(make([]byte, 4), 0)
+	require.NoError(t, err)
+
+	select {
+	case c := <-calls:
+		require.Equal(t, "deadbeef", c.hash)
+		require.Equal(t, "/movie.mkv", c.path)
+		require.GreaterOrEqual(t, c.sinceOpen, 5*time.Millisecond)
+	case <-time.After(time.Second):
+		t.Fatal("onFirstRead was never called")
+	}
+
+	select {
+	case c := <-calls:
+		t.Fatalf("onFirstRead fired a second time: %+v", c)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+// TestTorrentFileHandle_FirstRead_NotFiredOnTimeout confirms the hook only
+// reports a genuine first byte, not a call that returned zero bytes because
+// it hit its deadline.
+func TestTorrentFileHandle_FirstRead_NotFiredOnTimeout(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+
+	fired := false
+	tf := &torrentFile{
+		hash:    "h",
+		path:    "/p",
+		timeout: 1,
+		stats:   &readStats{},
+		log:     zerolog.Nop(),
+		readerFunc: func() torrent.Reader {
+			return &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
+		},
+		onFirstRead: func(hash, path string, sinceOpen time.Duration) { fired = true },
+	}
+
+	h := tf.NewHandle()
+	n, err := h.ReadAt(make([]byte, 4), 0)
+	require.Equal(t, 0, n)
+	require.ErrorIs(t, err, ErrReadTimeout)
+	require.False(t, fired, "a timed-out read must not be reported as a first byte")
+}
+
+// TestTorrentFileHandle_FirstRead_NilSafeWhenUnset confirms a file with no
+// OnFirstRead registered (the default — Service only sets one via
+// TorrentFS.OnFirstRead) reads normally with no nil-func-call panic.
+func TestTorrentFileHandle_FirstRead_NilSafeWhenUnset(t *testing.T) {
+	tf := &torrentFile{
+		hash:    "h",
+		path:    "/p",
+		timeout: 5,
+		stats:   &readStats{},
+		log:     zerolog.Nop(),
+		readerFunc: func() torrent.Reader {
+			return &stubTorrentReader{data: []byte{1, 2, 3, 4}}
+		},
+	}
+	h := tf.NewHandle()
+	n, err := h.ReadAt(make([]byte, 4), 0)
+	require.NoError(t, err)
+	require.Equal(t, 4, n)
 }
 
 // BenchmarkReadAtWrapper_ReadAt_Cached isolates readAtWrapper's own overhead

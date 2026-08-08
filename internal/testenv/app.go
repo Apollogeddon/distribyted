@@ -39,6 +39,7 @@ type TestApp struct {
 	Client       *atorrent.Client
 	Service      *dtorrent.Service
 	Stats        *dtorrent.Stats
+	Timings      *dtorrent.Timings
 	FS           *fs.ContainerFs
 	TempDir      string
 	Cache        *filecache.Cache
@@ -251,11 +252,13 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		return nil, err
 	}
 
+	tm := dtorrent.NewTimings()
 	ts := dtorrent.NewService(nil, dbl, ss, dtorrent.ClientWrapper{Client: c},
 		conf.Torrent.AddTimeout,
 		conf.Torrent.ReadTimeout,
 		conf.Torrent.ContinueWhenAddTimeout,
 		conf.Torrent.ResponsiveReads,
+		tm,
 	)
 
 	fss, _ := ts.Load()
@@ -292,6 +295,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		Client:       c,
 		Service:      ts,
 		Stats:        ss,
+		Timings:      tm,
 		FS:           cfs,
 		TempDir:      actualTempDir,
 		Cache:        fc,
@@ -408,6 +412,7 @@ func (a *TestApp) Close() {
 		_ = a.httpServer.Shutdown(context.Background())
 	}
 	a.Client.Close()
+	a.Timings.Close()
 	if a.pc != nil {
 		_ = a.pc.Close()
 	}

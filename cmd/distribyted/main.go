@@ -231,11 +231,13 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error starting magnet database: %w", err)
 	}
 
+	tm := torrent.NewTimings()
 	ts := torrent.NewService([]loader.Loader{cl, fl}, dbl, ss, torrent.ClientWrapper{Client: c},
 		conf.Torrent.AddTimeout,
 		conf.Torrent.ReadTimeout,
 		conf.Torrent.ContinueWhenAddTimeout,
 		conf.Torrent.ResponsiveReads,
+		tm,
 	)
 
 	var mh *fuse.Handler
@@ -273,6 +275,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		_ = dbl.Close() //nolint:errcheck // best-effort on shutdown
 		log.Info().Msg("closing torrent client...")
 		c.Close()
+		tm.Close()
 		log.Info().Msg("exiting")
 		os.Exit(0)
 	}()
