@@ -250,7 +250,14 @@ func (tm *Timings) pollEntry(c *coldStart, now time.Time) {
 	}
 
 	complete := c.complete()
-	overdue := now.Sub(c.added) > tm.deadline
+	// >= rather than >: on a clock coarse enough for two back-to-back
+	// time.Now() calls to return the same instant (observed on Windows CI
+	// runners), now.Sub(c.added) can be exactly 0 — a strict > would then
+	// never consider a zero-duration deadline (used by tests to simulate
+	// "already overdue on the first poll") actually overdue. >= is also the
+	// more correct semantic regardless: the deadline instant itself should
+	// count as overdue, not just strictly after it.
+	overdue := now.Sub(c.added) >= tm.deadline
 	shouldEmit := (complete || overdue) && !c.emitted
 
 	var snap coldStartSnapshot
