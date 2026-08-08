@@ -23,6 +23,26 @@ type ThrottledDialer struct {
 
 func (d ThrottledDialer) DialerNetwork() string { return "tcp" }
 
+// HTTPDialContext adapts Dial to torrent.ClientConfig.HTTPDialContext's
+// signature, so the same latency/bandwidth model applied to peer
+// connections (via Client.AddDialer) can also be applied to the webseed
+// HTTP client. This matters because they are two entirely separate paths
+// in anacrolix/torrent: AddDialer only affects peer connections, while
+// webseed/metainfo-source HTTP requests go through a *http.Client built
+// once at torrent.NewClient time from ClientConfig.HTTPDialContext (or
+// WebTransport, if set) — see client.go's init(). A benchmark that
+// throttles only the peer dialer and not this would run the webseed side
+// over unthrottled loopback HTTP, which isn't a fair comparison.
+//
+// Unlike the peer dialer, this can't be added after Client construction —
+// HTTPDialContext is read once when the client's http.Client is built —
+// so it must be passed in via a NewClient option (see
+// internal/torrent.NewClient's variadic opts and
+// NewTestAppThrottledWebseed).
+func (d ThrottledDialer) HTTPDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return d.Dial(ctx, addr)
+}
+
 func (d ThrottledDialer) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	if d.Latency > 0 {
 		select {

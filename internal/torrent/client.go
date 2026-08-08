@@ -16,7 +16,15 @@ import (
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 )
 
-func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal, id [20]byte) (*torrent.Client, error) {
+// NewClient builds the anacrolix/torrent client from distribyted's own
+// config. opts, if given, are applied to the underlying torrent.ClientConfig
+// after distribyted's own settings and before the client is constructed —
+// e.g. for tests that need to set ClientConfig.HTTPDialContext (see
+// internal/testenv.ThrottledDialer.HTTPDialContext), which can only be
+// configured at construction time, unlike the peer dialer which
+// torrent.Client.AddDialer can add afterward. Variadic so every existing
+// call site compiles unchanged.
+func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal, id [20]byte, opts ...func(*torrent.ClientConfig)) (*torrent.Client, error) {
 	// TODO download and upload limits
 	torrentCfg := torrent.NewDefaultClientConfig()
 	torrentCfg.Seed = cfg.Seed
@@ -59,6 +67,10 @@ func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal
 		cfg.Store = fis
 		cfg.Exp = 2 * time.Hour
 		cfg.NoSecurity = false
+	}
+
+	for _, opt := range opts {
+		opt(torrentCfg)
 	}
 
 	return torrent.NewClient(torrentCfg)

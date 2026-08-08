@@ -57,7 +57,7 @@ type TestApp struct {
 }
 
 func NewTestApp() (*TestApp, error) {
-	return newTestApp("", nil, true, false, false, false)
+	return newTestApp("", nil, true, false, false, false, nil)
 }
 
 func NewTestAppLimited(limit int64) (*TestApp, error) {
@@ -65,11 +65,11 @@ func NewTestAppLimited(limit int64) (*TestApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newTestApp(tempDir, &limit, false, false, false, false)
+	return newTestApp(tempDir, &limit, false, false, false, false, nil)
 }
 
 func NewTestAppWithDir(tempDir string) (*TestApp, error) {
-	return newTestApp(tempDir, nil, false, false, false, false)
+	return newTestApp(tempDir, nil, false, false, false, false, nil)
 }
 
 // NewTestAppNoDefaultDialer is like NewTestApp, but disables TCP so the
@@ -80,7 +80,7 @@ func NewTestAppWithDir(tempDir string) (*TestApp, error) {
 // making the addition a no-op. A manually-added dialer still connects fine
 // over TCP regardless of this flag — it isn't gated the same way.
 func NewTestAppNoDefaultDialer() (*TestApp, error) {
-	return newTestApp("", nil, true, true, false, false)
+	return newTestApp("", nil, true, true, false, false, nil)
 }
 
 // NewTestAppNoDefaultDialerResponsive is NewTestAppNoDefaultDialer with
@@ -88,7 +88,21 @@ func NewTestAppNoDefaultDialer() (*TestApp, error) {
 // responsive vs. default read latency under the same throttled-dialer
 // conditions (see internal/fs/torrent.go's responsive field).
 func NewTestAppNoDefaultDialerResponsive() (*TestApp, error) {
-	return newTestApp("", nil, true, true, false, true)
+	return newTestApp("", nil, true, true, false, true, nil)
+}
+
+// NewTestAppThrottledWebseed is NewTestAppNoDefaultDialer with the same
+// latency/bandwidth model also applied to the webseed HTTP client
+// (ClientConfig.HTTPDialContext), so a benchmark comparing webseed vs. peer
+// cold-start time throttles both paths identically instead of running
+// webseed traffic over unthrottled loopback HTTP. See
+// ThrottledDialer.HTTPDialContext's doc comment for why this can't just be
+// added after construction the way the peer dialer can (app.Client.AddDialer
+// still needs to be called separately for the peer side — this only wires
+// the webseed side).
+func NewTestAppThrottledWebseed(latency time.Duration, bytesPerSecond int) (*TestApp, error) {
+	throttle := ThrottledDialer{Latency: latency, BytesPerSecond: bytesPerSecond}
+	return newTestApp("", nil, true, true, false, false, throttle.HTTPDialContext)
 }
 
 // NewTestAppProductionStorage is like NewTestApp, but backs torrent data
@@ -119,10 +133,10 @@ func NewTestAppNoDefaultDialerResponsive() (*TestApp, error) {
 // a regression in whatever you're actually testing, but also don't assume
 // it can't recur — it did, once, under load resembling a busy CI machine.
 func NewTestAppProductionStorage() (*TestApp, error) {
-	return newTestApp("", nil, false, false, true, false)
+	return newTestApp("", nil, false, false, true, false, nil)
 }
 
-func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDialer bool, resourcePieces bool, responsiveReads bool) (*TestApp, error) {
+func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDialer bool, resourcePieces bool, responsiveReads bool, httpDialContext func(ctx context.Context, network, addr string) (net.Conn, error)) (*TestApp, error) {
 	actualTempDir := tempDir
 	if actualTempDir == "" {
 		var err error
@@ -237,7 +251,11 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 	}
 	id, _ := dtorrent.GetOrCreatePeerID(idPath)
 
-	c, err := dtorrent.NewClient(st, fis, conf.Torrent, id)
+	var clientOpts []func(*atorrent.ClientConfig)
+	if httpDialContext != nil {
+		clientOpts = append(clientOpts, func(cc *atorrent.ClientConfig) { cc.HTTPDialContext = httpDialContext })
+	}
+	c, err := dtorrent.NewClient(st, fis, conf.Torrent, id, clientOpts...)
 	if err != nil {
 		return nil, err
 	}
