@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.29.0](https://github.com/Apollogeddon/distribyted/compare/v0.28.0...v0.29.0) (2026-08-09)
+
+
+### Features
+
+* Add a real-network cold-start probe tool ([8c70bfc](https://github.com/Apollogeddon/distribyted/commit/8c70bfca5678d1c7bfdc601896fb4444a215c1a6))
+* Add runtime stats logging and a gated pprof endpoint ([2965f4d](https://github.com/Apollogeddon/distribyted/commit/2965f4d2a5e96b59c1a871c09c55f953968464a5))
+* Log torrent cold-start and first-read timing ([0876fcf](https://github.com/Apollogeddon/distribyted/commit/0876fcf5c82b8b7120373168be7ab050806089d0))
+
+
+### Bug Fixes
+
+* Bound torrent reads to a hard deadline instead of hanging forever on a stuck read ([b288c35](https://github.com/Apollogeddon/distribyted/commit/b288c357b22ce83f4d550ed49b51071641b63f77))
+* Don't miss an exactly-at-deadline cold-start watchdog on coarse clocks ([360f3cc](https://github.com/Apollogeddon/distribyted/commit/360f3cc5af1a9c009c0de953602c813f9ff4385d))
+* Install WinFsp's full MSI feature set so cgofuse's headers exist on Windows CI ([338fc8e](https://github.com/Apollogeddon/distribyted/commit/338fc8ea3ee13984d1b09bafb98b9155937eafe6))
+
 ## [0.28.0](https://github.com/Apollogeddon/distribyted/compare/v0.27.1...v0.28.0) (2026-08-01)
 
 
