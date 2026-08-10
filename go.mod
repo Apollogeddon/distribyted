@@ -36,7 +36,7 @@ require (
 
 require (
 	github.com/anacrolix/generics v0.2.0
-	github.com/dgraph-io/badger/v4 v4.9.5
+	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/winfsp/cgofuse v1.6.0
 )
 
