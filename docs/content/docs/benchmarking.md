@@ -1,4 +1,7 @@
-# Benchmarking
+---
+title: Benchmarking
+weight: 7
+---
 
 `task bench` runs distribyted's performance/latency benchmark suite
 (`internal/fs`, `internal/http`, `internal/testenv`, `internal/torrent`,

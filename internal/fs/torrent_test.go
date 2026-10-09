@@ -916,7 +916,7 @@ func TestTorrentFileHandle_FirstRead_NilSafeWhenUnset(t *testing.T) {
 // BenchmarkReadAtWrapper_ReadAt_Cached isolates readAtWrapper's own overhead
 // (goroutine spawn, channel handoff, scratch-buffer copy) from real I/O, by
 // serving every read from memory in a single ReadContext call. Compare
-// before/after any change here with benchstat per docs/benchmarking.md.
+// before/after any change here with benchstat per docs/content/docs/benchmarking.md.
 func BenchmarkReadAtWrapper_ReadAt_Cached(b *testing.B) {
 	data := make([]byte, 128*1024)
 	stub := &stubTorrentReader{data: data}

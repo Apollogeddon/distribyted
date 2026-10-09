@@ -240,7 +240,7 @@ func (fs *flakyStorage) OpenTorrent(ctx context.Context, info *metainfo.Info, in
 	// read just returns an error instead of recursing — this test would
 	// prove nothing about the actual production bug, which only exists on
 	// the recursing branch (see cmd/distribyted/main.go's capFunc, wired
-	// there for exactly this reason per docs/benchmarking.md).
+	// there for exactly this reason per docs/content/docs/benchmarking.md).
 	capFunc := func() (int64, bool) { return 1 << 30, true }
 	tImpl.Capacity = &capFunc
 

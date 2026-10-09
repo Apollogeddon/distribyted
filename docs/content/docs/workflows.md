@@ -1,4 +1,7 @@
-# Workflows
+---
+title: Workflows
+weight: 4
+---
 
 This guide illustrates how Distribyted operates and how different components interact to provide on-demand torrent access.
 

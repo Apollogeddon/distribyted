@@ -6,7 +6,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/Apollogeddon/distribyted">
-    <img src="docs/images/distribyted_icon.png" alt="Logo" width="100">
+    <img src="docs/static/images/distribyted_icon.png" alt="Logo" width="100">
   </a>
 
   <h3 align="center">distribyted</h3>
@@ -21,7 +21,7 @@
     ·
     <a href="https://github.com/Apollogeddon/distribyted/issues">Request Feature</a>
     ·
-    <a href="./docs/workflows.md">System Workflows</a>
+    <a href="https://apollogeddon.github.io/distribyted/docs/">Documentation</a>
   </p>
 </p>
 
@@ -91,17 +91,17 @@ Add `distribyted` as a **qBitTorrent** download client:
 
 ## 📚 Documentation
 
-Detailed technical guides are available in the [docs](./docs/) folder:
+The full guides are on the [documentation site](https://apollogeddon.github.io/distribyted/docs/) (source in [`docs/`](./docs/)):
 
-- **[Workflows](./docs/workflows.md)**: Visual guides on system interactions and data flow.
-- **[Configuration](./docs/configuration.md)**: Detailed YAML configuration guide.
-- **[Integration](./docs/integration.md)**: Setup with Radarr, Sonarr, and Plex.
-- **[Architecture](./docs/architecture.md)**: Learn how the internal VFS and Torrent engine work.
-- **[Development](./docs/development.md)**: Guide for building from source and contributing.
+- **[Workflows](https://apollogeddon.github.io/distribyted/docs/workflows/)**: Visual guides on system interactions and data flow.
+- **[Configuration](https://apollogeddon.github.io/distribyted/docs/configuration/)**: Detailed YAML configuration guide.
+- **[Integration](https://apollogeddon.github.io/distribyted/docs/integration/)**: Setup with Radarr, Sonarr, and Plex.
+- **[Architecture](https://apollogeddon.github.io/distribyted/docs/architecture/)**: Learn how the internal VFS and Torrent engine work.
+- **[Development](https://apollogeddon.github.io/distribyted/docs/development/)**: Guide for building from source and contributing.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please check the [Development Guide](./docs/development.md) to get started.
+Contributions are welcome! Please check the [Development Guide](https://apollogeddon.github.io/distribyted/docs/development/) to get started.
 
 ## 📄 License
 
@@ -112,6 +112,6 @@ Distributed under the GPL3 license. See `LICENSE` for more information.
 [releases-url]: https://github.com/Apollogeddon/distribyted/releases
 [license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
 [license-url]: https://github.com/Apollogeddon/distribyted/blob/main/LICENSE
-[product-screenshot]: docs/images/distribyted.gif
+[product-screenshot]: docs/static/images/distribyted.gif
 [coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
 [coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted

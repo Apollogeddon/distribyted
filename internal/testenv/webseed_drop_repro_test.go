@@ -20,7 +20,7 @@ import (
 
 // TestWebseedDropPanic_Repro investigates a suspected panic hazard in
 // anacrolix/torrent v1.61.0, found while planning webseed-prioritization
-// work (not built, and not needed — see docs/benchmarking.md and the
+// work (not built, and not needed — see docs/content/docs/benchmarking.md and the
 // webseed-prioritization plan): Torrent.close does not remove that
 // torrent's entries from Client.activeWebseedRequests (torrent.go's own
 // disabled assertion says as much: "This doesn't work yet because requests

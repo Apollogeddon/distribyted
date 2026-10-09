@@ -9,7 +9,7 @@
 // hermetic (loopback Tracker/Seeder, no real DHT) so CI stays fast and
 // deterministic — but that means it structurally cannot answer "how long
 // does real peer discovery actually take". This can, without needing a
-// production deploy. See docs/benchmarking.md's "DHT/tracker peer-discovery
+// production deploy. See docs/content/docs/benchmarking.md's "DHT/tracker peer-discovery
 // latency" section for the caveat that matters most: this dev machine's
 // network conditions (no VPN, different NAT/egress) are not representative
 // of the production host, so treat the numbers as mechanism validation, not

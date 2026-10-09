@@ -1,4 +1,7 @@
-# Architecture
+---
+title: Architecture
+weight: 5
+---
 
 Distribyted is designed as a modular bridge between the BitTorrent protocol and standard filesystem interfaces (FUSE, WebDAV, HTTP). It allows for **random-access reads** over a BitTorrent swarm by treating the torrent data as a lazy-loaded block device.
 
