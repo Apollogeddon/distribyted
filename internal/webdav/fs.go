@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -35,7 +34,8 @@ func (wd *WebDAV) OpenFile(ctx context.Context, name string, flag int, perm os.F
 	}
 
 	wd.log.Info().Str("path", p).Msg("file opened")
-	wdf := newFile(filepath.Base(p), f, func() ([]os.FileInfo, error) {
+	// a slash path: filepath.Base on Windows reads "//folder/file" as a volume name
+	wdf := newFile(p, f, func() ([]os.FileInfo, error) {
 		return wd.listDir(p)
 	}, wd.log.With().Str("path", p).Logger())
 	return wdf, nil
