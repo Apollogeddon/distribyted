@@ -724,7 +724,10 @@ func TestTorrentFileHandle_ReadAtRetriesOnReaderPoisonedConcurrently(t *testing.
 		defer wg.Done()
 		_, err1 = h.ReadAt(make([]byte, 4), 0) // occupies sem, abandons at its deadline
 	}()
-	time.Sleep(20 * time.Millisecond)
+	// The second read waits for sem for up to the same 1s timeout, so it must start well
+	// after the first: 20ms was within Windows' timer resolution, which sometimes fired
+	// its acquire timeout before the first read's deadline poisoned the reader.
+	time.Sleep(500 * time.Millisecond)
 	go func() {
 		defer wg.Done()
 		buf := make([]byte, 4)
