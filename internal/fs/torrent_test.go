@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -422,8 +421,9 @@ type stubTorrentReader struct {
 	block chan struct{} // if non-nil, ReadContext blocks here until closed
 	data  []byte        // bytes copied into p once unblocked (or immediately if block == nil)
 
-	reads  atomic.Int64
-	closes atomic.Int64
+	reads    atomic.Int64
+	closes   atomic.Int64
+	inFlight atomic.Int64 // ReadContext calls not yet returned
 }
 
 func (s *stubTorrentReader) SetContext(context.Context)                {}
@@ -438,6 +438,8 @@ func (s *stubTorrentReader) Read(p []byte) (int, error) {
 
 func (s *stubTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) {
 	s.reads.Add(1)
+	s.inFlight.Add(1)
+	defer s.inFlight.Add(-1)
 	if s.block != nil {
 		<-s.block
 	}
@@ -721,7 +723,10 @@ func TestTorrentFileHandle_ReadAtRetriesOnReaderPoisonedConcurrently(t *testing.
 		defer wg.Done()
 		_, err1 = h.ReadAt(make([]byte, 4), 0) // occupies sem, abandons at its deadline
 	}()
-	time.Sleep(20 * time.Millisecond)
+	// The second read waits for sem for up to the same 1s timeout, so it must start well
+	// after the first: 20ms was within Windows' timer resolution, which sometimes fired
+	// its acquire timeout before the first read's deadline poisoned the reader.
+	time.Sleep(500 * time.Millisecond)
 	go func() {
 		defer wg.Done()
 		buf := make([]byte, 4)
@@ -778,37 +783,32 @@ func TestReadAtWrapper_AbandonedGoroutinesAreBounded(t *testing.T) {
 	}
 	const n = 25
 	block := make(chan struct{})
-
-	before := runtime.NumGoroutine()
+	// One stub shared by every wrapper counts the worker goroutines parked in it.
+	// runtime.NumGoroutine can't: earlier tests' workers, released by their cleanups,
+	// may still be exiting and pull the count down while this test runs.
+	stub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
 
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			stub := &stubTorrentReader{block: block, data: []byte{0, 0, 0, 0}}
 			r := newReadAtWrapper(stub, 60*time.Millisecond, &readStats{}, zerolog.Nop())
 			_, _ = r.ReadAt(make([]byte, 4), 0)
 		}()
 	}
 	wg.Wait() // every read above has abandoned by now
 
-	// A loose lower bound rather than a tight band: this suite can run
-	// alongside real-network tests (TestReadAtWrapper et al. against a real
-	// magnet, unskipped outside -short) whose own background goroutines are
-	// unrelated noise that only ever adds to the count, never subtracts.
-	require.GreaterOrEqual(t, runtime.NumGoroutine(), before+n, "each abandoned read should leave its worker goroutine parked")
-	peak := runtime.NumGoroutine()
+	// A worker may abandon before it's even been scheduled, so wait for each to reach the stub.
+	require.Eventually(t, func() bool {
+		return stub.inFlight.Load() == n
+	}, 2*time.Second, 10*time.Millisecond, "each abandoned read should leave exactly its worker goroutine parked")
 
 	close(block) // release all n stuck goroutines
 
-	// Measure the drop relative to peak, not a fresh absolute baseline: this
-	// isolates the effect of closing block from any ambient goroutine churn
-	// elsewhere in the suite, while still proving abandoned goroutines
-	// actually exit once their read returns rather than leaking forever.
 	require.Eventually(t, func() bool {
-		return runtime.NumGoroutine() <= peak-n+5
-	}, 2*time.Second, 10*time.Millisecond, "abandoned goroutines must exit once their read finally returns — closing block should free roughly n of them")
+		return stub.inFlight.Load() == 0
+	}, 2*time.Second, 10*time.Millisecond, "abandoned goroutines must exit once their read finally returns")
 }
 
 // TestTorrentFileHandle_FirstRead_FiresOnce guards the OnFirstRead hook
