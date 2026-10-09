@@ -2,12 +2,12 @@ package webdav
 
 import (
 	"context"
-	"fmt"
 	"hash/fnv"
 	"io"
 	"mime"
 	"os"
 	"path"
+	"strconv"
 	"sync"
 	"time"
 
@@ -223,7 +223,9 @@ type webDAVFileInfo struct {
 	name  string
 	size  int64
 	isDir bool
-	etag  string
+	// path and hash make the ETag, worked out only when a client asks for it
+	path string
+	hash string
 }
 
 // startedAt is every file's modification time. The files have none of their own, and a
@@ -239,21 +241,29 @@ var (
 // newFileInfo describes the file at path p. Name() is the last element only, as
 // os.FileInfo requires: WebDAV clients show it as the entry's display name.
 func newFileInfo(p string, f fs.File) *webDAVFileInfo {
-	fi := &webDAVFileInfo{
+	return &webDAVFileInfo{
 		name:  path.Base(p),
 		size:  f.Size(),
 		isDir: f.IsDir(),
+		path:  p,
+		hash:  f.Hash(),
 	}
-	// the ETag is the same for the same file however often it's asked for, and across
-	// restarts: its path, its torrent and its size
-	h := fnv.New64a()
-	_, _ = io.WriteString(h, path.Clean("/"+p)+"\x00"+f.Hash())
-	fi.etag = fmt.Sprintf(`"%x-%x"`, h.Sum64(), fi.size)
-	return fi
 }
 
+// ETag is the same for the same file however often it's asked for, and across restarts:
+// its path, its torrent and its size.
 func (wdfi *webDAVFileInfo) ETag(context.Context) (string, error) {
-	return wdfi.etag, nil
+	h := fnv.New64a()
+	_, _ = io.WriteString(h, path.Clean("/"+wdfi.path))
+	_, _ = io.WriteString(h, "\x00")
+	_, _ = io.WriteString(h, wdfi.hash)
+	b := make([]byte, 0, 36)
+	b = append(b, '"')
+	b = strconv.AppendUint(b, h.Sum64(), 16)
+	b = append(b, '-')
+	b = strconv.AppendInt(b, wdfi.size, 16)
+	b = append(b, '"')
+	return string(b), nil
 }
 
 // ContentType comes from the name. Without it, the WebDAV handler opens and reads the
