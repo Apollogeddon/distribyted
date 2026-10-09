@@ -3,7 +3,9 @@ package fs
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"io"
 	"os"
 	"testing"
@@ -196,4 +198,70 @@ func newCBR(b []byte) *closeableByteReader {
 
 func (*closeableByteReader) Close() error {
 	return nil
+}
+
+// storedRar builds a RAR 4 archive holding files without compression, which is enough to
+// exercise reading entries back; no rar tool is needed.
+func storedRar(files map[string][]byte, order []string) []byte {
+	var b bytes.Buffer
+	header := func(body []byte) {
+		crc := crc32.ChecksumIEEE(body)
+		_ = binary.Write(&b, binary.LittleEndian, uint16(crc))
+		b.Write(body)
+	}
+	b.Write([]byte{0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00}) // marker
+	// archive header: type, flags, size, reserved
+	main := []byte{0x73}
+	main = binary.LittleEndian.AppendUint16(main, 0)
+	main = binary.LittleEndian.AppendUint16(main, 13)
+	main = append(main, make([]byte, 6)...)
+	header(main)
+	for _, name := range order {
+		data := files[name]
+		h := []byte{0x74}
+		h = binary.LittleEndian.AppendUint16(h, 0x8000)
+		h = binary.LittleEndian.AppendUint16(h, uint16(32+len(name)))
+		h = binary.LittleEndian.AppendUint32(h, uint32(len(data))) // packed size
+		h = binary.LittleEndian.AppendUint32(h, uint32(len(data))) // unpacked size
+		h = append(h, 0)                                           // host OS
+		h = binary.LittleEndian.AppendUint32(h, crc32.ChecksumIEEE(data))
+		h = binary.LittleEndian.AppendUint32(h, 0) // time
+		h = append(h, 20, 0x30)                    // version 2.0, stored
+		h = binary.LittleEndian.AppendUint16(h, uint16(len(name)))
+		h = binary.LittleEndian.AppendUint32(h, 0x20) // attributes
+		h = append(h, name...)
+		header(h)
+		b.Write(data)
+	}
+	end := []byte{0x7b}
+	end = binary.LittleEndian.AppendUint16(end, 0x4000)
+	end = binary.LittleEndian.AppendUint16(end, 7)
+	header(end)
+	return b.Bytes()
+}
+
+// TestRarFilesystem reads every entry of a RAR archive. Each entry used to share the one
+// stream that listing had already read to the end, so every read failed.
+func TestRarFilesystem(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	files := map[string][]byte{"first.txt": []byte("first file"), "second.txt": []byte("the second file")}
+	data := storedRar(files, []string{"first.txt", "second.txt"})
+	rfs := NewArchive(newCBR(data), int64(len(data)), &Rar{})
+
+	dir, err := rfs.ReadDir("/")
+	require.NoError(err)
+	require.Len(dir, 2)
+
+	// read the later entry first, then the earlier one
+	for _, name := range []string{"second.txt", "first.txt"} {
+		f, err := rfs.Open("/" + name)
+		require.NoError(err)
+		buf := make([]byte, len(files[name]))
+		n, err := f.ReadAt(buf, 0)
+		require.NoError(err, name)
+		require.Equal(files[name], buf[:n])
+		require.NoError(f.Close())
+	}
 }

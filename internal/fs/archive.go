@@ -102,9 +102,15 @@ func (fs *Rar) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 		if err != nil {
 			return nil, err
 		}
+		if header.IsDir {
+			continue
+		}
 
+		// a RAR archive can only be read in order, and listing it has already read r to the
+		// end, so each entry is opened with a fresh reader skipped forward to it
+		name := header.Name
 		rf := func() (iio.Reader, error) {
-			return iio.NewDiskTeeReader(r)
+			return openRarEntry(reader, size, name)
 		}
 
 		n := filepath.Join(string(os.PathSeparator), header.Name) //nolint:gosec // G305: intentional archive path join
@@ -115,6 +121,25 @@ func (fs *Rar) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 	}
 
 	return out, nil
+}
+
+func openRarEntry(reader iio.Reader, size int64, name string) (iio.Reader, error) {
+	r, err := rardecode.NewReader(iio.NewSeekerWrapper(reader, size))
+	if err != nil {
+		return nil, err
+	}
+	for {
+		header, err := r.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil, os.ErrNotExist
+			}
+			return nil, err
+		}
+		if header.Name == name {
+			return iio.NewDiskTeeReader(r)
+		}
+	}
 }
 
 type loader interface {
