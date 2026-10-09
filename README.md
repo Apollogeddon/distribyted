@@ -111,7 +111,7 @@ Distributed under the GPL3 license. See `LICENSE` for more information.
 [releases-shield]: https://img.shields.io/github/v/release/Apollogeddon/distribyted.svg?style=flat-square
 [releases-url]: https://github.com/Apollogeddon/distribyted/releases
 [license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
-[license-url]: https://github.com/Apollogeddon/distribyted/blob/master/LICENSE
+[license-url]: https://github.com/Apollogeddon/distribyted/blob/main/LICENSE
 [product-screenshot]: docs/images/distribyted.gif
 [coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
 [coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted
