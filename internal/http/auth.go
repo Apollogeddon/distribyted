@@ -171,12 +171,20 @@ func sessionValid(c *gin.Context, ac authConfig, st *sessionStore) bool {
 // for someone using it all along.
 func setSessionCookie(c *gin.Context, sid string) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(sessionCookieName, sid, 0, "/", "", false, true)
+	c.SetCookie(sessionCookieName, sid, 0, "/", "", overHTTPS(c), true)
 }
 
 func clearSessionCookie(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(sessionCookieName, "", -1, "/", "", false, true)
+	c.SetCookie(sessionCookieName, "", -1, "/", "", overHTTPS(c), true)
+}
+
+// overHTTPS reports whether the browser reached distribyted over HTTPS, directly or through
+// a proxy that terminates TLS. The session cookie is Secure then. It can't always be: most
+// installs are plain HTTP on a home network, where browsers drop a Secure cookie and nobody
+// could log in.
+func overHTTPS(c *gin.Context) bool {
+	return c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
 }
 
 // --- qBittorrent-compatible API (/api/v2) ---
