@@ -331,6 +331,9 @@ var (
 	ErrBadHolderIndex = errors.New("holder index too big")
 )
 
+// fileHandler tracks open files by handle. mu guards opened and nothing else: listing a
+// folder or opening a file can wait on the network for as long as the read timeout, and
+// holding mu across that blocked every read of every open file behind any waiting Lock.
 type fileHandler struct {
 	mu     sync.RWMutex
 	opened []fs.File
@@ -338,19 +341,16 @@ type fileHandler struct {
 }
 
 func (fh *fileHandler) GetFile(path string, fhi uint64) (fs.File, error) {
-	fh.mu.RLock()
-	defer fh.mu.RUnlock()
-
 	if fhi == fhNone {
 		return fh.lookupFile(path)
 	}
+
+	fh.mu.RLock()
+	defer fh.mu.RUnlock()
 	return fh.get(fhi)
 }
 
 func (fh *fileHandler) ListDir(path string) ([]string, error) {
-	fh.mu.RLock()
-	defer fh.mu.RUnlock()
-
 	var out []string
 	files, err := fh.fs.ReadDir(path)
 	if err != nil {
