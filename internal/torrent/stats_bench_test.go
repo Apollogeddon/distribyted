@@ -45,7 +45,7 @@ func setupStatsWithTorrents(n int) *Stats {
 
 // BenchmarkStats_RoutesStats measures the cost of recomputing piece-state
 // runs for every torrent, as torrent count grows. This backs /api/routes,
-// polled every 2s by the dashboard (routes.js) for as long as the tab stays
+// polled every 2s by the Routes page for as long as the tab stays
 // open, so its cost scales with how many torrents exist, not with anything
 // the user is actively doing. The samples are backdated before every iteration
 // so each one takes the real computation path rather than Stats' own 2s

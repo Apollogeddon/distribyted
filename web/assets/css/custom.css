@@ -1,6 +1,8 @@
 /* Modern Glassmorphic Dark Theme */
 
 :root {
+  --chart-down: #38bdf8;
+  --chart-up: #4ade80;
   --surface: #0f172a;
   --surface-raised: #1e293b;
   --field-bg: rgba(15, 23, 42, 0.7);
@@ -94,11 +96,6 @@ h1, h2, h3, h4, h5, h6, .brand-name {
   overflow: hidden;
 }
 
-.card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
-}
 
 .card-header {
   background: transparent !important;
@@ -145,9 +142,6 @@ h1, h2, h3, h4, h5, h6, .brand-name {
   transition: var(--transition);
 }
 
-.kpi-card:hover .kpi-icon {
-  transform: scale(1.1) rotate(5deg);
-}
 
 /* Overriding default template colors */
 .bg-white {
@@ -481,7 +475,6 @@ form.htmx-request .btn-spinner { display: inline-block; }
 /* ---- Routes ---- */
 
 .routes > * + * { margin-top: 1.5rem; }
-.route-card:hover { transform: none; }
 .route-card-header {
   display: flex;
   align-items: baseline;
@@ -567,8 +560,6 @@ form.htmx-request .btn-spinner { display: inline-block; }
 
 .files > * + *,
 .links > * + * { margin-top: 1rem; }
-.files .card:hover,
-.links .card:hover { transform: none; }
 .files-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -666,8 +657,6 @@ form.htmx-request .btn-spinner { display: inline-block; }
 
 .logs > * + *,
 .servers > * + * { margin-top: 1rem; }
-.logs .card:hover,
-.servers .card:hover { transform: none; }
 
 .log-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .log-filter {
@@ -777,4 +766,126 @@ form.htmx-request .btn-spinner { display: inline-block; }
   .log-table td { padding: 0; border: 0; }
   .log-table td:nth-child(-n+3) { display: inline-block; margin-right: 0.5rem; }
   .log-message { min-width: 0; margin-top: 0.3rem; }
+}
+
+/* ---- Sidebar ---- */
+
+/* the sidebar scrolls itself now that the slimScroll plugin is gone */
+.sidebar .sidebar-scrollbar { overflow-y: auto; height: calc(100% - 76px); }
+/* over the brand rather than beside it, so the sidebar keeps the width it slides by */
+.sidebar .app-brand { position: relative; }
+.sidebar-close {
+  display: none;
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+@media (max-width: 767.98px) {
+  .sidebar-close { display: inline-flex; }
+}
+.sidebar-toggle:focus-visible,
+.sidenav-item-link:focus-visible { outline: none; box-shadow: var(--focus-ring) !important; }
+
+/* ---- Toasts ---- */
+
+.toasts {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(24rem, calc(100vw - 2rem));
+}
+.toast-msg {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: var(--text-main);
+  box-shadow: var(--card-shadow);
+  animation: toast-in 0.15s ease-out;
+}
+.toast-msg span { flex: 1; overflow-wrap: anywhere; }
+.toast-msg > .mdi { font-size: 1.25rem; }
+.toast-success { border-left-color: var(--ok); }
+.toast-success > .mdi { color: var(--ok); }
+.toast-info { border-left-color: var(--wait); }
+.toast-info > .mdi { color: var(--wait); }
+.toast-error { border-left-color: var(--danger); }
+.toast-error > .mdi { color: var(--danger); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .toast-msg { animation: none; } }
+
+/* ---- Dashboard ---- */
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+.kpi {
+  position: relative;
+  padding: 1.25rem;
+}
+.kpi-wide { grid-column: span 2; }
+.kpi p { margin: 0; }
+.kpi .kpi-icon { position: absolute; top: 1rem; right: 1rem; font-size: 1.5rem; opacity: 0.9; }
+.kpi-down { color: var(--chart-down); }
+.kpi-up { color: var(--chart-up); }
+.kpi-cache { color: var(--warn); }
+.kpi-figure {
+  margin-top: 0.35rem !important;
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+}
+.kpi-none { font-size: 1.25rem; color: var(--text-muted); }
+.kpi-sub { font-size: 0.875rem; font-weight: 400; color: var(--text-muted); }
+.meter {
+  height: 0.5rem;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.15);
+}
+.meter span { display: block; height: 100%; border-radius: inherit; background: var(--warn); }
+
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+.chart-legend li { display: flex; align-items: center; gap: 0.4rem; }
+.swatch { width: 0.85rem; height: 0.2rem; border-radius: 2px; }
+.swatch-down { background: var(--chart-down); }
+.swatch-up { background: var(--chart-up); }
+.chart-body { position: relative; height: 280px; padding: 1rem 1.25rem 1.25rem; }
+
+.login-title { margin: 0; font-size: 1.5rem; }
+
+@media (max-width: 991.98px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575.98px) {
+  .kpis { grid-template-columns: minmax(0, 1fr); }
+  .kpi-wide { grid-column: auto; }
+  .chart-body { height: 220px; }
+}
+
+/* Sleek hides the labels of links when the sidebar is narrowed; the logout button too */
+@media (min-width: 768px) {
+  .sidebar-minified .left-sidebar:not(:hover) .sidenav-button .nav-text { display: none; }
 }
