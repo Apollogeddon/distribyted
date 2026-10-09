@@ -79,6 +79,10 @@ func (fs *TorrentFS) AddTorrent(t Torrent) {
 		}
 		fs.mu.Lock()
 		defer fs.mu.Unlock()
+		// RemoveTorrent may have run while this waited for the lock
+		if fs.waiting[ih] != removed {
+			return
+		}
 		delete(fs.waiting, ih)
 		fs.addFiles(t)
 	}()
