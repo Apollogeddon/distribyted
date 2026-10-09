@@ -165,7 +165,8 @@ jobs:
           GOFLAGS: -race
         run: |
           go tool -modfile=.forgego/task/go.mod task test:short
-        if: inputs.release_tag == ''
+        # linux runs the full suite below, which includes these
+        if: inputs.release_tag == '' && matrix.job_name != 'linux_amd64'
 
       - name: Run integration tests (race)
         shell: bash
@@ -203,9 +204,9 @@ jobs:
       # pipeline calls this again with release_tag once it publishes a release
       - name: Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        if: inputs.release_tag != '' || startsWith(github.ref, 'refs/tags/')
+        if: inputs.release_tag != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          tag_name: ${{ inputs.release_tag }}
           files: bin/*
