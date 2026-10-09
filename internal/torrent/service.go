@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Apollogeddon/distribyted/internal/config"
+
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/rs/zerolog"
@@ -303,6 +305,9 @@ func (s *Service) load(l loader.Loader) error {
 }
 
 func (s *Service) AddMagnet(r, m string) error {
+	if err := config.ValidateRouteName(r); err != nil {
+		return err
+	}
 	if err := s.addMagnet(r, m); err != nil {
 		return err
 	}
@@ -485,6 +490,9 @@ func (s *Service) addTorrent(r string, t fs.Torrent) error {
 }
 
 func (s *Service) RemoveFromHash(r, h string) error {
+	if err := config.ValidateRouteName(r); err != nil {
+		return err
+	}
 	s.log.Info().Str(dlog.KeyRoute, r).Str(dlog.KeyHash, h).Msg("removing torrent")
 
 	// Remove from db
