@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/anacrolix/torrent/bencode"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
 	dfs "github.com/Apollogeddon/distribyted/internal/fs"
@@ -21,6 +24,7 @@ import (
 
 type mockTorrentService struct {
 	addMagnetFunc          func(r, m string) error
+	addTorrentMetaInfoFunc func(r string, mi *metainfo.MetaInfo) error
 	removeFromHashFunc     func(r, h string) error
 	removeFromHashOnlyFunc func(h string) error
 	listLinksFunc          func() (map[string]string, error)
@@ -29,6 +33,10 @@ type mockTorrentService struct {
 
 func (m *mockTorrentService) AddMagnet(r, magnet string) error {
 	return m.addMagnetFunc(r, magnet)
+}
+
+func (m *mockTorrentService) AddTorrentMetaInfo(r string, mi *metainfo.MetaInfo) error {
+	return m.addTorrentMetaInfoFunc(r, mi)
 }
 
 func (m *mockTorrentService) RemoveFromHash(r, h string) error {
@@ -1209,4 +1217,59 @@ func TestWebHandlers(t *testing.T) {
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusOK, w.Code)
 	}
+}
+
+func TestQBitTorrentsAddHandler_TorrentFile(t *testing.T) {
+	info := metainfo.Info{Name: "movie.mkv", PieceLength: 16384, Length: 1, Pieces: make([]byte, 20)}
+	infoBytes, err := bencode.Marshal(info)
+	require.NoError(t, err)
+	mi := metainfo.MetaInfo{InfoBytes: infoBytes}
+	var file bytes.Buffer
+	require.NoError(t, mi.Write(&file))
+
+	var added *metainfo.MetaInfo
+	mockSvc := &mockTorrentService{
+		addTorrentMetaInfoFunc: func(r string, got *metainfo.MetaInfo) error {
+			assert.Equal(t, "tv", r)
+			added = got
+			return nil
+		},
+	}
+	conf := &config.Root{HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true}}
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
+	require.NoError(t, err)
+
+	// the multipart upload Sonarr and Radarr send for indexers that serve .torrent files
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	require.NoError(t, mw.WriteField("category", "tv"))
+	part, err := mw.CreateFormFile("torrents", "movie.torrent")
+	require.NoError(t, err)
+	_, err = part.Write(file.Bytes())
+	require.NoError(t, err)
+	require.NoError(t, mw.Close())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v2/torrents/add", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, "Ok.", w.Body.String())
+	require.NotNil(t, added)
+	require.Equal(t, mi.HashInfoBytes(), added.HashInfoBytes())
+}
+
+func TestQBitTorrentsAddHandler_NothingToAdd(t *testing.T) {
+	conf := &config.Root{HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true}}
+	r, err := NewHandler(nil, nil, &mockTorrentService{}, nil, nil, nil, "", conf, "", nil)
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v2/torrents/add", strings.NewReader("category=tv"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.ServeHTTP(w, req)
+
+	// answering Ok. here made Sonarr believe a grab succeeded that was never added
+	require.Equal(t, "Fails.", w.Body.String())
 }

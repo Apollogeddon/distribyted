@@ -36,6 +36,7 @@ type mockTorrentClient struct {
 	TorrentClient
 	addMagnetFunc          func(string) (fs.Torrent, error)
 	addTorrentFromFileFunc func(string) (fs.Torrent, error)
+	addTorrentFunc         func(*metainfo.MetaInfo) (fs.Torrent, error)
 	torrentFunc            func(metainfo.Hash) (fs.Torrent, bool)
 	closeFunc              func()
 }
@@ -43,6 +44,13 @@ type mockTorrentClient struct {
 func (m *mockTorrentClient) AddMagnet(s string) (fs.Torrent, error) {
 	if m.addMagnetFunc != nil {
 		return m.addMagnetFunc(s)
+	}
+	return nil, nil
+}
+
+func (m *mockTorrentClient) AddTorrent(mi *metainfo.MetaInfo) (fs.Torrent, error) {
+	if m.addTorrentFunc != nil {
+		return m.addTorrentFunc(mi)
 	}
 	return nil, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/stretchr/testify/require"
 
@@ -525,4 +526,27 @@ func TestService_RemoveFromHash_KeepsOtherRoutes(t *testing.T) {
 	require.NoError(t, svc.RemoveFromHash("tv", hash.HexString()))
 	require.Equal(t, 1, mockT.drops)
 	require.Equal(t, 1, removed)
+}
+
+func TestService_AddTorrentMetaInfo(t *testing.T) {
+	info := metainfo.Info{Name: "movie.mkv", PieceLength: 16384, Length: 1, Pieces: make([]byte, 20)}
+	infoBytes, err := bencode.Marshal(info)
+	require.NoError(t, err)
+	mi := &metainfo.MetaInfo{InfoBytes: infoBytes}
+	hash := mi.HashInfoBytes()
+
+	mockT := &mockTorrent{hash: hash, name: "movie.mkv", gotInfo: make(chan struct{}), info: &info}
+	close(mockT.gotInfo)
+	mockC := &mockTorrentClient{addTorrentFunc: func(got *metainfo.MetaInfo) (fs.Torrent, error) {
+		require.Equal(t, hash, got.HashInfoBytes())
+		return mockT, nil
+	}}
+	db := &MockLoaderAdder{}
+	svc := NewService(nil, db, NewStats(), mockC, 1, 1, true, false, nil)
+
+	require.NoError(t, svc.AddTorrentMetaInfo("tv", mi))
+	// persisted as the magnet the file describes, so it is added again on restart
+	require.Contains(t, db.AddedMagnets["tv"], "xt=urn:btih:"+hash.HexString())
+
+	require.Error(t, svc.AddTorrentMetaInfo("../links", mi))
 }

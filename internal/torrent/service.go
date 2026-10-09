@@ -22,6 +22,7 @@ import (
 
 type TorrentClient interface {
 	AddTorrentFromFile(string) (fs.Torrent, error)
+	AddTorrent(*metainfo.MetaInfo) (fs.Torrent, error)
 	AddMagnet(string) (fs.Torrent, error)
 	Torrent(metainfo.Hash) (fs.Torrent, bool)
 	Close()
@@ -49,6 +50,14 @@ type ClientWrapper struct {
 
 func (tcw ClientWrapper) AddTorrentFromFile(p string) (fs.Torrent, error) {
 	t, err := tcw.Client.AddTorrentFromFile(p)
+	if err != nil {
+		return nil, err
+	}
+	return TorrentWrapper{t}, nil
+}
+
+func (tcw ClientWrapper) AddTorrent(mi *metainfo.MetaInfo) (fs.Torrent, error) {
+	t, err := tcw.Client.AddTorrent(mi)
 	if err != nil {
 		return nil, err
 	}
@@ -314,6 +323,31 @@ func (s *Service) AddMagnet(r, m string) error {
 
 	// Add to db
 	return s.db.AddMagnet(r, m)
+}
+
+// AddTorrentMetaInfo adds a torrent from its .torrent file, as Sonarr and Radarr upload
+// for indexers that serve files rather than magnets. The client starts from the file's
+// metadata instead of waiting for peers to send it; the database stores torrents as
+// magnets, so it is persisted as the magnet the file describes.
+func (s *Service) AddTorrentMetaInfo(r string, mi *metainfo.MetaInfo) error {
+	if err := config.ValidateRouteName(r); err != nil {
+		return err
+	}
+	info, err := mi.UnmarshalInfo()
+	if err != nil {
+		return fmt.Errorf("reading torrent file: %w", err)
+	}
+	magnet := mi.Magnet(nil, &info).String()
+
+	t, err := s.c.AddTorrent(mi)
+	if err != nil {
+		return err
+	}
+	if err := s.addTorrent(r, t); err != nil {
+		return err
+	}
+
+	return s.db.AddMagnet(r, magnet)
 }
 
 func (s *Service) ListLinks() (map[string]string, error) {

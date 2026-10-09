@@ -1,6 +1,8 @@
 package http
 
 import (
+	"fmt"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"sync"
@@ -9,6 +11,7 @@ import (
 	"github.com/Apollogeddon/distribyted/internal/config"
 	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -340,8 +343,27 @@ func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 			}
 		}
 
-		if succeeded == 0 && lastErr != nil {
-			c.String(http.StatusInternalServerError, lastErr.Error())
+		// .torrent files arrive as multipart "torrents" parts, which Sonarr and Radarr
+		// send for indexers that serve files rather than magnets
+		if form, err := c.MultipartForm(); err == nil {
+			for _, fh := range form.File["torrents"] {
+				if err := addTorrentFile(s, category, fh); err != nil {
+					log.Error().Err(err).Str("category", category).Str("file", fh.Filename).Msg("error adding torrent file via qBit API")
+					lastErr = err
+				} else {
+					succeeded++
+				}
+			}
+		}
+
+		if succeeded == 0 {
+			if lastErr != nil {
+				c.String(http.StatusInternalServerError, lastErr.Error())
+				return
+			}
+			// nothing to add: qBittorrent answers Fails., which the *arr apps treat as a
+			// failed grab rather than a download that never appears
+			c.String(http.StatusOK, "Fails.")
 			return
 		}
 		c.String(http.StatusOK, "Ok.")
@@ -521,4 +543,18 @@ func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, ch *config.Ha
 
 func qBitTransferSpeedLimitsModeHandler(c *gin.Context) {
 	c.String(http.StatusOK, "0")
+}
+
+func addTorrentFile(s torrentService, category string, fh *multipart.FileHeader) error {
+	f, err := fh.Open()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	mi, err := metainfo.Load(f)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", fh.Filename, err)
+	}
+	return s.AddTorrentMetaInfo(category, mi)
 }

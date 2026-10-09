@@ -13,11 +13,13 @@ import (
 	dfs "github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/anacrolix/missinggo/v2/filecache"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/gin-gonic/gin"
 )
 
 type torrentService interface {
 	AddMagnet(r, m string) error
+	AddTorrentMetaInfo(r string, mi *metainfo.MetaInfo) error
 	RemoveFromHash(r, h string) error
 	RemoveFromHashOnly(h string) error
 	ListLinks() (map[string]string, error)
