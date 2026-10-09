@@ -47,12 +47,12 @@ func newServersPage(tss []*torrent.Server) serversPage {
 
 var serversHandler = func(tss []*torrent.Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "servers.html", newServersPage(tss))
+		render(c, http.StatusOK, serversView(newServersPage(tss)))
 	}
 }
 
 var serversListHandler = func(tss []*torrent.Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "servers-list", newServersPage(tss))
+		render(c, http.StatusOK, serversList(newServersPage(tss)))
 	}
 }

@@ -1,6 +1,6 @@
-// Shared by every page: dialogs, the confirm dialog, toasts, the offline banner, and the
-// glue between htmx responses and them. Pages rendered on the server (Routes so far) need
-// nothing else.
+// Shared by every page, which Go renders: dialogs, the confirm dialog, toasts, the sidebar
+// on narrow screens, the theme button, the offline banner, and the glue between htmx
+// responses and them. Pages need no other script.
 (function () {
     "use strict";
 
@@ -30,78 +30,55 @@
     };
 
     // toasts: a message in the corner, read out by screen readers, gone after a few seconds
+    function iconFor(name) {
+        var tpl = document.getElementById("toast-icons");
+        var svg = tpl && tpl.content.querySelector("svg." + name);
+        return svg ? svg.cloneNode(true) : document.createElement("span");
+    }
     function toast(level, message) {
         var region = document.getElementById("toasts");
         if (!region) return;
         var t = document.createElement("div");
-        t.className = "toast-msg toast-" + (level || "info");
+        t.className = "toast toast-" + (level || "info");
         if (level === "error") t.setAttribute("role", "alert");
-        var icon = document.createElement("i");
-        icon.className = "mdi " + (level === "error" ? "mdi-alert-circle-outline" : "mdi-check-circle-outline");
-        icon.setAttribute("aria-hidden", "true");
         var text = document.createElement("span");
         text.textContent = message;
         var close = document.createElement("button");
         close.type = "button";
         close.className = "btn-icon";
         close.setAttribute("aria-label", "Dismiss");
-        close.innerHTML = '<i class="mdi mdi-close" aria-hidden="true"></i>';
+        close.appendChild(iconFor("close"));
         close.addEventListener("click", function () { t.remove(); });
-        t.append(icon, text, close);
+        t.append(iconFor(level === "error" ? "error" : "ok"), text, close);
         region.appendChild(t);
         setTimeout(function () { t.remove(); }, level === "error" ? 8000 : 4000);
     }
     D.toast = toast;
 
-    // the sidebar: a drawer on phones, which the toggler opens and the close button, the
-    // overlay or Escape closes; on wider screens the toggler narrows it to icons
+    // the sidebar is a drawer on narrow screens: the menu button opens it, and its close
+    // button, the backdrop or Escape close it
     var body = document.body;
-    var toggler = document.getElementById("sidebar-toggler");
-    var phone = window.matchMedia("(max-width: 767.98px)");
-    var overlay = null;
-    function drawer(open) {
-        body.classList.toggle("sidebar-mobile-in", open);
-        body.classList.toggle("sidebar-mobile-out", !open);
-        if (toggler) toggler.setAttribute("aria-expanded", String(open));
-        if (open && !overlay) {
-            overlay = document.createElement("div");
-            overlay.className = "mobile-sticky-body-overlay";
-            overlay.addEventListener("click", function () { drawer(false); });
-            body.prepend(overlay);
-        } else if (!open && overlay) {
-            overlay.remove();
-            overlay = null;
-        }
+    var toggle = document.getElementById("nav-toggle");
+    function nav(open) {
+        body.classList.toggle("nav-open", open);
+        if (toggle) toggle.setAttribute("aria-expanded", String(open));
         body.style.overflow = open ? "hidden" : "";
         if (open) {
             var first = document.querySelector("#sidebar a, #sidebar button");
             if (first) first.focus();
-        } else if (toggler && document.activeElement && document.activeElement.closest("#sidebar")) {
-            toggler.focus();
+        } else if (toggle && document.activeElement && document.activeElement.closest("#sidebar")) {
+            toggle.focus();
         }
     }
-    if (toggler) {
-        toggler.addEventListener("click", function (e) {
-            e.preventDefault();
-            if (phone.matches) {
-                drawer(!body.classList.contains("sidebar-mobile-in"));
-                return;
-            }
-            var narrow = !body.classList.contains("sidebar-minified");
-            body.classList.toggle("sidebar-minified", narrow);
-            body.classList.toggle("sidebar-minified-out", !narrow);
-            toggler.setAttribute("aria-expanded", String(!narrow));
-        });
-        if (!phone.matches) toggler.setAttribute("aria-expanded", "true");
-    }
+    if (toggle) toggle.addEventListener("click", function () { nav(!body.classList.contains("nav-open")); });
     document.addEventListener("click", function (e) {
-        if (e.target.closest("[data-close-sidebar]")) drawer(false);
+        if (e.target.closest("[data-close-nav]")) nav(false);
     });
     document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && body.classList.contains("sidebar-mobile-in")) drawer(false);
+        if (e.key === "Escape" && body.classList.contains("nav-open")) nav(false);
     });
-    phone.addEventListener("change", function () {
-        if (!phone.matches) drawer(false);
+    window.matchMedia("(min-width: 900px)").addEventListener("change", function (e) {
+        if (e.matches) nav(false);
     });
 
     var offline = {
@@ -114,6 +91,22 @@
             if (b) b.hidden = true;
         }
     };
+
+    // the theme button switches between light and dark, and remembers the choice
+    function themeLabel() {
+        var label = document.querySelector("[data-theme-label]");
+        if (label) label.textContent = document.documentElement.dataset.themeCurrent === "dark" ? "Light theme" : "Dark theme";
+    }
+    themeLabel();
+    document.addEventListener("click", function (e) {
+        if (!e.target.closest("[data-theme-toggle]")) return;
+        var root = document.documentElement;
+        var next = root.dataset.themeCurrent === "dark" ? "light" : "dark";
+        root.dataset.theme = next;
+        try { localStorage.setItem("theme", next); } catch (err) { /* storage blocked */ }
+        if (window.DistribytedTheme) window.DistribytedTheme.resolve();
+        themeLabel();
+    });
 
     // dialogs open and close from buttons with data-open-dialog="id" and data-close-dialog
     document.addEventListener("click", function (e) {
@@ -159,7 +152,7 @@
             title: elt.dataset.confirmTitle,
             body: e.detail.question,
             confirmLabel: elt.dataset.confirmLabel,
-            danger: elt.classList.contains("btn-icon-danger")
+            danger: elt.classList.contains("danger")
         }).then(function (yes) {
             if (yes) e.detail.issueRequest(true);
         });

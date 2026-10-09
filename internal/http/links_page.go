@@ -63,13 +63,13 @@ func newLinksPage(s torrentService, ss *torrent.Stats) linksPage {
 
 var linksPageHandler = func(s torrentService, ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "links.html", newLinksPage(s, ss))
+		render(c, http.StatusOK, linksView(newLinksPage(s, ss)))
 	}
 }
 
 var linksListHandler = func(s torrentService, ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "links-list", newLinksPage(s, ss))
+		render(c, http.StatusOK, linksList(newLinksPage(s, ss)))
 	}
 }
 
@@ -77,7 +77,7 @@ var linksListHandler = func(s torrentService, ss *torrent.Stats) gin.HandlerFunc
 var linksFormHandler = func(c *gin.Context) {
 	src := path.Clean("/" + c.Query("source"))
 	triggerAfterSwap(c, map[string]any{"open-dialog": "file-dialog"})
-	c.HTML(http.StatusOK, "link-form", linkForm{Source: src, Target: "/" + path.Base(src), InDialog: true})
+	render(c, http.StatusOK, linkFormView(linkForm{Source: src, Target: "/" + path.Base(src), InDialog: true}))
 }
 
 var linksAddHandler = func(lfs linkFs) gin.HandlerFunc {
@@ -98,7 +98,7 @@ var linksAddHandler = func(lfs linkFs) gin.HandlerFunc {
 		}
 		if err != nil {
 			f.Error = sentence(err)
-			c.HTML(http.StatusUnprocessableEntity, "link-form", f)
+			render(c, http.StatusUnprocessableEntity, linkFormView(f))
 			return
 		}
 
@@ -112,7 +112,7 @@ var linksAddHandler = func(lfs linkFs) gin.HandlerFunc {
 			"close-dialog":  dialog,
 			"toast":         toast{Level: "success", Message: "Linked " + path.Clean(f.Target) + "."},
 		})
-		c.HTML(http.StatusOK, "link-form", linkForm{InDialog: f.InDialog})
+		render(c, http.StatusOK, linkFormView(linkForm{InDialog: f.InDialog}))
 	}
 }
 

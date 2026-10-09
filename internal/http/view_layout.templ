@@ -1,0 +1,216 @@
+package http
+
+// The page shell every signed-in page shares, and the small pieces most pages use. Pages
+// are typed Go components, compiled with templ (go generate) into view_*_templ.go.
+
+const htmxConfig = `{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}`
+
+type navItem struct {
+	Key, Href, Label, Icon string
+}
+
+var navItems = []navItem{
+	{"dashboard", "/", "Dashboard", "layout-dashboard"},
+	{"routes", "/routes", "Routes", "folders"},
+	{"files", "/files", "Files", "folder-tree"},
+	{"links", "/links", "Links", "link"},
+	{"servers", "/servers", "Servers", "share-2"},
+	{"logs", "/logs", "Logs", "scroll-text"},
+}
+
+// icon draws one of the Lucide icons in icons.go.
+templ icon(name string, class ...string) {
+	<svg class={ "icon", class } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+		@templ.Raw(iconPaths[name])
+	</svg>
+}
+
+// brandMark is the logo: the accent colour with a mark that reads on either theme.
+templ brandMark() {
+	<span class="brand-mark">
+		@icon("waypoints")
+	</span>
+}
+
+templ head(title string) {
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<meta name="color-scheme" content="light dark"/>
+	<title>{ title } · distribyted</title>
+	<link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml"/>
+	<link rel="icon" href="/assets/img/favicon.png" sizes="32x32"/>
+	<link rel="stylesheet" href="/assets/plugins/inter/inter.css"/>
+	<link rel="stylesheet" href="/assets/css/app.css"/>
+	// a form that fails validation answers 422 with the form and its errors, which htmx swaps in
+	<meta name="htmx-config" content={ htmxConfig }/>
+	// sets the chosen theme before the page draws, so it doesn't flash the other one
+	<script src="/assets/js/theme.js"></script>
+}
+
+// page is the shell: the sidebar, the top bar phones get, and the dialogs and toasts the
+// scripts use. active names the sidebar entry to mark.
+templ page(title, active string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			@head(title)
+		</head>
+		<body>
+			<a class="skip" href="#main">Skip to content</a>
+			<div class="shell">
+				<aside id="sidebar" class="sidebar" aria-label="Main">
+					<div class="brand-row">
+						<a class="brand" href="/">@brandMark() distribyted</a>
+						<button type="button" class="btn-icon sidebar-close" data-close-nav aria-label="Close menu">
+							@icon("x")
+						</button>
+					</div>
+					<nav>
+						<ul class="nav">
+							for _, item := range navItems {
+								<li>
+									<a class="nav-link" href={ templ.SafeURL(item.Href) } if item.Key == active {
+										aria-current="page"
+									}>
+										@icon(item.Icon)
+										{ item.Label }
+									</a>
+								</li>
+							}
+						</ul>
+					</nav>
+					<div class="sidebar-foot">
+						<a class="nav-link" href="/fs" target="_blank" rel="noopener">
+							@icon("external-link")
+							Browse over HTTP
+						</a>
+						<button type="button" class="nav-button" data-theme-toggle>
+							@icon("moon", "theme-dark")
+							@icon("sun", "theme-light")
+							<span data-theme-label>Theme</span>
+						</button>
+						// a POST form, so another site can't log you out with a link or an image
+						<form method="post" action="/logout">
+							<button type="submit" class="nav-button">
+								@icon("log-out")
+								Log out
+							</button>
+						</form>
+					</div>
+				</aside>
+				<div class="backdrop" data-close-nav></div>
+				<div class="main">
+					<header class="topbar">
+						<button type="button" class="btn-icon" id="nav-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Menu">
+							@icon("menu")
+						</button>
+						<a class="brand" href="/">@brandMark() distribyted</a>
+					</header>
+					<main id="main" class="content">
+						<div id="offline-banner" class="alert alert-danger" role="status" hidden>
+							@icon("wifi-off")
+							<span><strong>Can't reach distribyted.</strong> What you see may be out of date. Retrying…</span>
+						</div>
+						{ children... }
+					</main>
+				</div>
+			</div>
+			<dialog id="confirm-dialog" class="small" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+				<div class="dialog-head"><h2 id="confirm-title">Please confirm</h2></div>
+				<p id="confirm-body"></p>
+				<form method="dialog" class="actions">
+					<button type="submit" value="cancel" class="btn btn-secondary" autofocus>Cancel</button>
+					<button type="submit" value="ok" class="btn btn-danger" id="confirm-ok">Confirm</button>
+				</form>
+			</dialog>
+			<div id="toasts" class="toasts" aria-live="polite"></div>
+			<template id="toast-icons">
+				@icon("circle-check", "ok")
+				@icon("triangle-alert", "error")
+				@icon("x", "close")
+			</template>
+			<script src="/assets/plugins/htmx/htmx.min.js"></script>
+			<script src="/assets/plugins/idiomorph/idiomorph-ext.min.js"></script>
+			<script src="/assets/js/app.js"></script>
+		</body>
+	</html>
+}
+
+templ pageHeader(title, subtitle string) {
+	<div class="page-header">
+		<div>
+			<h1>{ title }</h1>
+			if subtitle != "" {
+				<p>{ subtitle }</p>
+			}
+		</div>
+		{ children... }
+	</div>
+}
+
+// dialogHead is a dialog's title and close button. id names the title for aria-labelledby.
+templ dialogHead(id, title string) {
+	<div class="dialog-head">
+		<h2 id={ id }>{ title }</h2>
+		<button type="button" class="btn-icon" data-close-dialog aria-label="Close">
+			@icon("x")
+		</button>
+	</div>
+}
+
+templ emptyState(iconName string) {
+	<div class="card empty">
+		@icon(iconName)
+		<p>
+			{ children... }
+		</p>
+	</div>
+}
+
+// fieldError is a field's validation message, which the field names in aria-describedby.
+templ fieldError(id, msg string) {
+	if msg != "" {
+		<p class="error" id={ id } role="alert">{ msg }</p>
+	}
+}
+
+templ loginPage(next string, failed, tooMany bool) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			@head("Log in")
+		</head>
+		<body>
+			<main class="login">
+				<div class="card login-card">
+					<div class="brand">@brandMark() distribyted</div>
+					<p>Log in to manage your torrents and mounts.</p>
+					if failed {
+						<div class="alert alert-danger" role="alert">
+							@icon("triangle-alert")
+							<span>Wrong username or password.</span>
+						</div>
+					}
+					if tooMany {
+						<div class="alert alert-danger" role="alert">
+							@icon("triangle-alert")
+							<span>Too many failed logins. Wait a minute and try again.</span>
+						</div>
+					}
+					<form method="post" action="/login">
+						<input type="hidden" name="next" value={ next }/>
+						<div class="field">
+							<label for="username">Username</label>
+							<input class="input" type="text" id="username" name="username" autocomplete="username" autofocus required/>
+						</div>
+						<div class="field">
+							<label for="password">Password</label>
+							<input class="input" type="password" id="password" name="password" autocomplete="current-password" required/>
+						</div>
+						<button type="submit" class="btn btn-primary">Log in</button>
+					</form>
+				</div>
+			</main>
+		</body>
+	</html>
+}
