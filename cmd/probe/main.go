@@ -27,7 +27,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -160,39 +162,59 @@ func run(ctx context.Context, magnet string, timeout time.Duration) error {
 	// single check.
 	ticker := time.NewTicker(250 * time.Millisecond)
 	defer ticker.Stop()
-	read := false
-	for !read {
+	for {
 		select {
 		case <-ctx.Done():
 			fmt.Println("\ntimed out before any file could be read — see the cold-start log line above for what's missing") //nolint:forbidigo // CLI narration, not a log statement
-			return nil
+			return fmt.Errorf("no file read within %s", timeout)
 		case <-ticker.C:
-			mu.Lock()
-			fsys := routeFS
-			mu.Unlock()
-			if fsys == nil {
-				continue
-			}
-			entries, err := fsys.ReadDir("/")
-			if err != nil || len(entries) == 0 {
-				continue
-			}
-			for name := range entries {
-				f, err := fsys.Open("/" + name)
-				if err != nil {
-					continue
-				}
-				buf := make([]byte, 4096)
-				_, err = f.Read(buf)
-				_ = f.Close()
-				if err == nil {
-					read = true
-					break
-				}
-			}
+		}
+		mu.Lock()
+		fsys := routeFS
+		mu.Unlock()
+		if fsys != nil && readFirstFile(fsys) {
+			break
 		}
 	}
 
 	fmt.Printf("\ndone in %s — full stage-by-stage timing is in the log lines above (and %s)\n", time.Since(start), filepath.Join(logDir, dlog.FileName)) //nolint:forbidigo // CLI narration, not a log statement
 	return nil
+}
+
+// readFirstFile reads the start of the first file under the route. A route's top level
+// holds each torrent's folder, so it looks inside folders until it finds a file.
+func readFirstFile(fsys fs.Filesystem) bool {
+	p, ok := firstFile(fsys, "/")
+	if !ok {
+		return false
+	}
+	f, err := fsys.Open(p)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+	n, err := f.Read(make([]byte, 4096))
+	return n > 0 || err == nil
+}
+
+func firstFile(fsys fs.Filesystem, dir string) (string, bool) {
+	entries, err := fsys.ReadDir(dir)
+	if err != nil {
+		return "", false
+	}
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		p := path.Join(dir, name)
+		if !entries[name].IsDir() {
+			return p, true
+		}
+		if f, ok := firstFile(fsys, p); ok {
+			return f, true
+		}
+	}
+	return "", false
 }
