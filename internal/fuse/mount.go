@@ -222,7 +222,7 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 	n, err := file.ReadAt(buf, off)
 	if err != nil && !errors.Is(err, io.EOF) {
 		log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading data")
-		return -fuse.EIO
+		return errno(err)
 	}
 
 	return n
@@ -444,6 +444,8 @@ func errno(err error) int {
 		return -fuse.EPERM
 	case errors.Is(err, fs.ErrNotEmpty):
 		return -fuse.ENOTEMPTY
+	case errors.Is(err, fs.ErrEntryTooLarge):
+		return -fuse.EFBIG
 	default:
 		return -fuse.EIO
 	}

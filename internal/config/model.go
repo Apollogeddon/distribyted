@@ -21,20 +21,23 @@ type Log struct {
 }
 
 type TorrentGlobal struct {
-	ReadTimeout            int    `yaml:"read_timeout,omitempty"`
-	ContinueWhenAddTimeout bool   `yaml:"continue_when_add_timeout,omitempty"`
-	AddTimeout             int    `yaml:"add_timeout,omitempty"`
-	GlobalCacheSize        int64  `yaml:"global_cache_size,omitempty"`
-	MetadataFolder         string `yaml:"metadata_folder,omitempty"`
-	DisableIPv6            bool   `yaml:"disable_ipv6,omitempty"`
-	DisableTCP             bool   `yaml:"disable_tcp,omitempty"`
-	DisableUTP             bool   `yaml:"disable_utp,omitempty"`
-	DisableUPnP            bool   `yaml:"disable_upnp,omitempty"`
-	DisableDHT             bool   `yaml:"disable_dht,omitempty"`
-	IP                     string `yaml:"ip,omitempty"`
-	ListenPort             int    `yaml:"listen_port,omitempty"`
-	Seed                   bool   `yaml:"seed,omitempty"`
-	MaxConnsPerTorrent     int    `yaml:"max_conns_per_torrent,omitempty"`
+	ReadTimeout            int   `yaml:"read_timeout,omitempty"`
+	ContinueWhenAddTimeout bool  `yaml:"continue_when_add_timeout,omitempty"`
+	AddTimeout             int   `yaml:"add_timeout,omitempty"`
+	GlobalCacheSize        int64 `yaml:"global_cache_size,omitempty"`
+	// ArchiveExtractLimit is the largest .zip, .rar or .7z entry, in MB, extracted to a
+	// temporary file to be read; -1 means no limit.
+	ArchiveExtractLimit int64  `yaml:"archive_extract_limit,omitempty"`
+	MetadataFolder      string `yaml:"metadata_folder,omitempty"`
+	DisableIPv6         bool   `yaml:"disable_ipv6,omitempty"`
+	DisableTCP          bool   `yaml:"disable_tcp,omitempty"`
+	DisableUTP          bool   `yaml:"disable_utp,omitempty"`
+	DisableUPnP         bool   `yaml:"disable_upnp,omitempty"`
+	DisableDHT          bool   `yaml:"disable_dht,omitempty"`
+	IP                  string `yaml:"ip,omitempty"`
+	ListenPort          int    `yaml:"listen_port,omitempty"`
+	Seed                bool   `yaml:"seed,omitempty"`
+	MaxConnsPerTorrent  int    `yaml:"max_conns_per_torrent,omitempty"`
 	// ResponsiveReads lets a read return as soon as its covering chunks have
 	// arrived, instead of waiting for the whole piece to finish downloading
 	// AND pass hash verification. Cuts time-to-first-byte, especially with
@@ -107,6 +110,10 @@ func AddDefaults(r *Root) *Root {
 
 	if r.Torrent.GlobalCacheSize == 0 {
 		r.Torrent.GlobalCacheSize = 2048 // 2GB
+	}
+
+	if r.Torrent.ArchiveExtractLimit == 0 {
+		r.Torrent.ArchiveExtractLimit = 4096 // 4GB
 	}
 
 	if r.Torrent.MaxConnsPerTorrent == 0 {

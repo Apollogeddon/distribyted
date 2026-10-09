@@ -40,6 +40,7 @@ Core settings for the BitTorrent engine.
 | Field | Description | Default |
 | :--- | :--- | :--- |
 | `global_cache_size` | Maximum size of the file cache in MB. | `2048` (2GB) |
+| `archive_extract_limit` | Largest file inside a `.zip`, `.rar` or `.7z`, in MB, that can be read. Each one is extracted to a temporary file as it's read, so this bounds the disk one archive entry can use. Reading a bigger one fails (`EFBIG` through FUSE). `-1` means no limit. | `4096` (4GB) |
 | `metadata_folder` | Path to store metadata, databases, and cache. | `./distribyted-data/metadata` |
 | `read_timeout` | Seconds a filesystem read may go without making forward progress before it's abandoned and fails. Resets on progress rather than being a total time budget, so a legitimately slow read on a thin swarm can still take longer than this in total — it only bounds *stalls*. Any read that blows this deadline is guaranteed to return within it rather than hang the mount, even if the underlying torrent library never would on its own (see `internal/fs/torrent.go`'s `readAtWrapper` doc comment). | `120` |
 | `add_timeout` | Timeout in seconds when adding a new torrent (metadata fetch). | `60` |

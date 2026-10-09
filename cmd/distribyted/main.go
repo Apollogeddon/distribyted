@@ -296,6 +296,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	log.Info().Msg(fmt.Sprintf("setting cache size to %d MB", conf.Torrent.GlobalCacheSize))
 	sl.fc.SetCapacity(conf.Torrent.GlobalCacheSize * 1024 * 1024)
+	fs.SetExtractLimit(max(conf.Torrent.ArchiveExtractLimit, 0) * 1024 * 1024)
 
 	fss, err := ts.Load()
 	if err != nil {

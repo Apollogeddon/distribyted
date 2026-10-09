@@ -16,6 +16,7 @@ type DiskTeeReader struct {
 
 	fo  int64 // bytes copied to fr so far
 	fr  *os.File
+	src io.Reader
 	tr  io.Reader
 	pos int64 // where the next Read starts
 }
@@ -26,7 +27,7 @@ func NewDiskTeeReader(r io.Reader) (Reader, error) {
 		return nil, err
 	}
 	tr := io.TeeReader(r, fr)
-	return &DiskTeeReader{fr: fr, tr: tr}, nil
+	return &DiskTeeReader{fr: fr, src: r, tr: tr}, nil
 }
 
 func (dtr *DiskTeeReader) ReadAt(p []byte, off int64) (int, error) {
@@ -62,10 +63,18 @@ func (dtr *DiskTeeReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
+// Close removes the copy on disk and closes the reader it was copied from, if it has a
+// Close.
 func (dtr *DiskTeeReader) Close() error {
+	var srcErr error
+	if c, ok := dtr.src.(io.Closer); ok {
+		srcErr = c.Close()
+	}
 	if err := dtr.fr.Close(); err != nil {
 		return err
 	}
-
-	return os.Remove(dtr.fr.Name())
+	if err := os.Remove(dtr.fr.Name()); err != nil {
+		return err
+	}
+	return srcErr
 }
