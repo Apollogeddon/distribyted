@@ -333,11 +333,11 @@ func (s *Service) AddTorrentMetaInfo(r string, mi *metainfo.MetaInfo) error {
 	if err := config.ValidateRouteName(r); err != nil {
 		return err
 	}
-	info, err := mi.UnmarshalInfo()
+	m, err := mi.MagnetV2()
 	if err != nil {
 		return fmt.Errorf("reading torrent file: %w", err)
 	}
-	magnet := mi.Magnet(nil, &info).String()
+	magnet := m.String()
 
 	t, err := s.c.AddTorrent(mi)
 	if err != nil {
