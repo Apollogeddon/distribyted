@@ -87,10 +87,12 @@ func (s *Server) Start() error {
 	}
 
 	if err := os.MkdirAll(s.cfg.Path, 0o750); err != nil {
+		_ = w.Close()
 		return fmt.Errorf("error creating server folder: %s. Error: %w", s.cfg.Path, err)
 	}
 
 	if err := filepath.Walk(s.cfg.Path, s.watchFolderWalkFunc(w)); err != nil {
+		_ = w.Close()
 		return err
 	}
 
@@ -119,6 +121,13 @@ func (s *Server) Start() error {
 				}
 
 				s.log.Info().Str(dlog.KeyFile, event.Name).Str(dlog.KeyOp, event.Op.String()).Msg("file changed inside server folder")
+				// fsnotify doesn't watch subfolders by itself: watch a new one, and anything
+				// already inside it, so changes there are seen too
+				if event.Has(fsnotify.Create) {
+					if fi, err := os.Stat(event.Name); err == nil && fi.IsDir() {
+						_ = filepath.Walk(event.Name, s.watchFolderWalkFunc(w))
+					}
+				}
 				s.addEvent(1)
 			case err, ok := <-w.Errors:
 				if !ok {
@@ -251,6 +260,11 @@ func (s *Server) makeMagnet() error {
 	}
 
 	s.mu.Lock()
+	// the folder changed, so the torrent describing its old contents is gone: seeding it
+	// on would serve pieces that no longer match its hashes
+	if old := s.t; old != nil && old.InfoHash() != ih {
+		old.Drop()
+	}
 	s.t = to
 	s.si.Magnet = m.String()
 	s.si.Folder = s.cfg.Path
