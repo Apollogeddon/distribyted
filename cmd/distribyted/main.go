@@ -79,7 +79,16 @@ func main() {
 		},
 
 		Action: func(c *cli.Context) error {
-			err := load(c.String(configFlag), c.Int(portFlag), c.Int(webDAVPortFlag), c.Bool(fuseAllowOther))
+			// a port given on the command line or in the environment overrides the config
+			// file; 0 means use the config's (the flags' defaults match the config defaults)
+			var port, webDAVPort int
+			if c.IsSet(portFlag) {
+				port = c.Int(portFlag)
+			}
+			if c.IsSet(webDAVPortFlag) {
+				webDAVPort = c.Int(webDAVPortFlag)
+			}
+			err := load(c.String(configFlag), port, webDAVPort, c.Bool(fuseAllowOther))
 
 			// stop program execution on errors to avoid flashing consoles
 			if err != nil && runtime.GOOS == "windows" {
@@ -185,7 +194,6 @@ func startWebDAVMount(conf *config.Root, cfs *fs.ContainerFs, webDAVPort int) {
 	}()
 }
 
-//nolint:unparam // port is the --http-port flag, which the HTTP server ignores in favour of conf.HTTPGlobal.Port: a known bug, left for its own fix
 func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	ch := config.NewHandler(configPath)
 
@@ -196,6 +204,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	if err := config.Validate(conf); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
+	}
+	if port != 0 {
+		conf.HTTPGlobal.Port = port
 	}
 
 	dlog.Load(conf.Log)
