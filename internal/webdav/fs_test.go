@@ -144,3 +144,29 @@ func TestMkdirRemoveRename(t *testing.T) {
 	// Test RemoveAll for file
 	require.NoError(wfs.RemoveAll(context.Background(), "folder/file.txt"))
 }
+
+// TestRemoveAll_Collection covers a WebDAV DELETE of a folder: it should delete the links
+// inside it, and it must not delete a route.
+func TestRemoveAll_Collection(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	mfs := fs.NewMemory()
+	require.NoError(mfs.Storage.Add(fs.NewMemoryFile([]byte("movie")), "/movie.mkv"))
+	c, err := fs.NewContainerFs(map[string]fs.Filesystem{"/route": mfs})
+	require.NoError(err)
+	require.NoError(c.Mkdir("/library"))
+	require.NoError(c.Link("/route/movie.mkv", "/library/a.mkv"))
+	require.NoError(c.Link("/route/movie.mkv", "/library/b.mkv"))
+
+	wfs := newFS(c, zerolog.Nop())
+	require.NoError(wfs.RemoveAll(context.Background(), "library"))
+	_, err = c.Open("/library/a.mkv")
+	require.ErrorIs(err, os.ErrNotExist)
+	_, err = c.Open("/library")
+	require.ErrorIs(err, os.ErrNotExist)
+
+	require.ErrorIs(wfs.RemoveAll(context.Background(), "route"), os.ErrPermission)
+	_, err = c.Open("/route/movie.mkv")
+	require.NoError(err, "the route is still there")
+}

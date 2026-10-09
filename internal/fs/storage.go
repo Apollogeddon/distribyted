@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"errors"
 	"os"
 	"path"
 	"strings"
@@ -177,11 +178,24 @@ func (s *storage) addLocked(f File, p string) error {
 	return s.createParentLocked(p, f)
 }
 
+// ErrNotEmpty is returned for removing or renaming a folder that still has entries.
+var ErrNotEmpty = errors.New("directory not empty")
+
 func (s *storage) Remove(p string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if len(s.children[clean(p)]) > 0 {
+		return ErrNotEmpty
+	}
 	return s.removeLocked(p, nil)
+}
+
+// HasChildren reports whether the folder at p has any entries.
+func (s *storage) HasChildren(p string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.children[clean(p)]) > 0
 }
 
 // RemovePaths removes p and reports every path actually deleted, including
@@ -190,6 +204,9 @@ func (s *storage) RemovePaths(p string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if len(s.children[clean(p)]) > 0 {
+		return nil, ErrNotEmpty
+	}
 	var removed []string
 	err := s.removeLocked(p, &removed)
 	return removed, err
@@ -211,6 +228,7 @@ func (s *storage) removeLocked(p string, removed *[]string) error {
 
 	delete(s.files, p)
 	delete(s.filesystems, p)
+	delete(s.children, p)
 	if removed != nil {
 		*removed = append(*removed, p)
 	}

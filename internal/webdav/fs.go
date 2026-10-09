@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 	"time"
@@ -46,6 +47,7 @@ func (wd *WebDAV) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = f.Close() }()
 	fi := newFileInfo(name, f.Size(), f.IsDir())
 	return fi, nil
 }
@@ -64,12 +66,29 @@ func (wd *WebDAV) RemoveAll(ctx context.Context, name string) error {
 		}
 		return err
 	}
+	isDir := f.IsDir()
+	_ = f.Close()
 
-	if f.IsDir() {
-		return wd.fs.Rmdir(p)
+	if !isDir {
+		return wd.fs.Remove(p)
 	}
 
-	return wd.fs.Remove(p)
+	// a WebDAV DELETE of a collection deletes everything in it; removing only the folder
+	// would fail on its contents, or orphan them
+	children, err := wd.fs.ReadDir(p)
+	if err != nil {
+		return err
+	}
+	for child := range children {
+		if err := wd.RemoveAll(ctx, path.Join(name, child)); err != nil {
+			return err
+		}
+	}
+	// removing a folder's last entry prunes the folder itself, which is the goal here
+	if err := wd.fs.Rmdir(p); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func (wd *WebDAV) Rename(ctx context.Context, oldName, newName string) error {

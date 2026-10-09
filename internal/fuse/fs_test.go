@@ -1,6 +1,8 @@
 package fuse
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -136,4 +138,18 @@ func TestFS_Unit(t *testing.T) {
 		errc, _ := f.Open("/notexists", 0)
 		require.Equal(-fuse.ENOENT, errc)
 	})
+}
+
+func TestErrno(t *testing.T) {
+	for err, want := range map[error]int{
+		nil:              0,
+		os.ErrNotExist:   -fuse.ENOENT,
+		os.ErrExist:      -fuse.EEXIST,
+		os.ErrPermission: -fuse.EPERM,
+		fs.ErrNotEmpty:   -fuse.ENOTEMPTY,
+		fmt.Errorf("wrapped: %w", fs.ErrNotEmpty): -fuse.ENOTEMPTY,
+		errors.New("anything else"):               -fuse.EIO,
+	} {
+		require.Equal(t, want, errno(err), "%v", err)
+	}
 }
