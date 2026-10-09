@@ -428,3 +428,30 @@ func TestLoginRateLimitedAndSessionCookie(t *testing.T) {
 	// the right password is refused too until the wait is over
 	require.Equal(t, http.StatusTooManyRequests, login("test").Code)
 }
+
+// TestSessionCookieSecureOverHTTPS: the session cookie is Secure when the browser came over
+// HTTPS, and not over plain HTTP, where a browser would drop it.
+func TestSessionCookieSecureOverHTTPS(t *testing.T) {
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
+	require.NoError(t, err)
+
+	login := func(proto string) *http.Cookie {
+		form := url.Values{"username": {"test"}, "password": {"test"}}
+		req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if proto != "" {
+			req.Header.Set("X-Forwarded-Proto", proto)
+		}
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		for _, c := range w.Result().Cookies() {
+			if c.Name == sessionCookieName {
+				return c
+			}
+		}
+		t.Fatal("no session cookie")
+		return nil
+	}
+	require.False(t, login("").Secure)
+	require.True(t, login("https").Secure)
+}
