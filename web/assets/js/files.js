@@ -14,21 +14,41 @@ Distribyted.files = {
         var el = document.getElementById('file-breadcrumb');
         if (!el) return;
 
-        var segments = currentPath.split('/').filter(Boolean);
-        var html = '<li class="breadcrumb-item"><a href="#" onclick=\'Distribyted.files.open("/"); return false;\'><i class="mdi mdi-home"></i></a></li>';
+        // the path comes from location.hash, so it is only ever set as text
+        var crumb = function (label, path) {
+            var li = document.createElement('li');
+            li.className = 'breadcrumb-item';
+            if (path === null) {
+                li.classList.add('active');
+                li.textContent = label;
+                return li;
+            }
+            var a = document.createElement('a');
+            a.href = '#';
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                Distribyted.files.open(path);
+            });
+            if (label === null) {
+                var icon = document.createElement('i');
+                icon.className = 'mdi mdi-home';
+                a.appendChild(icon);
+            } else {
+                a.textContent = label;
+            }
+            li.appendChild(a);
+            return li;
+        };
 
+        var segments = currentPath.split('/').filter(Boolean);
+        var items = [crumb(null, '/')];
         var acc = '';
         segments.forEach(function (seg, i) {
             acc += '/' + seg;
-            var isLast = i === segments.length - 1;
-            if (isLast) {
-                html += '<li class="breadcrumb-item active">' + seg + '</li>';
-            } else {
-                html += '<li class="breadcrumb-item"><a href="#" onclick=\'Distribyted.files.open("' + acc + '"); return false;\'>' + seg + '</a></li>';
-            }
+            items.push(crumb(seg, i === segments.length - 1 ? null : acc));
         });
 
-        el.innerHTML = html;
+        el.replaceChildren.apply(el, items);
     },
 
     confirmDelete: function (path, isDir) {

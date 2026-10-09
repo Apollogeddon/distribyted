@@ -31,7 +31,7 @@
                                 {{/if}}
                             </td>
                             <td>
-                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete link {{newPath}}" title="Delete link" onclick='Distribyted.links.confirmDelete("{{newPath}}")'>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete link {{newPath}}" title="Delete link" data-action="links.delete" data-path="{{newPath}}">
                                     <i class="mdi mdi-delete-forever"></i>
                                 </button>
                             </td>

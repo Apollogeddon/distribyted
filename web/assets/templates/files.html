@@ -17,7 +17,7 @@
                         <tr>
                             <td>
                                 {{#if isDir}}
-                                <a href="#" class="text-nowrap" onclick='Distribyted.files.open("{{path}}"); return false;'>
+                                <a href="#" class="text-nowrap" data-action="files.open" data-path="{{path}}">
                                     <i class="mdi mdi-folder"></i> {{name}}
                                 </a>
                                 {{else}}
@@ -32,10 +32,10 @@
                             <td>{{#unless isDir}}{{bytes size}}{{/unless}}</td>
                             <td>
                                 {{#if owned}}
-                                <button type="button" class="btn btn-sm btn-link p-0 mr-3" aria-label="Rename {{name}}" title="Rename" onclick='Distribyted.files.promptRename("{{path}}")'>
+                                <button type="button" class="btn btn-sm btn-link p-0 mr-3" aria-label="Rename {{name}}" title="Rename" data-action="files.rename" data-path="{{path}}">
                                     <i class="mdi mdi-pencil"></i>
                                 </button>
-                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete {{name}}" title="Delete" onclick='Distribyted.files.confirmDelete("{{path}}", {{isDir}})'>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-danger" aria-label="Delete {{name}}" title="Delete" data-action="files.delete" data-path="{{path}}" data-is-dir="{{isDir}}">
                                     <i class="mdi mdi-delete-forever"></i>
                                 </button>
                                 {{else if hash}}

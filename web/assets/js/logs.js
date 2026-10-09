@@ -29,13 +29,17 @@ Distribyted.logs = {
                     lines.forEach(element => {
                         try {
                             var json = JSON.parse(element)
-                            var properties = ""
+                            // log fields carry request paths and torrent names, so every
+                            // value goes in as text, never as HTML
+                            var properties = document.createElement("td")
                             for (let [key, value] of Object.entries(json)) {
                                 if (key == "level" || key == "component" || key == "message" || key == "time") {
                                     continue
                                 }
 
-                                properties += `<b>${key}</b>=${value} `
+                                var name = document.createElement("b")
+                                name.textContent = key
+                                properties.append(name, "=" + (typeof value === "object" ? JSON.stringify(value) : value) + " ")
                             }
 
                             var tableClass = "table-primary"
@@ -59,7 +63,12 @@ Distribyted.logs = {
                             var row = document.createElement("tr")
                             row.className = tableClass
                             row.setAttribute("data-level", level)
-                            row.innerHTML = `<td>${new Date(json.time*1000).toLocaleString()}</td><td>${level}</td><td>${json.component}</td><td>${json.message}</td><td>${properties}</td>`
+                            ;[new Date(json.time*1000).toLocaleString(), level, json.component, json.message].forEach(function (text) {
+                                var cell = document.createElement("td")
+                                cell.textContent = text === undefined ? "" : text
+                                row.appendChild(cell)
+                            })
+                            row.appendChild(properties)
 
                             var atTop = !scrollEl || scrollEl.scrollTop < 5
                             var prevHeight = scrollEl ? scrollEl.scrollHeight : 0
