@@ -70,6 +70,9 @@ func (a ByName) Len() int           { return len(a) }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
+// stat is a torrent's latest sample: the bytes moved since the sample before it, over
+// interval. A cached sample keeps its own interval, so bytes / interval stays the rate it
+// measured however often it is read.
 type stat struct {
 	totalDownloadBytes int64
 	downloadBytes      int64
@@ -78,6 +81,7 @@ type stat struct {
 	peers              int
 	seeders            int
 	time               time.Time
+	interval           time.Duration
 }
 
 type Stats struct {
@@ -86,13 +90,10 @@ type Stats struct {
 	torrentsByRoute map[string]map[string]fs.Torrent
 	previousStats   map[string]*stat
 	addedAt         map[string]time.Time
-
-	gTime time.Time
 }
 
 func NewStats() *Stats {
 	return &Stats{
-		gTime:           time.Now(),
 		torrents:        make(map[string]fs.Torrent),
 		torrentsByRoute: make(map[string]map[string]fs.Torrent),
 		previousStats:   make(map[string]*stat),
@@ -116,8 +117,11 @@ func (s *Stats) Add(route string, t fs.Torrent) {
 	h := t.InfoHash().String()
 
 	s.torrents[h] = t
-	s.previousStats[h] = &stat{}
-	s.addedAt[h] = time.Now()
+	// a torrent in a second route keeps the samples it already has
+	if _, ok := s.previousStats[h]; !ok {
+		s.previousStats[h] = &stat{}
+		s.addedAt[h] = time.Now()
+	}
 
 	_, ok := s.torrentsByRoute[route]
 	if !ok {
@@ -127,18 +131,23 @@ func (s *Stats) Add(route string, t fs.Torrent) {
 	s.torrentsByRoute[route][h] = t
 }
 
+// Del removes a torrent from one route, and forgets it entirely once no route has it.
 func (s *Stats) Del(route, hash string) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
+
+	if ts, ok := s.torrentsByRoute[route]; ok {
+		delete(ts, hash)
+	}
+	for _, ts := range s.torrentsByRoute {
+		if _, ok := ts[hash]; ok {
+			return
+		}
+	}
+
 	delete(s.torrents, hash)
 	delete(s.previousStats, hash)
 	delete(s.addedAt, hash)
-	ts, ok := s.torrentsByRoute[route]
-	if !ok {
-		return
-	}
-
-	delete(ts, hash)
 }
 
 func (s *Stats) GetAllTorrents() map[string]fs.Torrent {
@@ -258,27 +267,28 @@ func (s *Stats) RoutesStats() []*RouteStats {
 	return out
 }
 
+// GlobalStats reports the summed rate of every torrent's latest sample as bytes over a
+// one-second TimePassed, so callers' bytes / TimePassed is bytes per second. Calling it
+// changes no state, so several clients polling at once don't skew each other's figures.
 func (s *Stats) GlobalStats() *GlobalTorrentStats {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
 	now := time.Now()
 
-	var totalDownload int64
-	var totalUpload int64
+	var downloadRate, uploadRate float64
 	for _, torrent := range s.torrents {
 		tStats := s.stats(now, torrent, false)
-		totalDownload += tStats.DownloadedBytes
-		totalUpload += tStats.UploadedBytes
+		if tStats.TimePassed > 0 {
+			downloadRate += float64(tStats.DownloadedBytes) / tStats.TimePassed
+			uploadRate += float64(tStats.UploadedBytes) / tStats.TimePassed
+		}
 	}
 
-	timePassed := now.Sub(s.gTime)
-	s.gTime = now
-
 	return &GlobalTorrentStats{
-		DownloadedBytes: totalDownload,
-		UploadedBytes:   totalUpload,
-		TimePassed:      timePassed.Seconds(),
+		DownloadedBytes: int64(downloadRate),
+		UploadedBytes:   int64(uploadRate),
+		TimePassed:      1,
 	}
 }
 
@@ -290,32 +300,34 @@ func (s *Stats) stats(now time.Time, t fs.Torrent, chunks bool) *TorrentStats {
 		return &TorrentStats{}
 	}
 	ts.AgeSeconds = now.Sub(s.addedAt[hash]).Seconds()
-	if s.returnPreviousMeasurements(now) {
-		ts.DownloadedBytes = prev.downloadBytes
-		ts.UploadedBytes = prev.uploadBytes
-	} else {
+	cur := prev
+	// sample at most every gap; a sooner read gets the latest sample unchanged
+	if prev.time.IsZero() || now.Sub(prev.time) >= gap {
+		since := prev.time
+		if since.IsZero() {
+			since = s.addedAt[hash]
+		}
 		st := t.Stats()
 		rd := st.BytesReadData.Int64()
 		wd := st.BytesWrittenData.Int64()
-		ist := &stat{
+		cur = &stat{
 			downloadBytes:      rd - prev.totalDownloadBytes,
 			uploadBytes:        wd - prev.totalUploadBytes,
 			totalDownloadBytes: rd,
 			totalUploadBytes:   wd,
 			time:               now,
+			interval:           now.Sub(since),
 			peers:              st.TotalPeers,
 			seeders:            st.ConnectedSeeders,
 		}
-
-		ts.DownloadedBytes = ist.downloadBytes
-		ts.UploadedBytes = ist.uploadBytes
-		ts.Peers = ist.peers
-		ts.Seeders = ist.seeders
-
-		s.previousStats[hash] = ist
+		s.previousStats[hash] = cur
 	}
 
-	ts.TimePassed = now.Sub(prev.time).Seconds()
+	ts.DownloadedBytes = cur.downloadBytes
+	ts.UploadedBytes = cur.uploadBytes
+	ts.Peers = cur.peers
+	ts.Seeders = cur.seeders
+	ts.TimePassed = cur.interval.Seconds()
 	var totalPieces int
 	if chunks {
 		var pch []*PieceChunk
@@ -355,7 +367,3 @@ func (s *Stats) stats(now time.Time, t fs.Torrent, chunks bool) *TorrentStats {
 }
 
 const gap time.Duration = 2 * time.Second
-
-func (s *Stats) returnPreviousMeasurements(now time.Time) bool {
-	return now.Sub(s.gTime) < gap
-}
