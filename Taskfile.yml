@@ -51,9 +51,9 @@ tasks:
     cmds:
       - go build -o {{.BIN_OUTPUT}} -tags release -ldflags "-X=main.Version={{.VERSION}} -X=main.Build={{.BUILD}}" ./cmd/distribyted
   start:
-    desc: Run from source, passing the arguments after --, e.g. task start -- config.yaml
+    desc: Run from source with examples/conf_example.yaml, or the config path after --
     cmds:
-      - go run ./cmd/distribyted {{.CLI_ARGS}}
+      - go run ./cmd/distribyted {{.CLI_ARGS | default "examples/conf_example.yaml"}}
   test:
     desc: Run every test, including the integration tests, with coverage and a JUnit report
     cmds:
