@@ -243,7 +243,11 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 		now := time.Now().Unix()
 
 		for hash, t := range torrents {
-			ts, _ := ss.Stats(hash)
+			ts, err := ss.Stats(hash)
+			if err != nil {
+				// removed between listing and reading its stats
+				continue
+			}
 			info := t.Info()
 			name := t.Name()
 			size := int64(0)
@@ -259,7 +263,7 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 
 			var dlSpeed int64
 			var upSpeed int64
-			if ts != nil && ts.TimePassed > 0 {
+			if ts.TimePassed > 0 {
 				dlSpeed = int64(float64(ts.DownloadedBytes) / ts.TimePassed)
 				upSpeed = int64(float64(ts.UploadedBytes) / ts.TimePassed)
 			}

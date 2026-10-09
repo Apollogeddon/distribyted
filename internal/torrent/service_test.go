@@ -495,3 +495,34 @@ func TestService_ConcurrentMagnetAdds(t *testing.T) {
 	// Should have 2 routes in the DB
 	require.Len(t, db.AddedMagnets, 2)
 }
+
+func TestService_RemoveFromHash_KeepsOtherRoutes(t *testing.T) {
+	stats := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	mockT := &mockTorrent{hash: hash, name: "test", gotInfo: make(chan struct{})}
+	close(mockT.gotInfo)
+	mockC := &mockTorrentClient{
+		torrentFunc:   func(metainfo.Hash) (fs.Torrent, bool) { return mockT, true },
+		addMagnetFunc: func(string) (fs.Torrent, error) { return mockT, nil },
+	}
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false, nil)
+	removed := 0
+	svc.OnTorrentRemoved(func(string) { removed++ })
+
+	const magnet = "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
+	require.NoError(t, svc.AddMagnet("movies", magnet))
+	require.NoError(t, svc.AddMagnet("tv", magnet))
+
+	// removing it from one route leaves it running and listed in the other
+	require.NoError(t, svc.RemoveFromHash("movies", hash.HexString()))
+	require.Equal(t, 0, mockT.drops)
+	require.Equal(t, 0, removed)
+	require.Equal(t, []string{"tv"}, stats.GetRoutesFromHash(hash.HexString()))
+	_, err := stats.Stats(hash.HexString())
+	require.NoError(t, err)
+
+	// removing it from the last route drops it
+	require.NoError(t, svc.RemoveFromHash("tv", hash.HexString()))
+	require.Equal(t, 1, mockT.drops)
+	require.Equal(t, 1, removed)
+}

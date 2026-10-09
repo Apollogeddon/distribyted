@@ -525,6 +525,13 @@ func (s *Service) RemoveFromHash(r, h string) error {
 	}
 
 	tfs.RemoveTorrent(h)
+
+	// the same torrent can be in several routes; only the last removal drops it from the
+	// client and tells the listeners, which remove it from every route's files
+	if len(s.s.GetRoutesFromHash(h)) > 0 {
+		s.mu.Unlock()
+		return nil
+	}
 	delete(s.lastHealth, h)
 	s.timings.Forget(h)
 	listeners := append([]func(string){}, s.torrentRemovedListeners...)
