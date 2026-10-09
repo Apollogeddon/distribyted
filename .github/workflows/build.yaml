@@ -1,8 +1,14 @@
 ---
 name: build
 
-# Trigger the workflow on push or pull request
-on: workflow_call
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Build this release's tag and attach the binaries to it, skipping the tests that already ran on the commit"
+        type: string
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -34,6 +40,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          # the tag, when building a release, so git describe names the binaries after it
+          ref: ${{ inputs.release_tag }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -159,39 +167,45 @@ jobs:
         shell: bash
         run: |
           make test-short
+        if: inputs.release_tag == ''
 
       - name: Run integration tests (race)
         shell: bash
         run: |
           make test-race
-        if: matrix.job_name == 'linux_amd64'
+        if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
 
       - name: Convert coverage.out to coverage.lcov
         uses: jandelgado/gcov2lcov-action@v1.2.0
-        if: matrix.job_name == 'linux_amd64'
+        if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
       - name: Coveralls
         uses: coverallsapp/github-action@v2.3.8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: coverage.lcov
-        if: matrix.job_name == 'linux_amd64'
+        if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
 
       - name: Build
         shell: bash
         run: |
           CGO_ENABLED=1 GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} make build
       
+      # the release build runs in the same workflow run, where these names are already taken
       - name: Upload artifacts
+        if: inputs.release_tag == ''
         uses: actions/upload-artifact@v7
         with:
           if-no-files-found: error
           name: build-${{ matrix.job_name }}
           path: bin/*
 
+      # release-please's tags are created with GITHUB_TOKEN, which starts no workflow, so the
+      # pipeline calls this again with release_tag once it publishes a release
       - name: Release
         uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.release_tag != '' || startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           files: bin/*

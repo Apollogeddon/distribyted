@@ -42,6 +42,16 @@ jobs:
       contents: write
       pull-requests: write
 
+  release-binaries:
+    name: Release binaries
+    needs: [release]
+    if: needs.release.outputs.release_created == 'true'
+    uses: ./.github/workflows/build.yaml
+    with:
+      release_tag: ${{ needs.release.outputs.tag_name }}
+    permissions:
+      contents: write
+
   docker:
     name: Docker Build & Push
     needs: [build, release]
