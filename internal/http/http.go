@@ -55,11 +55,12 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	ac := newAuthConfig(conf.HTTPGlobal)
 	st := newSessionStore(sessionTTL)
+	ll := newLoginLimiter()
 	browserAuth := browserAuthMiddleware(ac, st)
 	qbitAuth := qbitAuthMiddleware(ac, st)
 
 	r.GET("/login", loginPageHandler)
-	r.POST("/login", loginSubmitHandler(ac, st))
+	r.POST("/login", loginSubmitHandler(ac, st, ll))
 	r.POST("/logout", logoutHandler(st))
 
 	if conf.HTTPGlobal.HTTPFS {
@@ -125,7 +126,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	qbitPublic := r.Group("/api/v2")
 	{
-		qbitPublic.Any("/auth/login", qBitLoginHandler(ac, st))
+		qbitPublic.Any("/auth/login", qBitLoginHandler(ac, st, ll))
 		// endpoints that change state accept POST only, as in qBittorrent itself, so the
 		// cross-origin check below covers them
 		qbitPublic.POST("/auth/logout", qBitLogoutHandler(st))

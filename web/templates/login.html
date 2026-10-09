@@ -14,6 +14,9 @@
         {{if .Error}}
         <div class="alert alert-danger" role="alert">Invalid username or password.</div>
         {{end}}
+        {{if .TooMany}}
+        <div class="alert alert-danger" role="alert">Too many failed logins. Please wait a minute and try again.</div>
+        {{end}}
         <form method="post" action="/login">
           <input type="hidden" name="next" value="{{.Next}}">
           <div class="form-group">

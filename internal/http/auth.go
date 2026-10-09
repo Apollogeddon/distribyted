@@ -41,6 +41,71 @@ type sessionStore struct {
 	ttl      time.Duration
 }
 
+// loginLimiter slows password guessing: after a few failed logins from one address, that
+// address must wait before trying again, longer after each further failure.
+type loginLimiter struct {
+	mu       sync.Mutex
+	attempts map[string]*loginAttempts
+	now      func() time.Time
+}
+
+type loginAttempts struct {
+	failures int
+	until    time.Time // no attempts before this
+	last     time.Time
+}
+
+const (
+	freeLoginAttempts = 5
+	maxLoginWait      = 15 * time.Minute
+)
+
+func newLoginLimiter() *loginLimiter {
+	return &loginLimiter{attempts: make(map[string]*loginAttempts), now: time.Now}
+}
+
+// allowed reports whether addr may try to log in now.
+func (l *loginLimiter) allowed(addr string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	a, ok := l.attempts[addr]
+	return !ok || !l.now().Before(a.until)
+}
+
+func (l *loginLimiter) failed(addr string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := l.now()
+	for k, a := range l.attempts {
+		if now.Sub(a.last) > maxLoginWait && !now.Before(a.until) {
+			delete(l.attempts, k)
+		}
+	}
+	a, ok := l.attempts[addr]
+	if !ok {
+		a = &loginAttempts{}
+		l.attempts[addr] = a
+	}
+	a.failures++
+	a.last = now
+	if a.failures >= freeLoginAttempts {
+		wait := time.Second << min(a.failures-freeLoginAttempts, 10)
+		a.until = now.Add(min(wait, maxLoginWait))
+	}
+}
+
+func (l *loginLimiter) succeeded(addr string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.attempts, addr)
+}
+
+// clientAddr is the connection's own address: X-Forwarded-For can be set by the client,
+// which would let anyone sidestep the limit.
+func clientAddr(c *gin.Context) string {
+	return c.RemoteIP()
+}
+
 func newSessionStore(ttl time.Duration) *sessionStore {
 	return &sessionStore{sessions: make(map[string]time.Time), ttl: ttl}
 }
@@ -101,9 +166,12 @@ func sessionValid(c *gin.Context, ac authConfig, st *sessionStore) bool {
 	return st.validate(sid)
 }
 
+// setSessionCookie sets a browser-session cookie. The server expires a session after an
+// hour without use; a Max-Age of an hour expired it in the browser an hour after login, even
+// for someone using it all along.
 func setSessionCookie(c *gin.Context, sid string) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(sessionCookieName, sid, int(sessionTTL.Seconds()), "/", "", false, true)
+	c.SetCookie(sessionCookieName, sid, 0, "/", "", false, true)
 }
 
 func clearSessionCookie(c *gin.Context) {
@@ -113,10 +181,16 @@ func clearSessionCookie(c *gin.Context) {
 
 // --- qBittorrent-compatible API (/api/v2) ---
 
-func qBitLoginHandler(ac authConfig, st *sessionStore) gin.HandlerFunc {
+func qBitLoginHandler(ac authConfig, st *sessionStore, ll *loginLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if ac.disabled {
 			c.String(http.StatusOK, "Ok.")
+			return
+		}
+
+		addr := clientAddr(c)
+		if !ll.allowed(addr) {
+			c.String(http.StatusTooManyRequests, "Fails.")
 			return
 		}
 
@@ -124,9 +198,11 @@ func qBitLoginHandler(ac authConfig, st *sessionStore) gin.HandlerFunc {
 		pass := c.PostForm("password")
 
 		if !auth.CredentialsMatch(user, pass, ac.user, ac.pass) {
+			ll.failed(addr)
 			c.String(http.StatusOK, "Fails.")
 			return
 		}
+		ll.succeeded(addr)
 
 		sid, err := st.create()
 		if err != nil {
@@ -176,17 +252,25 @@ func browserAuthMiddleware(ac authConfig, st *sessionStore) gin.HandlerFunc {
 
 func loginPageHandler(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", gin.H{
-		"Next":  safeNext(c.Query("next")),
-		"Error": c.Query("error") == "1",
+		"Next":    safeNext(c.Query("next")),
+		"Error":   c.Query("error") == "1",
+		"TooMany": c.Query("error") == "2",
 	})
 }
 
-func loginSubmitHandler(ac authConfig, st *sessionStore) gin.HandlerFunc {
+func loginSubmitHandler(ac authConfig, st *sessionStore, ll *loginLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		next := safeNext(c.PostForm("next"))
+		addr := clientAddr(c)
+
+		if !ac.disabled && !ll.allowed(addr) {
+			c.Redirect(http.StatusFound, "/login?error=2&next="+url.QueryEscape(next))
+			return
+		}
 
 		if ac.disabled || auth.CredentialsMatch(c.PostForm("username"), c.PostForm("password"), ac.user, ac.pass) {
 			if !ac.disabled {
+				ll.succeeded(addr)
 				sid, err := st.create()
 				if err != nil {
 					c.Redirect(http.StatusFound, "/login?error=1&next="+url.QueryEscape(next))
@@ -198,6 +282,7 @@ func loginSubmitHandler(ac authConfig, st *sessionStore) gin.HandlerFunc {
 			return
 		}
 
+		ll.failed(addr)
 		c.Redirect(http.StatusFound, "/login?error=1&next="+url.QueryEscape(next))
 	}
 }

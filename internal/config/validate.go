@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Validate rejects configurations that would silently run unauthenticated.
@@ -19,6 +21,13 @@ func Validate(r *Root) error {
 		if r.WebDAV.User == "" || r.WebDAV.Pass == "" {
 			return errors.New("webdav.user and webdav.pass must be set; remove the webdav: section to disable WebDAV")
 		}
+	}
+
+	if r.HTTPGlobal != nil {
+		warnDefaultCredentials("http", !r.HTTPGlobal.DisableAuth, r.HTTPGlobal.User, r.HTTPGlobal.Pass)
+	}
+	if r.WebDAV != nil {
+		warnDefaultCredentials("webdav", true, r.WebDAV.User, r.WebDAV.Pass)
 	}
 
 	for _, rt := range r.Routes {
@@ -46,4 +55,12 @@ func ValidateRouteName(name string) error {
 		}
 	}
 	return nil
+}
+
+// warnDefaultCredentials flags the admin/admin login that older config templates shipped
+// with. It isn't rejected, so existing setups keep starting.
+func warnDefaultCredentials(section string, enabled bool, user, pass string) {
+	if enabled && user == "admin" && pass == "admin" {
+		log.Warn().Str("section", section).Msg("the login is still admin/admin; change " + section + ".pass in the configuration file")
+	}
 }
