@@ -7,7 +7,10 @@ distribyted is a torrent client that presents torrents as files. When an applica
 reads a file, distribyted fetches only the pieces that read covers, and keeps them in a
 local cache.
 
-![distribyted's web interface](/images/distribyted.gif)
+![The distribyted dashboard: download and upload speed, cache use and a speed chart](/images/screenshots/dashboard-dark.png)
+
+The [web interface](web-interface/) shows what's happening and lets you manage torrents,
+files and links.
 
 ## How it works
 

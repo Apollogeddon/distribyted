@@ -1,6 +1,6 @@
 ---
 title: Benchmarking
-weight: 7
+weight: 8
 ---
 
 `task bench` runs distribyted's performance/latency benchmark suite

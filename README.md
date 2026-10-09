@@ -6,7 +6,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/Apollogeddon/distribyted">
-    <img src="docs/static/images/distribyted_icon.png" alt="Logo" width="100">
+    <img src="docs/static/images/logo.svg" alt="Logo" width="96">
   </a>
 
   <h3 align="center">distribyted</h3>
@@ -34,7 +34,23 @@
 - **Gaming:** Access large ROM collections or game backups directly from the filesystem.
 - **Content Sharing:** Use the **Server** feature to instantly share a local folder with anyone via a magnet link.
 
-![Distribyted Screen Shot][product-screenshot]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/dashboard-dark.png">
+  <img alt="The distribyted dashboard: download and upload speed, cache use and a speed chart" src="docs/static/images/screenshots/dashboard-light.png">
+</picture>
+
+<details>
+<summary>More of the web interface</summary>
+
+| Routes | Files |
+| --- | --- |
+| ![Routes: torrents grouped into folders, with health, pieces and peers](docs/static/images/screenshots/routes-dark.png) | ![Files: browsing the mounted folders, with download, link, rename and delete](docs/static/images/screenshots/files-light.png) |
+| **Links** | **Logs** |
+| ![Links: a file shown at a second path](docs/static/images/screenshots/links-light.png) | ![Logs: newest first, filtered by level](docs/static/images/screenshots/logs-dark.png) |
+| **Servers** | **On a phone** |
+| ![Servers: a local folder shared as a torrent with its magnet link](docs/static/images/screenshots/servers-dark.png) | ![The Routes page and the menu on a phone](docs/static/images/screenshots/mobile.png) |
+
+</details>
 
 ## ✨ Core Features
 
@@ -112,6 +128,5 @@ Distributed under the GPL3 license. See `LICENSE` for more information.
 [releases-url]: https://github.com/Apollogeddon/distribyted/releases
 [license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
 [license-url]: https://github.com/Apollogeddon/distribyted/blob/main/LICENSE
-[product-screenshot]: docs/static/images/distribyted.gif
 [coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
 [coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted

@@ -34,7 +34,7 @@ enableGitInfo = false
   displayTitle = true
   displayLogo = true
   [params.navbar.logo]
-    path = "images/distribyted_icon.png"
+    path = "images/logo.svg"
     width = "28"
     height = "28"
 

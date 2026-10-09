@@ -1,6 +1,6 @@
 ---
 title: Development
-weight: 6
+weight: 7
 ---
 
 This guide is intended for developers who want to contribute to Distribyted or build it from source.
