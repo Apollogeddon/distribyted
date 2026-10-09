@@ -69,13 +69,15 @@ func TestZipFilesystem(t *testing.T) {
 	_, err = zfs.ReadDir("/invalid/path")
 	require.Error(err)
 
-	// Test mutation operations (some should return ErrPermission, some should work as memory-backed)
+	// an archive can't be changed
 	require.Equal(os.ErrPermission, zfs.Link("", ""))
 	require.Equal(os.ErrPermission, zfs.Rename("", ""))
 	require.Equal(os.ErrPermission, zfs.Mkdir(""))
 	require.Equal(os.ErrPermission, zfs.Rmdir(""))
-	require.NoError(zfs.Create("/newfile.txt"))
-	require.NoError(zfs.Remove("/newfile.txt"))
+	require.Equal(os.ErrPermission, zfs.Create("/newfile.txt"))
+	require.Equal(os.ErrPermission, zfs.Remove("/path/to/test/file/1.txt"))
+	_, err = zfs.Open("/path/to/test/file/1.txt")
+	require.NoError(err)
 }
 
 func TestZipFilesystem_Empty(t *testing.T) {

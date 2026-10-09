@@ -14,10 +14,10 @@ type DiskTeeReader struct {
 
 	m sync.Mutex
 
-	fo int64
-	fr *os.File
-	to int64
-	tr io.Reader
+	fo  int64 // bytes copied to fr so far
+	fr  *os.File
+	tr  io.Reader
+	pos int64 // where the next Read starts
 }
 
 func NewDiskTeeReader(r io.Reader) (Reader, error) {
@@ -32,12 +32,15 @@ func NewDiskTeeReader(r io.Reader) (Reader, error) {
 func (dtr *DiskTeeReader) ReadAt(p []byte, off int64) (int, error) {
 	dtr.m.Lock()
 	defer dtr.m.Unlock()
+	return dtr.readAt(p, off)
+}
+
+func (dtr *DiskTeeReader) readAt(p []byte, off int64) (int, error) {
 	tb := off + int64(len(p))
 
 	if tb > dtr.fo {
 		w, err := io.CopyN(io.Discard, dtr.tr, tb-dtr.fo)
 		dtr.fo += w
-		dtr.to += w
 		if err != nil && !errors.Is(err, io.EOF) {
 			return 0, err
 		}
@@ -46,13 +49,17 @@ func (dtr *DiskTeeReader) ReadAt(p []byte, off int64) (int, error) {
 	return dtr.fr.ReadAt(p, off)
 }
 
+// Read reads from its own position through the copy on disk, so it can follow a ReadAt
+// that has already pulled the stream further on.
 func (dtr *DiskTeeReader) Read(p []byte) (n int, err error) {
 	dtr.m.Lock()
 	defer dtr.m.Unlock()
-	// use directly tee reader here
-	n, err = dtr.tr.Read(p)
-	dtr.to += int64(n)
-	return
+	n, err = dtr.readAt(p, dtr.pos)
+	dtr.pos += int64(n)
+	if n > 0 && errors.Is(err, io.EOF) {
+		err = nil
+	}
+	return n, err
 }
 
 func (dtr *DiskTeeReader) Close() error {

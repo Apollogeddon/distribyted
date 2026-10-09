@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
@@ -80,7 +79,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 	// Test file Stat
 	fileStat, err := file.Stat()
 	require.NoError(err)
-	require.Equal(filepath.Base("//folder/file.txt"), fileStat.Name())
+	require.Equal("file.txt", fileStat.Name())
 	require.Equal(int64(18), fileStat.Size())
 	require.False(fileStat.IsDir())
 	require.Equal(os.FileMode(0o777), fileStat.Mode())
@@ -94,7 +93,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 
 	fInfo, err := wfs.Stat(context.Background(), "/folder/file.txt")
 	require.NoError(err)
-	require.Equal("/folder/file.txt", fInfo.Name())
+	require.Equal("file.txt", fInfo.Name())
 	require.Equal(false, fInfo.IsDir())
 	require.Equal(int64(18), fInfo.Size())
 	require.Equal(os.FileMode(0o777), fInfo.Mode())

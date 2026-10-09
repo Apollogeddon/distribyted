@@ -223,9 +223,11 @@ type webDAVFileInfo struct {
 	isDir bool
 }
 
+// newFileInfo takes a path or a bare name. Name() is the last element only, as
+// os.FileInfo requires: WebDAV clients show it as the entry's display name.
 func newFileInfo(name string, size int64, isDir bool) *webDAVFileInfo {
 	return &webDAVFileInfo{
-		name:  name,
+		name:  path.Base(name),
 		size:  size,
 		isDir: isDir,
 	}

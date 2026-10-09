@@ -250,12 +250,14 @@ func (fs *archive) Rmdir(path string) error {
 	return os.ErrPermission
 }
 
+// Create and Remove refuse, like the other changes: an archive is read only, and removing
+// an entry would only hide it until the archive is listed again.
 func (fs *archive) Create(path string) error {
-	return fs.s.Add(NewMemoryFile(nil), path)
+	return os.ErrPermission
 }
 
 func (fs *archive) Remove(path string) error {
-	return fs.s.Remove(path)
+	return os.ErrPermission
 }
 
 var _ File = &ArchiveFile{}
