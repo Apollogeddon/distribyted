@@ -80,6 +80,10 @@
     document.body.addEventListener("toast", function (e) {
         toast(e.detail.level, e.detail.message);
     });
+    document.body.addEventListener("open-dialog", function (e) {
+        var d = document.getElementById(e.detail.value);
+        if (d && !d.open) d.showModal();
+    });
     document.body.addEventListener("close-dialog", function (e) {
         var d = document.getElementById(e.detail.value);
         if (d && d.open) d.close();
