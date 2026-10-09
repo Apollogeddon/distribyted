@@ -2,7 +2,10 @@ package webdav
 
 import (
 	"context"
+	"fmt"
+	"hash/fnv"
 	"io"
+	"mime"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,8 +51,7 @@ func (wd *WebDAV) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
-	fi := newFileInfo(name, f.Size(), f.IsDir())
-	return fi, nil
+	return newFileInfo(p, f), nil
 }
 
 func (wd *WebDAV) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
@@ -99,15 +101,15 @@ func (wd *WebDAV) lookupFile(path string) (fs.File, error) {
 	return wd.fs.Open(path)
 }
 
-func (wd *WebDAV) listDir(path string) ([]os.FileInfo, error) {
-	files, err := wd.fs.ReadDir(path)
+func (wd *WebDAV) listDir(dir string) ([]os.FileInfo, error) {
+	files, err := wd.fs.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
 	var out []os.FileInfo
 	for n, f := range files {
-		out = append(out, newFileInfo(n, f.Size(), f.IsDir()))
+		out = append(out, newFileInfo(path.Join(dir, n), f))
 	}
 
 	return out, nil
@@ -133,7 +135,7 @@ type webDAVFile struct {
 
 func newFile(name string, f fs.File, df func() ([]os.FileInfo, error), l zerolog.Logger) *webDAVFile {
 	return &webDAVFile{
-		fi:      newFileInfo(name, f.Size(), f.IsDir()),
+		fi:      newFileInfo(name, f),
 		dirFunc: df,
 		Reader:  f,
 		log:     l,
@@ -221,16 +223,49 @@ type webDAVFileInfo struct {
 	name  string
 	size  int64
 	isDir bool
+	etag  string
 }
 
-// newFileInfo takes a path or a bare name. Name() is the last element only, as
+// startedAt is every file's modification time. The files have none of their own, and a
+// time that changed on every request, as time.Now did, told clients each file had changed:
+// resumed downloads restarted and nothing could be cached.
+var startedAt = time.Now().Truncate(time.Second)
+
+var (
+	_ webdav.ETager       = &webDAVFileInfo{}
+	_ webdav.ContentTyper = &webDAVFileInfo{}
+)
+
+// newFileInfo describes the file at path p. Name() is the last element only, as
 // os.FileInfo requires: WebDAV clients show it as the entry's display name.
-func newFileInfo(name string, size int64, isDir bool) *webDAVFileInfo {
-	return &webDAVFileInfo{
-		name:  path.Base(name),
-		size:  size,
-		isDir: isDir,
+func newFileInfo(p string, f fs.File) *webDAVFileInfo {
+	fi := &webDAVFileInfo{
+		name:  path.Base(p),
+		size:  f.Size(),
+		isDir: f.IsDir(),
 	}
+	// the ETag is the same for the same file however often it's asked for, and across
+	// restarts: its path, its torrent and its size
+	h := fnv.New64a()
+	_, _ = io.WriteString(h, path.Clean("/"+p)+"\x00"+f.Hash())
+	fi.etag = fmt.Sprintf(`"%x-%x"`, h.Sum64(), fi.size)
+	return fi
+}
+
+func (wdfi *webDAVFileInfo) ETag(context.Context) (string, error) {
+	return wdfi.etag, nil
+}
+
+// ContentType comes from the name. Without it, the WebDAV handler opens and reads the
+// start of every file in a listing to guess, which for a torrent means downloading it.
+func (wdfi *webDAVFileInfo) ContentType(context.Context) (string, error) {
+	if wdfi.isDir {
+		return "", webdav.ErrNotImplemented
+	}
+	if t := mime.TypeByExtension(path.Ext(wdfi.name)); t != "" {
+		return t, nil
+	}
+	return "application/octet-stream", nil
 }
 
 func (wdfi *webDAVFileInfo) Name() string {
@@ -250,8 +285,7 @@ func (wdfi *webDAVFileInfo) Mode() os.FileMode {
 }
 
 func (wdfi *webDAVFileInfo) ModTime() time.Time {
-	// Virtual files return current time as they don't have a persistent modification date
-	return time.Now()
+	return startedAt
 }
 
 func (wdfi *webDAVFileInfo) IsDir() bool {
