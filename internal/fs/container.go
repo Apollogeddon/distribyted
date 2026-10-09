@@ -80,7 +80,10 @@ func (fs *ContainerFs) Open(filename string) (File, error) {
 	}
 	// Create a fresh handle so each Open gets its own reader and position,
 	// preventing shared-state bugs when the same file is stored via a link.
-	if h, ok := f.(*torrentFileHandle); ok {
+	switch h := f.(type) {
+	case *torrentFileHandle:
+		return h.NewHandle(), nil
+	case *ArchiveFileHandle:
 		return h.NewHandle(), nil
 	}
 	return f, nil
@@ -107,6 +110,10 @@ func (fs *ContainerFs) Link(oldpath, newpath string) error {
 	if err != nil {
 		fs.mu.Unlock()
 		return err
+	}
+	// an archive opens as a folder; the link is to the archive file it was opened from
+	if src, ok := fs.s.Source(oldpath); ok {
+		f = src
 	}
 
 	if err := fs.s.Add(f, newpath); err != nil {

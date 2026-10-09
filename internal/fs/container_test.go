@@ -409,3 +409,35 @@ func TestContainer_RoutesAndFoldersAreProtected(t *testing.T) {
 	require.NoError(err)
 	require.Empty(entries)
 }
+
+// TestContainer_LinkToArchive covers hard-linking an archive, as Sonarr and Radarr do on
+// import: the link was made to the archive's folder view, so it opened as an empty file and
+// listing it failed with "not a valid zip file".
+func TestContainer_LinkToArchive(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	route := NewMemory()
+	require.NoError(route.Storage.Add(NewMemoryFile(zipOf(t, "inside.txt", "hello")), "/T/a.zip"))
+	c, err := NewContainerFs(map[string]Filesystem{"/route": route})
+	require.NoError(err)
+
+	require.NoError(c.Link("/route/T/a.zip", "/lib/a.zip"))
+	entries, err := c.ReadDir("/lib/a.zip")
+	require.NoError(err)
+	require.Contains(entries, "inside.txt")
+
+	// each open of an entry gets its own handle, so closing one can't pull the reader from
+	// under another
+	require.NoError(c.Link("/lib/a.zip/inside.txt", "/lib/inside.txt"))
+	h1, err := c.Open("/lib/inside.txt")
+	require.NoError(err)
+	h2, err := c.Open("/lib/inside.txt")
+	require.NoError(err)
+	require.NotSame(h1, h2)
+	require.NoError(h1.Close())
+	buf := make([]byte, 5)
+	n, err := h2.ReadAt(buf, 0)
+	require.NoError(err)
+	require.Equal("hello", string(buf[:n]))
+}

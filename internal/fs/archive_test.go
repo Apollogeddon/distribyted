@@ -265,3 +265,32 @@ func TestRarFilesystem(t *testing.T) {
 		require.NoError(f.Close())
 	}
 }
+
+// flakyLoader times out on its first listing, as a read from a slow swarm does.
+type flakyLoader struct {
+	calls int
+	Zip
+}
+
+func (l *flakyLoader) getFiles(r iio.Reader, size int64) (map[string]*ArchiveFile, error) {
+	l.calls++
+	if l.calls == 1 {
+		return nil, ErrReadTimeout
+	}
+	return l.Zip.getFiles(r, size)
+}
+
+func TestArchive_RetriesAfterATimeout(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	data := zipOf(t, "inside.txt", "hello")
+	l := &flakyLoader{}
+	a := NewArchive(newCBR(data), int64(len(data)), l)
+
+	_, err := a.ReadDir("/")
+	require.ErrorIs(err, ErrReadTimeout)
+	entries, err := a.ReadDir("/")
+	require.NoError(err, "a timeout must not leave the archive broken")
+	require.Contains(entries, "inside.txt")
+}
