@@ -12,7 +12,7 @@ between them.
 
 Download and upload speed, the cache in use, and a chart of the last minute's speeds.
 
-![The dashboard](/images/screenshots/dashboard-dark.png)
+{{< screenshot name="dashboard" alt="The dashboard" >}}
 
 ## Routes
 
@@ -20,40 +20,40 @@ Each route is a folder of torrents. A torrent's row shows its health, how many o
 pieces are here, and its peers. **Add magnet** adds a torrent to a route, and the bin
 button removes one.
 
-![The Routes page](/images/screenshots/routes-dark.png)
+{{< screenshot name="routes" alt="The Routes page" >}}
 
 A magnet link that can't be added says why, without closing the dialog.
 
-![Adding a magnet link that isn't valid](/images/screenshots/add-magnet-dark.png)
+{{< screenshot name="add-magnet" alt="Adding a magnet link that isn't valid" >}}
 
 ## Files
 
 Everything the mounts show. Download a file, make a folder, rename or delete what you
 added, or link a file to a second path. Files inside a torrent are managed from Routes.
 
-![The Files page](/images/screenshots/files-light.png)
+{{< screenshot name="files" alt="The Files page" >}}
 
 ## Links
 
 A link shows a file at a second path, such as a film filed the way your library names it.
 
-![The Links page](/images/screenshots/links-light.png)
+{{< screenshot name="links" alt="The Links page" >}}
 
 ## Servers
 
 Local folders shared as torrents, each with a magnet link that follows the folder's
 contents.
 
-![The Servers page](/images/screenshots/servers-dark.png)
+{{< screenshot name="servers" alt="The Servers page" >}}
 
 ## Logs
 
 The newest entries first, filtered by level. New entries appear as they're written.
 
-![The Logs page](/images/screenshots/logs-dark.png)
+{{< screenshot name="logs" alt="The Logs page" >}}
 
 ## On a phone
 
 Below 900 pixels wide the sidebar becomes a menu.
 
-![The Routes page and the menu on a phone](/images/screenshots/mobile.png)
+{{< screenshot name="mobile" alt="The Routes page and the menu on a phone" >}}

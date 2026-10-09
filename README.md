@@ -42,13 +42,14 @@
 <details>
 <summary>More of the web interface</summary>
 
-| Routes | Files |
-| --- | --- |
-| ![Routes: torrents grouped into folders, with health, pieces and peers](docs/static/images/screenshots/routes-dark.png) | ![Files: browsing the mounted folders, with download, link, rename and delete](docs/static/images/screenshots/files-light.png) |
-| **Links** | **Logs** |
-| ![Links: a file shown at a second path](docs/static/images/screenshots/links-light.png) | ![Logs: newest first, filtered by level](docs/static/images/screenshots/logs-dark.png) |
-| **Servers** | **On a phone** |
-| ![Servers: a local folder shared as a torrent with its magnet link](docs/static/images/screenshots/servers-dark.png) | ![The Routes page and the menu on a phone](docs/static/images/screenshots/mobile.png) |
+<table>
+<tr><th>Routes</th><th>Files</th></tr>
+<tr><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/routes-dark.png"><img alt="Routes: torrents grouped into folders, with health, pieces and peers" src="docs/static/images/screenshots/routes-light.png"></picture></td><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/files-dark.png"><img alt="Files: browsing the mounted folders, with download, link, rename and delete" src="docs/static/images/screenshots/files-light.png"></picture></td></tr>
+<tr><th>Links</th><th>Logs</th></tr>
+<tr><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/links-dark.png"><img alt="Links: a file shown at a second path" src="docs/static/images/screenshots/links-light.png"></picture></td><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/logs-dark.png"><img alt="Logs: newest first, filtered by level" src="docs/static/images/screenshots/logs-light.png"></picture></td></tr>
+<tr><th>Servers</th><th>On a phone</th></tr>
+<tr><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/servers-dark.png"><img alt="Servers: a local folder shared as a torrent with its magnet link" src="docs/static/images/screenshots/servers-light.png"></picture></td><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/mobile-dark.png"><img alt="The Routes page and the menu on a phone" src="docs/static/images/screenshots/mobile-light.png"></picture></td></tr>
+</table>
 
 </details>
 
