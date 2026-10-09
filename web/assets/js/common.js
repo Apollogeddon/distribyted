@@ -204,6 +204,8 @@ Distribyted.message = {
 
     _toastr: function () {
         toastr.options = {
+            // messages include server errors that echo paths and torrent names
+            escapeHtml: true,
             closeButton: true,
             debug: false,
             newestOnTop: false,
