@@ -422,6 +422,8 @@ func TestService_addTorrent_TimeoutError(t *testing.T) {
 	err := svc.addMagnet("test", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "timeout")
+	// the failed torrent doesn't stay in the client fetching metadata forever
+	require.Equal(t, 1, mockT.drops)
 }
 
 func TestService_logSwarmHealth_NoPanic(t *testing.T) {

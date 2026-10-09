@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -931,4 +933,26 @@ func BenchmarkReadAtWrapper_ReadAt_Cached(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// TestTorrentFS_RemoveBeforeMetadataStopsWaiting guards against a goroutine leak: a
+// torrent waiting for metadata that never arrives (a dead magnet) kept a goroutine
+// blocked on GotInfo forever after it was removed.
+func TestTorrentFS_RemoveBeforeMetadataStopsWaiting(t *testing.T) {
+	ih := infohash.HashBytes([]byte("metadata that never arrives"))
+	to, _ := Cli.AddTorrentOpt(torrent.AddTorrentOpts{InfoHash: ih})
+	defer to.Drop()
+
+	waiters := func() int {
+		buf := make([]byte, 1<<20)
+		return strings.Count(string(buf[:runtime.Stack(buf, true)]), "(*TorrentFS).AddTorrent.func")
+	}
+
+	tfs := NewTorrent(5, false)
+	tfs.AddTorrent(TorrentWrapper{to})
+	require.Eventually(t, func() bool { return waiters() == 1 }, time.Second, 10*time.Millisecond)
+
+	tfs.RemoveTorrent(ih.HexString())
+	require.Eventually(t, func() bool { return waiters() == 0 }, time.Second, 10*time.Millisecond,
+		"the goroutine waiting for metadata should stop once the torrent is removed")
 }

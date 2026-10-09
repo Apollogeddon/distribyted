@@ -479,6 +479,12 @@ func (s *Service) addTorrent(r string, t fs.Torrent) error {
 		case <-time.After(time.Duration(s.addTimeout) * time.Second):
 			s.log.Warn().Str(dlog.KeyHash, hash).Msg("timeout getting torrent info")
 			if !s.continueWhenAddTimeout {
+				// the add failed, so the torrent mustn't stay in the client fetching
+				// metadata, unless another route already has it
+				if len(s.s.GetRoutesFromHash(hash)) == 0 {
+					t.Drop()
+					s.timings.Forget(hash)
+				}
 				return errors.New("timeout getting torrent info")
 			}
 			s.log.Info().Str(dlog.KeyHash, hash).Msg("ignoring timeout error and continuing in background")
