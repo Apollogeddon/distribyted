@@ -367,7 +367,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
 		log.Info().Str(dlog.KeyPath, p).Msg("dynamically adding new route to filesystem")
-		_ = cfs.AddFS(p, fss) //nolint:errcheck // route may already be mounted
+		if err := cfs.AddFS(p, fss); err != nil {
+			log.Error().Err(err).Str(dlog.KeyPath, p).Msg("the new route can't be mounted: something else is already at its path")
+		}
 	})
 
 	fusePath := "/distribyted-data/mount"

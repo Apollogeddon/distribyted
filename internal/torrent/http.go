@@ -32,6 +32,7 @@ func (fs *HTTPFS) Open(name string) (http.File, error) {
 	// TODO make this lazy
 	fis, err := fs.filesToFileInfo(name)
 	if err != nil {
+		_ = f.Close()
 		return nil, err
 	}
 

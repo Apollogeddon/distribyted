@@ -408,3 +408,14 @@ func (d *Dummy) Read(p []byte) (n int, err error) {
 func (d *Dummy) ReadAt(p []byte, off int64) (n int, err error) {
 	return 0, nil
 }
+
+// TestStorageAddFs_OverUserFolder guards a route added while running whose name matches a
+// folder the user made: it was silently not mounted, and the caller ignored the outcome.
+func TestStorageAddFs_OverUserFolder(t *testing.T) {
+	t.Parallel()
+
+	s := newStorage(dummyFactories)
+	require.NoError(t, s.Add(&Dir{}, "/movies"))
+
+	require.ErrorIs(t, s.AddFS(&DummyFs{}, "/movies"), os.ErrExist)
+}

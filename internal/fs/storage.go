@@ -122,14 +122,11 @@ func (s *storage) AddFS(fs Filesystem, p string) error {
 	defer s.mu.Unlock()
 
 	p = clean(p)
-	if s.hasLocked(p) {
-		if dir, err := s.getLocked(p); err == nil {
-			if !dir.IsDir() {
-				return os.ErrExist
-			}
-		}
-
-		return nil
+	// something is already there: another mount, or a folder or file of the user's own.
+	// Mounting over it would hide what it holds, so the caller has to know the route
+	// didn't appear.
+	if _, mounted := s.filesystems[p]; mounted || s.hasLocked(p) {
+		return os.ErrExist
 	}
 
 	s.filesystems[p] = fs

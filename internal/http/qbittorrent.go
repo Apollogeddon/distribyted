@@ -141,23 +141,21 @@ func newCategoryStore() *categoryStore {
 	return &categoryStore{cats: make(map[string]bool)}
 }
 
-func qBitTorrentsCategoriesHandler(cs *categoryStore, ch *config.Handler, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
+// routes are the ones loaded at startup: re-reading the config file on every poll cost a
+// parse per request, and regenerated the file with a new password if it had been removed
+func qBitTorrentsCategoriesHandler(cs *categoryStore, routes []*config.Route, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		resp := make(map[string]gin.H)
 
 		// First, add all explicitly configured routes
-		if ch != nil {
-			if root, err := ch.Get(); err == nil && root != nil {
-				for _, r := range root.Routes {
-					savePath := fusePath
-					if r.Name != "" {
-						savePath = fusePath + "/" + r.Name
-					}
-					resp[r.Name] = gin.H{
-						"name":     r.Name,
-						"savePath": savePath,
-					}
-				}
+		for _, r := range routes {
+			savePath := fusePath
+			if r.Name != "" {
+				savePath = fusePath + "/" + r.Name
+			}
+			resp[r.Name] = gin.H{
+				"name":     r.Name,
+				"savePath": savePath,
 			}
 		}
 
@@ -399,19 +397,15 @@ func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 	}
 }
 
-func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, ch *config.Handler, fusePath string) gin.HandlerFunc {
+func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, routes []*config.Route, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		categories := make(map[string]gin.H)
-		if ch != nil {
-			if root, err := ch.Get(); err == nil && root != nil {
-				for _, r := range root.Routes {
-					savePath := fusePath
-					if r.Name != "" {
-						savePath = fusePath + "/" + r.Name
-					}
-					categories[r.Name] = gin.H{"name": r.Name, "savePath": savePath}
-				}
+		for _, r := range routes {
+			savePath := fusePath
+			if r.Name != "" {
+				savePath = fusePath + "/" + r.Name
 			}
+			categories[r.Name] = gin.H{"name": r.Name, "savePath": savePath}
 		}
 		cs.mu.RLock()
 		for cat := range cs.cats {
