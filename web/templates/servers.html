@@ -1,19 +1,17 @@
 <!DOCTYPE html>
+<html lang="en">
 
 <head>
-    {{template "header.html" "Servers"}}
+    {{template "header.html" .Title}}
 </head>
-
 
 <body class="header-fixed sidebar-fixed sidebar-dark header-dark" id="body">
     <div class="wrapper">
         {{template "navbar.html" "served-folders"}}
 
         <div class="page-wrapper">
-            <!-- Header -->
-            <header class="main-header " id="header">
+            <header class="main-header" id="header">
                 <nav class="navbar navbar-static-top navbar-expand-lg">
-                    <!-- Sidebar toggle button -->
                     <button id="sidebar-toggler" class="sidebar-toggle">
                         <span class="sr-only">Toggle navigation</span>
                     </button>
@@ -21,26 +19,23 @@
             </header>
 
             <div class="content-wrapper">
-                <div class="content" id="template_target">
-                   
-                </div>
-                <footer class="footer mt-auto">
-                    <div class="copyright bg-white">
+                <main class="content">
+                    {{template "offline-banner"}}
+
+                    <div class="page-header">
+                        <div>
+                            <h1>Servers</h1>
+                            <p class="page-subtitle">Folders on this machine shared as torrents. Each one's magnet link follows its contents.</p>
+                        </div>
                     </div>
-                </footer>
+
+                    {{template "servers-list" .}}
+                </main>
             </div>
+        </div>
+    </div>
 
-            {{template "footer.html"}}
-
-            <script src="assets/js/servers.js"></script>
-            <script>
-                Distribyted.poller(function () {
-                    Distribyted.servers.loadView();
-                }, 5000, 30000)
-
-            </script>
-            <script>
-            </script>
+    {{template "footer.html"}}
 </body>
 
 </html>

@@ -1,19 +1,17 @@
 <!DOCTYPE html>
+<html lang="en">
 
 <head>
-    {{template "header.html" "Logs"}}
+    {{template "header.html" .Title}}
 </head>
-
 
 <body class="header-fixed sidebar-fixed sidebar-dark header-dark" id="body">
     <div class="wrapper">
         {{template "navbar.html" "logs"}}
 
         <div class="page-wrapper">
-            <!-- Header -->
-            <header class="main-header " id="header">
+            <header class="main-header" id="header">
                 <nav class="navbar navbar-static-top navbar-expand-lg">
-                    <!-- Sidebar toggle button -->
                     <button id="sidebar-toggler" class="sidebar-toggle">
                         <span class="sr-only">Toggle navigation</span>
                     </button>
@@ -21,57 +19,23 @@
             </header>
 
             <div class="content-wrapper">
-                <div class="content">
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <div class="card card-default logs-card">
-                                <div
-                                    class="card-header justify-content-between align-items-center card-header-border-bottom flex-wrap">
-                                    <h2>Logs</h2>
-                                    <div id="log-filters" class="btn-group btn-group-sm" role="group">
-                                        <button type="button" class="btn btn-outline-secondary active" data-filter="all">All</button>
-                                        <button type="button" class="btn btn-outline-primary" data-filter="info">Info</button>
-                                        <button type="button" class="btn btn-outline-warning" data-filter="warn">Warn</button>
-                                        <button type="button" class="btn btn-outline-danger" data-filter="error">Error</button>
-                                        <button type="button" class="btn btn-outline-info" data-filter="debug">Debug</button>
-                                    </div>
-                                </div>
-                                <div style="position: relative; overflow: hidden; width: auto; height: 100%;">
-                                    <div id="log-scroll" class="card-body"
-                                        style="overflow: hidden; width: auto; height: 100%; overflow-y: scroll; display: flex; flex-direction: column-reverse;">
-                                        <table class="table" id="log-table-container">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col">Time</th>
-                                                    <th scope="col">Type</th>
-                                                    <th scope="col">Component</th>
-                                                    <th scope="col">Message</th>
-                                                    <th scope="col">Properties</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="log_table">
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="mt-3"></div>
-                            </div>
+                <main class="content">
+                    {{template "offline-banner"}}
+
+                    <div class="page-header">
+                        <div>
+                            <h1>Logs</h1>
+                            <p class="page-subtitle">The newest entries first. New ones appear as they're written.</p>
                         </div>
                     </div>
-                </div>
 
-                <footer class="footer mt-auto">
-                    <div class="copyright bg-white">
-                    </div>
-                </footer>
+                    {{template "logs-list" .}}
+                </main>
             </div>
+        </div>
+    </div>
 
-            {{template "footer.html"}}
-
-            <script src="assets/js/logs.js"></script>
-            <script>
-                Distribyted.logs.loadView();
-            </script>
+    {{template "footer.html"}}
 </body>
 
 </html>

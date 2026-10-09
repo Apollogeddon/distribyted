@@ -222,22 +222,6 @@ th, td {
   .path-truncate { max-width: 400px; }
 }
 
-/* Logs panel: viewport-relative height instead of a hardcoded 1000px, which
-   overflowed the page on short/mobile screens. */
-.logs-card {
-  height: calc(100vh - 190px);
-  min-height: 320px;
-  overflow: hidden;
-}
-@media (max-width: 767.98px) {
-  .logs-card { height: calc(100vh - 150px); }
-}
-#log-filters {
-  flex-wrap: wrap;
-}
-@media (max-width: 399.98px) {
-  #log-filters .btn { padding-left: 0.5rem; padding-right: 0.5rem; }
-}
 .table-responsive {
   /* the Sleek template sets display: table, which cancels overflow-x and lets the
      cards clip the actions column off the right edge on phones */
@@ -267,15 +251,6 @@ th, td {
     font-size: 0.7rem !important;
   }
   
-  /* Hide verbose log columns on mobile */
-  #log-table-container th:nth-child(2),
-  #log-table-container th:nth-child(3),
-  #log-table-container th:nth-child(5),
-  #log_table td:nth-child(2),
-  #log_table td:nth-child(3),
-  #log_table td:nth-child(5) {
-    display: none;
-  }
 }
 
 /* Confirm modal (Distribyted.confirm) */
@@ -294,19 +269,6 @@ th, td {
   opacity: 0.6;
 }
 
-/* Logs Table Readability */
-#log_table td {
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-/* Log Filtering */
-tbody.filter-info tr:not([data-level="info"]),
-tbody.filter-warn tr:not([data-level="warn"]),
-tbody.filter-error tr:not([data-level="error"]),
-tbody.filter-debug tr:not([data-level="debug"]) {
-  display: none !important;
-}
 
 /* Dark Theme Table Contextual Classes */
 .table-danger, .table-danger > td, .table-danger > th {
@@ -324,9 +286,6 @@ tbody.filter-debug tr:not([data-level="debug"]) {
 .table-primary, .table-primary > td, .table-primary > th {
   background-color: rgba(59, 130, 246, 0.15) !important;
   color: #93c5fd !important;
-}
-tr[data-level="info"] > td {
-  color: #bae6fd !important; /* Soft, readable sky blue for info entries */
 }
 
 /* the logout form's button looks like the other sidebar links, which the Sleek template
@@ -701,4 +660,121 @@ form.htmx-request .btn-spinner { display: inline-block; }
   .file-size { grid-column: 1; grid-row: 2; text-align: left; }
   .file-actions { grid-column: 2; grid-row: 1 / span 2; }
   .files-toolbar .btn { width: 100%; }
+}
+
+/* ---- Logs ---- */
+
+.logs > * + *,
+.servers > * + * { margin-top: 1rem; }
+.logs .card:hover,
+.servers .card:hover { transform: none; }
+
+.log-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.log-filter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+.log-filter:hover { color: var(--text-main); text-decoration: none; background: rgba(148, 163, 184, 0.1); }
+.log-filter.active { background: var(--accent-primary); border-color: transparent; color: #fff; }
+
+.log-scroll {
+  max-height: calc(100vh - 290px);
+  min-height: 320px;
+  overflow: auto;
+}
+.log-scroll:focus-visible { outline: none; box-shadow: var(--focus-ring) inset; }
+.log-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.log-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.log-table td {
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--glass-border);
+  vertical-align: top;
+}
+.log-time { white-space: nowrap; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* the template colours <time> for a light background */
+.log-time time { color: var(--text-muted) !important; }
+.log-component { white-space: nowrap; color: var(--text-muted); }
+.log-message { overflow-wrap: anywhere; min-width: 16rem; }
+.log-table tr.log-error { background: rgba(248, 113, 113, 0.08); }
+.log-table tr.log-warn { background: rgba(251, 191, 36, 0.06); }
+
+.level-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-muted);
+}
+.level-info { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+.level-warn { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+.level-error, .level-fatal, .level-panic { background: rgba(248, 113, 113, 0.18); color: var(--danger); }
+
+.log-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.log-fields div { display: flex; gap: 0.3rem; min-width: 0; }
+.log-fields dt { font-weight: 500; color: #94a3b8; white-space: nowrap; }
+.log-fields dt::after { content: "="; }
+.log-fields dd { margin: 0; overflow-wrap: anywhere; color: var(--text-main); }
+
+/* ---- Servers ---- */
+
+.server-body { padding: 1rem 1.25rem 1.25rem; }
+.server-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 0 0 1.25rem;
+}
+.server-facts dt { color: var(--text-muted); font-weight: 400; font-size: 0.875rem; }
+.server-facts dd { margin: 0.15rem 0 0; font-weight: 500; }
+.server-folder { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.875rem; overflow-wrap: anywhere; }
+.copy-field { display: flex; gap: 0.5rem; }
+.copy-field .form-control { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
+.copy-field .btn { flex: none; }
+
+.status-pill {
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-ok { background: rgba(74, 222, 128, 0.15); color: var(--ok); }
+.status-wait { background: rgba(147, 197, 253, 0.15); color: var(--wait); }
+.status-warn { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+.status-error { background: rgba(248, 113, 113, 0.18); color: var(--danger); }
+
+@media (max-width: 767.98px) {
+  .log-scroll { max-height: none; min-height: 0; }
+  .log-table thead { display: none; }
+  .log-table, .log-table tbody, .log-table tr, .log-table td { display: block; }
+  .log-table tr { padding: 0.6rem 0.75rem; border-top: 1px solid var(--glass-border); }
+  .log-table td { padding: 0; border: 0; }
+  .log-table td:nth-child(-n+3) { display: inline-block; margin-right: 0.5rem; }
+  .log-message { min-width: 0; margin-top: 0.3rem; }
 }

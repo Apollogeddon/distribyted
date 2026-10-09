@@ -1,0 +1,52 @@
+{{define "logs-list"}}
+<section id="logs" class="logs" aria-label="Log entries"
+    hx-get="{{.ListURL}}"
+    hx-trigger="every 3s [document.visibilityState === 'visible'], logs-changed from:body"
+    hx-swap="morph:outerHTML" hx-ext="morph">
+    <nav class="log-filters" aria-label="Show">
+        {{range .Filters}}
+        <a href="{{.Href}}" class="log-filter{{if .Active}} active{{end}}"{{if .Active}} aria-current="true"{{end}}
+            hx-get="{{.ListURL}}" hx-target="#logs" hx-swap="outerHTML" hx-push-url="{{.Href}}">{{.Label}}</a>
+        {{end}}
+    </nav>
+
+    {{with .Error}}
+    <div class="app-alert app-alert-danger" role="alert"><i class="mdi mdi-alert-outline" aria-hidden="true"></i><span>{{.}}</span></div>
+    {{end}}
+
+    {{if .Lines}}
+    <div class="card log-card">
+        <div class="log-scroll" tabindex="0" aria-label="Log entries, newest first">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Time</th>
+                        <th scope="col">Level</th>
+                        <th scope="col">Component</th>
+                        <th scope="col">Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Lines}}
+                    <tr class="log-{{.Level}}">
+                        <td class="log-time"><time title="{{.FullTime}}">{{.Time}}</time></td>
+                        <td>{{with .Level}}<span class="level-badge level-{{.}}">{{.}}</span>{{end}}</td>
+                        <td class="log-component">{{.Component}}</td>
+                        <td class="log-message">
+                            {{.Message}}
+                            {{if .Fields}}<dl class="log-fields">{{range .Fields}}<div><dt>{{.Key}}</dt><dd>{{.Value}}</dd></div>{{end}}</dl>{{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{else if not .Error}}
+    <div class="card empty-state">
+        <i class="mdi mdi-text-box-search-outline" aria-hidden="true"></i>
+        <p>{{if eq .Level "all"}}The log is empty.{{else}}Nothing at this level in the latest entries.{{end}}</p>
+    </div>
+    {{end}}
+</section>
+{{end}}
