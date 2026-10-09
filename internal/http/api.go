@@ -95,6 +95,11 @@ var apiFsDeleteHandler = func(cfs containerFS) gin.HandlerFunc {
 			return
 		}
 
+		if !cfs.IsOwned(p) {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "not deletable: part of a torrent's route content"})
+			return
+		}
+
 		err := cfs.Remove(p)
 		switch {
 		case err == nil:

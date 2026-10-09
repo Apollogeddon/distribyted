@@ -225,6 +225,9 @@ th, td {
   #log-filters .btn { padding-left: 0.5rem; padding-right: 0.5rem; }
 }
 .table-responsive {
+  /* the Sleek template sets display: table, which cancels overflow-x and lets the
+     cards clip the actions column off the right edge on phones */
+  display: block !important;
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -319,4 +322,14 @@ tbody.filter-debug tr:not([data-level="debug"]) {
 }
 tr[data-level="info"] > td {
   color: #bae6fd !important; /* Soft, readable sky blue for info entries */
+}
+
+/* the logout form's button looks like the other sidebar links */
+.sidenav-button {
+    width: 100%;
+    background: none;
+    border: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }

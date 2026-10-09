@@ -202,7 +202,13 @@ func TestLogout(t *testing.T) {
 	require.NoError(t, err)
 	loginResp.Body.Close()
 
-	logoutResp, err := client.Get(srv.URL + "/logout")
+	// a GET can come from another site's link or image, so it must not log out
+	getResp, err := client.Get(srv.URL + "/logout")
+	require.NoError(t, err)
+	getResp.Body.Close()
+	require.NotEqual(t, "/login", getResp.Header.Get("Location"))
+
+	logoutResp, err := client.PostForm(srv.URL+"/logout", url.Values{})
 	require.NoError(t, err)
 	logoutResp.Body.Close()
 	require.Equal(t, "/login", logoutResp.Header.Get("Location"))
@@ -319,4 +325,54 @@ func newSessionStoreForTest(t *testing.T, r http.Handler) (string, error) {
 		}
 	}
 	return "", errors.New("no session cookie set")
+}
+
+func TestSafeNext(t *testing.T) {
+	for next, want := range map[string]string{
+		"":                  "/",
+		"/routes":           "/routes",
+		"/files#/a/b":       "/files#/a/b",
+		"/logs?level=error": "/logs?level=error",
+		"https://evil.com":  "/",
+		"//evil.com":        "/",
+		`/\evil.com`:        "/",
+		`/\/evil.com`:       "/",
+		"/\t/evil.com":      "/",
+		"/\n/evil.com":      "/",
+		"routes":            "/",
+	} {
+		require.Equal(t, want, safeNext(next), "safeNext(%q)", next)
+	}
+}
+
+func TestCrossOriginRequestsRejected(t *testing.T) {
+	conf := authedConf()
+	conf.HTTPGlobal.DisableAuth = true // the case where nothing else stops a forged request
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "", nil)
+	require.NoError(t, err)
+
+	post := func(header, value string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/v2/torrents/createCategory", strings.NewReader("category=x"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if header != "" {
+			req.Header.Set(header, value)
+		}
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	// a browser on another site, including another port on the same host
+	require.Equal(t, http.StatusForbidden, post("Sec-Fetch-Site", "cross-site"))
+	require.Equal(t, http.StatusForbidden, post("Sec-Fetch-Site", "same-site"))
+	require.Equal(t, http.StatusForbidden, post("Origin", "http://evil.example"))
+	// the UI itself, and API clients such as Sonarr that send neither header
+	require.Equal(t, http.StatusOK, post("Sec-Fetch-Site", "same-origin"))
+	require.Equal(t, http.StatusOK, post("", ""))
+
+	// a GET can't change state: state-changing endpoints accept POST only
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/torrents/createCategory?category=x", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusOK, w.Code)
 }

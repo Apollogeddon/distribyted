@@ -215,7 +215,17 @@ func logoutHandler(st *sessionStore) gin.HandlerFunc {
 // safeNext keeps redirect targets confined to this site, preventing an
 // open redirect via a crafted ?next= value.
 func safeNext(next string) string {
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+	// browsers read a backslash as a slash, so /\evil.com is //evil.com, another host
+	if next == "" || !strings.HasPrefix(next, "/") || strings.ContainsAny(next, "\\") {
+		return "/"
+	}
+	for _, r := range next {
+		if r < 0x20 || r == 0x7f {
+			return "/"
+		}
+	}
+	u, err := url.Parse(next)
+	if err != nil || u.Scheme != "" || u.Host != "" || strings.HasPrefix(next, "//") {
 		return "/"
 	}
 	return next
