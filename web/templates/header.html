@@ -3,9 +3,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Distribyted - {{.}}</title>
 
-<!-- GOOGLE FONTS -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://cdn.materialdesignicons.com/4.4.95/css/materialdesignicons.min.css" rel="stylesheet" />
+<!-- the font and icons are served with the app, so the UI works without internet access -->
+<link href="/assets/plugins/inter/inter.css" rel="stylesheet" />
+<link href="/assets/plugins/mdi/css/materialdesignicons.min.css" rel="stylesheet" />
+<!-- a form that fails validation answers 422 with the form and its errors, which htmx swaps in -->
+<meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}' />
 <!-- SLEEK CSS -->
 <link id="sleek-css" rel="stylesheet" href="/assets/css/sleek.min.css" />
 <link href="/assets/plugins/toastr/toastr.min.css" rel="stylesheet" />
