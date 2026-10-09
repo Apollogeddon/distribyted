@@ -1,19 +1,17 @@
 <!DOCTYPE html>
+<html lang="en">
 
 <head>
-    {{template "header.html" "Routes"}}
+    {{template "header.html" .Title}}
 </head>
-
 
 <body class="header-fixed sidebar-fixed sidebar-dark header-dark" id="body">
     <div class="wrapper">
         {{template "navbar.html" "routes"}}
 
         <div class="page-wrapper">
-            <!-- Header -->
-            <header class="main-header " id="header">
+            <header class="main-header" id="header">
                 <nav class="navbar navbar-static-top navbar-expand-lg">
-                    <!-- Sidebar toggle button -->
                     <button id="sidebar-toggler" class="sidebar-toggle">
                         <span class="sr-only">Toggle navigation</span>
                     </button>
@@ -21,60 +19,34 @@
             </header>
 
             <div class="content-wrapper">
-                <div class="content">
-                    <div id="template_target"></div>
+                <main class="content">
+                    {{template "offline-banner"}}
 
-                    <div class="card card-default">
-                        <div class="card-header card-header-border-bottom">
-                            <h2>Add New Magnet to a Route</h2>
-
+                    <div class="page-header">
+                        <div>
+                            <h1>Routes</h1>
+                            <p class="page-subtitle">Each route is a folder of torrents in every mount.</p>
                         </div>
-                        <div class="card-body">
-                            <form id="new-magnet">
-                                <div class="form-group">
-                                    <label>Magnet Link</label>
-                                    <input type="text" id="magnet-url" class="form-control"
-                                        placeholder="magnet:?xt=urn:btih:…">
-                                    <div class="invalid-feedback" id="magnet-feedback"></div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Route</label>
-                                    <select class="form-control" id="route-string">
-                                        {{range .}}
-                                        <option value="{{.Name}}">{{.Name}}</option>
-                                        {{end}}
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <button type="submit" class="btn btn-primary btn-default">Add</button>
-                                </div>
-                                <div class="form-footer pt-4 pt-5 mt-4 border-top">
-                                    <div class="sk-double-bounce" id="submit_magnet_loading" style="display: none;">
-                                        <div class="double-bounce1"></div>
-                                        <div class="double-bounce2"></div>
-                                    </div>
-                                </div>
-                             
-                            </form>
-                        </div>
+                        <button type="button" class="btn btn-primary btn-lg-touch" data-open-dialog="add-magnet">
+                            <i class="mdi mdi-plus" aria-hidden="true"></i> Add magnet
+                        </button>
                     </div>
-                </div>
 
-                <footer class="footer mt-auto">
-                    <div class="copyright bg-white">
-                    </div>
-                </footer>
+                    {{template "routes-table" .}}
+                </main>
             </div>
+        </div>
+    </div>
 
-            {{template "footer.html"}}
+    <dialog id="add-magnet" class="app-dialog" aria-labelledby="add-magnet-title">
+        <div class="app-dialog-header">
+            <h2 id="add-magnet-title">Add a magnet</h2>
+            <button type="button" class="btn-icon" data-close-dialog aria-label="Close"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+        </div>
+        {{template "add-magnet-form" .Form}}
+    </dialog>
 
-            <script src="assets/js/routes.js"></script>
-            <script>
-                Distribyted.poller(function () {
-                    Distribyted.routes.loadView();
-                }, 2000, 30000)
-
-            </script>
+    {{template "footer.html"}}
 </body>
 
 </html>

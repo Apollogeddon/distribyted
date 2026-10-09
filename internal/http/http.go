@@ -94,7 +94,10 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 	pages := r.Group("", browserAuth)
 	{
 		pages.Any("/", indexHandler)
-		pages.GET("/routes", routesHandler(ss))
+		pages.GET("/routes", routesHandler(conf, ss))
+		pages.GET("/routes/table", routesTableHandler(conf, ss))
+		pages.POST("/routes/torrents", routesAddHandler(conf, ss, s))
+		pages.DELETE("/routes/:route/torrents/:hash", routesDeleteHandler(s))
 		pages.GET("/logs", logsHandler)
 		pages.GET("/servers", serversFoldersHandler())
 		pages.GET("/links", linksPageHandler)

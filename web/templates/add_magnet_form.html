@@ -1,0 +1,30 @@
+{{define "add-magnet-form"}}
+<form class="app-form" hx-post="/routes/torrents" hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]" novalidate>
+    {{if .Names}}
+    <div class="form-field">
+        <label for="add-magnet-link">Magnet link</label>
+        <input type="text" id="add-magnet-link" name="magnet" value="{{.Magnet}}" class="form-control{{if .Error}} is-invalid{{end}}"
+            placeholder="magnet:?xt=urn:btih:…" autocomplete="off" spellcheck="false" required
+            {{if .Error}}aria-invalid="true" aria-describedby="add-magnet-error"{{end}} autofocus>
+        {{with .Error}}<p class="field-error" id="add-magnet-error" role="alert">{{.}}</p>{{end}}
+    </div>
+    <div class="form-field">
+        <label for="add-magnet-route">Route</label>
+        <select id="add-magnet-route" name="route" class="form-control">
+            {{$route := .Route}}
+            {{range .Names}}<option value="{{.}}"{{if eq . $route}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+    </div>
+    <p class="form-hint">distribyted waits for the torrent's file list before adding it, which can take a little while.</p>
+    <div class="form-actions">
+        <button type="button" class="btn btn-secondary" data-close-dialog>Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <span class="btn-spinner" aria-hidden="true"></span> Add
+        </button>
+    </div>
+    {{else}}
+    <p>There are no routes to add a magnet to. Add one to the <code>routes</code> section of the configuration file.</p>
+    <div class="form-actions"><button type="button" class="btn btn-secondary" data-close-dialog>Close</button></div>
+    {{end}}
+</form>
+{{end}}

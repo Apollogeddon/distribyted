@@ -87,7 +87,7 @@ Distribyted.poller = function (fn, activeMs, hiddenMs) {
 
 // Distribyted.api wraps the fetch+auth-check+offline-banner+JSON-parse
 // sequence that used to be copy-pasted in every page's JS file (dashboard.js,
-// routes.js, links.js, servers.js). request() resolves with the parsed JSON
+// links.js, servers.js). request() resolves with the parsed JSON
 // body (or null for the empty-body 200s several handlers return, e.g.
 // apiAddTorrentHandler) and rejects with a real Error carrying the server's
 // {error: "..."} message when available.
@@ -139,7 +139,7 @@ Distribyted.api = {
 };
 
 // Distribyted.template memoises fetching + compiling a Handlebars partial,
-// replacing per-page duplication in routes.js, links.js, and servers.js.
+// replacing per-page duplication in links.js and servers.js.
 Distribyted.template = function (name) {
     Distribyted._templates = Distribyted._templates || {};
     if (Distribyted._templates[name]) return Distribyted._templates[name];
@@ -158,46 +158,6 @@ Distribyted.template = function (name) {
 
     Distribyted._templates[name] = compiled;
     return compiled;
-};
-
-// Distribyted.confirm replaces native confirm(), which is unstyled and
-// unreliable on mobile. Returns a Promise<boolean> resolving true if the
-// user confirmed.
-Distribyted.confirm = function (opts) {
-    opts = opts || {};
-    var modalEl = document.getElementById('distribyted-confirm');
-    if (!modalEl) {
-        // Fallback for any page that hasn't picked up the updated footer yet.
-        return Promise.resolve(window.confirm(opts.body || 'Are you sure?'));
-    }
-
-    document.getElementById('distribyted-confirm-title').textContent = opts.title || 'Please confirm';
-    document.getElementById('distribyted-confirm-body').textContent = opts.body || 'Are you sure?';
-
-    var confirmBtn = document.getElementById('distribyted-confirm-ok');
-    confirmBtn.textContent = opts.confirmLabel || 'Confirm';
-    confirmBtn.classList.toggle('btn-danger', !!opts.danger);
-    confirmBtn.classList.toggle('btn-primary', !opts.danger);
-
-    var modal = $(modalEl);
-
-    return new Promise(function (resolve) {
-        var settled = false;
-        var onConfirm = function () {
-            settled = true;
-            modal.modal('hide');
-            resolve(true);
-        };
-        var onHide = function () {
-            confirmBtn.removeEventListener('click', onConfirm);
-            modalEl.removeEventListener('hidden.bs.modal', onHide);
-            if (!settled) resolve(false);
-        };
-
-        confirmBtn.addEventListener('click', onConfirm);
-        modalEl.addEventListener('hidden.bs.modal', onHide);
-        modal.modal('show');
-    });
 };
 
 Distribyted.message = {
@@ -229,6 +189,10 @@ Distribyted.message = {
 
     error: function (message) {
         this._toastr().error(message);
+    },
+
+    success: function (message) {
+        this._toastr().success(message);
     },
 
     info: function (message) {
@@ -375,7 +339,6 @@ Distribyted.actions = {
     "files.open": function (d) { Distribyted.files.open(d.path); },
     "files.rename": function (d) { Distribyted.files.promptRename(d.path); },
     "files.delete": function (d) { Distribyted.files.confirmDelete(d.path, d.isDir === "true"); },
-    "routes.delete": function (d) { Distribyted.routes.confirmDelete(d.route, d.hash, d.name); },
     "links.delete": function (d) { Distribyted.links.confirmDelete(d.path); },
     "clipboard.copy": function (d, el) {
         navigator.clipboard.writeText(d.text).then(function () {
