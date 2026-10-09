@@ -50,7 +50,6 @@ func (f *Folder) ListMagnets() (map[string][]string, error) {
 
 			return nil
 		})
-
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +79,6 @@ func (f *Folder) ListTorrentPaths() (map[string][]string, error) {
 
 			return nil
 		})
-
 		if err != nil {
 			return nil, err
 		}

@@ -14,8 +14,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type EventFunc func(event string)
-type ReloadFunc func(*Root, EventFunc) error
+type (
+	EventFunc  func(event string)
+	ReloadFunc func(*Root, EventFunc) error
+)
 
 type Handler struct {
 	p string
@@ -54,10 +56,10 @@ func (c *Handler) createFromTemplateFile() ([]byte, error) {
 	tb = bytes.ReplaceAll(tb, []byte("pass: admin"), []byte("pass: "+pass))
 	log.Warn().Str("password", pass).Msg("generated a random default password for http/webdav auth on first run — save it, it will not be shown again")
 
-	if err := os.MkdirAll(filepath.Dir(c.p), 0750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(c.p), 0o750); err != nil {
 		return nil, fmt.Errorf("error creating path for configuration file: %s, %w", c.p, err)
 	}
-	return tb, os.WriteFile(c.p, tb, 0600)
+	return tb, os.WriteFile(c.p, tb, 0o600)
 }
 
 func (c *Handler) GetRaw() ([]byte, error) {

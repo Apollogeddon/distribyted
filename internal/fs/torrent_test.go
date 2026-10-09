@@ -202,7 +202,7 @@ func TestTorrentFS_ConcurrentAddRemove(t *testing.T) {
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, fmt.Sprintf("concurrent-%d.txt", i))
 		content := []byte(fmt.Sprintf("concurrent add/remove test data %d", i))
-		require.NoError(t, os.WriteFile(filePath, content, 0644))
+		require.NoError(t, os.WriteFile(filePath, content, 0o644))
 
 		info := metainfo.Info{PieceLength: 256 * 1024}
 		require.NoError(t, info.BuildFromFilePath(filePath))
@@ -373,14 +373,16 @@ type fakeTorrentReader struct {
 	responsiveSet bool
 }
 
-func (f *fakeTorrentReader) SetContext(ctx context.Context)                         {}
-func (f *fakeTorrentReader) Read(p []byte) (int, error)                             { return 0, io.EOF }
+func (f *fakeTorrentReader) SetContext(ctx context.Context) {}
+func (f *fakeTorrentReader) Read(p []byte) (int, error)     { return 0, io.EOF }
+
 func (f *fakeTorrentReader) Seek(offset int64, whence int) (int64, error)           { return 0, nil }
 func (f *fakeTorrentReader) Close() error                                           { return nil }
 func (f *fakeTorrentReader) ReadContext(ctx context.Context, p []byte) (int, error) { return 0, io.EOF }
-func (f *fakeTorrentReader) SetReadahead(a int64)                                   { f.readaheadSet = a }
-func (f *fakeTorrentReader) SetReadaheadFunc(fn torrent.ReadaheadFunc)              {}
-func (f *fakeTorrentReader) SetResponsive()                                         { f.responsiveSet = true }
+
+func (f *fakeTorrentReader) SetReadahead(a int64)                      { f.readaheadSet = a }
+func (f *fakeTorrentReader) SetReadaheadFunc(fn torrent.ReadaheadFunc) {}
+func (f *fakeTorrentReader) SetResponsive()                            { f.responsiveSet = true }
 
 // TestTorrentFileHandle_Load_SetsReadahead is the regression test for the
 // slow-stream-start fix: a freshly opened torrent.Reader must get a static
@@ -432,6 +434,7 @@ func (s *stubTorrentReader) SetReadaheadFunc(f torrent.ReadaheadFunc)  {}
 func (s *stubTorrentReader) SetResponsive()                            {}
 func (s *stubTorrentReader) Seek(off int64, whence int) (int64, error) { return off, nil }
 func (s *stubTorrentReader) Close() error                              { s.closes.Add(1); return nil }
+
 func (s *stubTorrentReader) Read(p []byte) (int, error) {
 	return s.ReadContext(context.Background(), p)
 }

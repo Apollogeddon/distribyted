@@ -29,7 +29,7 @@ func TestGetOrCreatePeerID_InvalidFile(t *testing.T) {
 	idPath := filepath.Join(tempDir, "peer_id")
 
 	// Create a file with invalid length
-	err := os.WriteFile(idPath, []byte("too short"), 0644)
+	err := os.WriteFile(idPath, []byte("too short"), 0o644)
 	require.NoError(t, err)
 
 	// Should create a new one and overwrite

@@ -2,6 +2,7 @@ package fs
 
 import (
 	"archive/zip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,8 +15,7 @@ import (
 
 var _ loader = &Zip{}
 
-type Zip struct {
-}
+type Zip struct{}
 
 func (fs *Zip) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile, error) {
 	zr, err := zip.NewReader(reader, size)
@@ -50,8 +50,7 @@ func (fs *Zip) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 
 var _ loader = &SevenZip{}
 
-type SevenZip struct {
-}
+type SevenZip struct{}
 
 func (fs *SevenZip) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile, error) {
 	r, err := sevenzip.NewReader(reader, size)
@@ -86,8 +85,7 @@ func (fs *SevenZip) getFiles(reader iio.Reader, size int64) (map[string]*Archive
 
 var _ loader = &Rar{}
 
-type Rar struct {
-}
+type Rar struct{}
 
 func (fs *Rar) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile, error) {
 	r, err := rardecode.NewReader(iio.NewSeekerWrapper(reader, size))
@@ -98,7 +96,7 @@ func (fs *Rar) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 	out := make(map[string]*ArchiveFile)
 	for {
 		header, err := r.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

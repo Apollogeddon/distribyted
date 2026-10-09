@@ -65,7 +65,7 @@ func TestBehavior_Persistence_MagnetsAndLinks(t *testing.T) {
 
 		require.NoError(t, app.FS.Link("/unique-p-route/persist_behavior.txt", "/unique-manual-link.txt"))
 
-		err = os.WriteFile(filepath.Join(workDir, "session1_marker.txt"), []byte("session1"), 0644)
+		err = os.WriteFile(filepath.Join(workDir, "session1_marker.txt"), []byte("session1"), 0o644)
 		require.NoError(t, err)
 
 		mags, err := app.db.ListMagnets()

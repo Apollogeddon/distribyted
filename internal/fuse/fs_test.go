@@ -81,14 +81,14 @@ func TestFS_Unit(t *testing.T) {
 		stat := &fuse.Stat_t{}
 		errc := f.Getattr("/", stat, fhNone)
 		require.Equal(0, errc)
-		require.Equal(uint32(fuse.S_IFDIR|0777), stat.Mode)
+		require.Equal(uint32(fuse.S_IFDIR|0o777), stat.Mode)
 	})
 
 	t.Run("Getattr File", func(t *testing.T) {
 		stat := &fuse.Stat_t{}
 		errc := f.Getattr("/test.txt", stat, fhNone)
 		require.Equal(0, errc)
-		require.Equal(uint32(fuse.S_IFREG|0777), stat.Mode)
+		require.Equal(uint32(fuse.S_IFREG|0o777), stat.Mode)
 		require.Equal(int64(4), stat.Size)
 		require.Equal(uint64(123), stat.Ino)
 	})
@@ -121,13 +121,13 @@ func TestFS_Unit(t *testing.T) {
 	})
 
 	t.Run("Mutation Ops", func(t *testing.T) {
-		require.Equal(0, f.Mkdir("/dir", 0755))
+		require.Equal(0, f.Mkdir("/dir", 0o755))
 		require.Equal(0, f.Rmdir("/dir"))
 		require.Equal(0, f.Unlink("/test.txt"))
 		require.Equal(0, f.Link("/test.txt", "/link.txt"))
 		require.Equal(0, f.Rename("/test.txt", "/new.txt"))
 
-		errc, fh := f.Create("/newfile", 0, 0644)
+		errc, fh := f.Create("/newfile", 0, 0o644)
 		require.Equal(0, errc)
 		f.Release("/newfile", fh)
 	})

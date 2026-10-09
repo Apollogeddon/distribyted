@@ -3,6 +3,7 @@ package testenv
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -110,7 +111,7 @@ func TestRegression_VFS_Concurrency(t *testing.T) {
 				n := 0
 				for n < readSize {
 					nn, err := f.ReadAt(buf[n:], offset+int64(n))
-					if err != nil && err != io.EOF {
+					if err != nil && !errors.Is(err, io.EOF) {
 						errCh <- fmt.Errorf("G%d R%d: read failed at %d: %w", id, j, offset+int64(n), err)
 						return
 					}
@@ -209,7 +210,7 @@ func TestRegression_ThunderingHerd(t *testing.T) {
 			n := 0
 			for n < len(content) {
 				nn, err := f.ReadAt(buf[n:], int64(n))
-				if err != nil && err != io.EOF {
+				if err != nil && !errors.Is(err, io.EOF) {
 					errCh <- fmt.Errorf("G%d: read failed: %w", id, err)
 					return
 				}
@@ -300,7 +301,7 @@ func TestRegression_HardlinkDeleteCascadesTorrentRemoval(t *testing.T) {
 		return true
 	}, 5*time.Second, 100*time.Millisecond, "link did not appear")
 
-	// Simulate Radarr deleting the hardlinked library entry — the only path
+	// Simulate Radarr deleting the hardline library entry — the only path
 	// it manages, and the only one reachable for deletion via the mount.
 	require.NoError(t, app.FS.Remove(linkPath))
 

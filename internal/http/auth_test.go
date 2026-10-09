@@ -24,7 +24,7 @@ func authedConf() *config.Root {
 
 func loginRequest(user, pass string) *http.Request {
 	form := url.Values{"username": {user}, "password": {pass}}
-	req, _ := http.NewRequest("POST", "/api/v2/auth/login", strings.NewReader(form.Encode()))
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/auth/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return req
 }
@@ -148,7 +148,7 @@ func TestLoginPage_Get(t *testing.T) {
 	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
-	req, _ := http.NewRequest("GET", "/login", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/login", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -162,7 +162,7 @@ func TestLogin_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	form := url.Values{"username": {"test"}, "password": {"test"}, "next": {"/routes"}}
-	req, _ := http.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req, _ := http.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -177,7 +177,7 @@ func TestLogin_Failure(t *testing.T) {
 	require.NoError(t, err)
 
 	form := url.Values{"username": {"test"}, "password": {"wrong"}}
-	req, _ := http.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req, _ := http.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -218,14 +218,14 @@ func TestWebUI_RequiresAuth(t *testing.T) {
 	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
 
-	req, _ := http.NewRequest("GET", "/", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusFound, w.Code)
 	require.Contains(t, w.Header().Get("Location"), "/login")
 
 	// public assets stay public
-	reqAssets, _ := http.NewRequest("GET", "/assets/js/common.js", nil)
+	reqAssets, _ := http.NewRequest(http.MethodGet, "/assets/js/common.js", nil)
 	wAssets := httptest.NewRecorder()
 	r.ServeHTTP(wAssets, reqAssets)
 	require.NotEqual(t, http.StatusFound, wAssets.Code)
@@ -233,7 +233,7 @@ func TestWebUI_RequiresAuth(t *testing.T) {
 	// with a valid session
 	sid, err := newSessionStoreForTest(t, r)
 	require.NoError(t, err)
-	reqOK, _ := http.NewRequest("GET", "/", nil)
+	reqOK, _ := http.NewRequest(http.MethodGet, "/", nil)
 	reqOK.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sid})
 	wOK := httptest.NewRecorder()
 	r.ServeHTTP(wOK, reqOK)
@@ -247,7 +247,7 @@ func TestHTTPFS_RequiresAuth(t *testing.T) {
 	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, http.Dir("."), "", conf, "", nil)
 	require.NoError(t, err)
 
-	req, _ := http.NewRequest("GET", "/fs/x", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/fs/x", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusFound, w.Code)
@@ -259,12 +259,12 @@ func TestUnsetCredentialsFailClosed(t *testing.T) {
 	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "", nil)
 	require.NoError(t, err)
 
-	reqAPI, _ := http.NewRequest("GET", "/api/status", nil)
+	reqAPI, _ := http.NewRequest(http.MethodGet, "/api/status", nil)
 	wAPI := httptest.NewRecorder()
 	r.ServeHTTP(wAPI, reqAPI)
 	require.Equal(t, http.StatusFound, wAPI.Code) // browser-style redirect, not open
 
-	reqQbit, _ := http.NewRequest("GET", "/api/v2/torrents/info", nil)
+	reqQbit, _ := http.NewRequest(http.MethodGet, "/api/v2/torrents/info", nil)
 	wQbit := httptest.NewRecorder()
 	r.ServeHTTP(wQbit, reqQbit)
 	require.Equal(t, http.StatusForbidden, wQbit.Code)
@@ -279,12 +279,12 @@ func TestAuthDisabled_AllowsEverything(t *testing.T) {
 	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "", nil)
 	require.NoError(t, err)
 
-	req, _ := http.NewRequest("GET", "/", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	reqQbit, _ := http.NewRequest("GET", "/api/v2/torrents/info", nil)
+	reqQbit, _ := http.NewRequest(http.MethodGet, "/api/v2/torrents/info", nil)
 	wQbit := httptest.NewRecorder()
 	r.ServeHTTP(wQbit, reqQbit)
 	require.Equal(t, http.StatusOK, wQbit.Code)

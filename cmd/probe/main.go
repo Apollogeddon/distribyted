@@ -70,11 +70,13 @@ func main() {
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
-	defer cancel()
 
-	if err := run(ctx, *magnet, *timeout); err != nil {
+	err := run(ctx, *magnet, *timeout)
+	// released here rather than deferred, as log.Fatal exits without running deferred calls
+	cancel()
+	stop()
+	if err != nil {
 		log.Fatal().Err(err).Msg("probe failed")
 	}
 }

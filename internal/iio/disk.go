@@ -1,6 +1,7 @@
 package iio
 
 import (
+	"errors"
 	"io"
 	"os"
 	"sync"
@@ -37,7 +38,7 @@ func (dtr *DiskTeeReader) ReadAt(p []byte, off int64) (int, error) {
 		w, err := io.CopyN(io.Discard, dtr.tr, tb-dtr.fo)
 		dtr.fo += w
 		dtr.to += w
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return 0, err
 		}
 	}

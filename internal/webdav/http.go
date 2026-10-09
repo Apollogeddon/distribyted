@@ -30,7 +30,7 @@ func NewWebDAVHandler(fs fs.Filesystem, user, pass string) http.Handler {
 		}
 
 		w.Header().Set("WWW-Authenticate", `Basic realm="BASIC WebDAV REALM"`)
-		w.WriteHeader(401)
+		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte("401 Unauthorized\n"))
 	})
 }

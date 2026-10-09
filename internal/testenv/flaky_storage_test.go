@@ -33,7 +33,7 @@ func newFlakyTorrent(t *testing.T, readTimeoutSeconds int) (*flakyStorage, *fs.T
 	name := "flaky.bin"
 	filePath := filepath.Join(dir, name)
 	content := []byte("the quick brown fox jumps over the lazy dog, repeated for a bit of size")
-	require.NoError(t, os.WriteFile(filePath, content, 0644))
+	require.NoError(t, os.WriteFile(filePath, content, 0o644))
 
 	info := metainfo.Info{PieceLength: 256 * 1024}
 	require.NoError(t, info.BuildFromFilePath(filePath))

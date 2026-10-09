@@ -39,7 +39,7 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 	}
 
 	if filepath.VolumeName(folder) == "" {
-		if err := os.MkdirAll(folder, 0750); err != nil && !os.IsExist(err) {
+		if err := os.MkdirAll(folder, 0o750); err != nil && !os.IsExist(err) {
 			return err
 		}
 	}
@@ -78,7 +78,7 @@ func (s *Handler) Unmount() {
 
 	ok := s.host.Unmount()
 	if !ok {
-		//TODO try to force unmount if possible
+		// TODO try to force unmount if possible
 		log.Error().Str(dlog.KeyPath, s.path).Msg("unmount failed")
 	}
 }

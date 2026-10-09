@@ -342,8 +342,7 @@ func TestSupportedFactories(t *testing.T) {
 
 var _ Filesystem = &DummyFs{}
 
-type DummyFs struct {
-}
+type DummyFs struct{}
 
 func (d *DummyFs) Open(filename string) (File, error) {
 	return &Dummy{}, nil

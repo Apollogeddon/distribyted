@@ -19,7 +19,7 @@ func TestNewWebDAVServer(t *testing.T) {
 	require.Error(t, err)
 
 	handler := NewWebDAVHandler(mfs, "admin", "admin")
-	req, _ := http.NewRequest("GET", "/", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -34,14 +34,14 @@ func TestNewWebDAVServer(t *testing.T) {
 	require.NotEqual(t, 401, w2.Code)
 
 	// With wrong password
-	reqWrongPass, _ := http.NewRequest("GET", "/", nil)
+	reqWrongPass, _ := http.NewRequest(http.MethodGet, "/", nil)
 	reqWrongPass.SetBasicAuth("admin", "wrong")
 	wWrongPass := httptest.NewRecorder()
 	handler.ServeHTTP(wWrongPass, reqWrongPass)
 	require.Equal(t, 401, wWrongPass.Code)
 
 	// With wrong username
-	reqWrongUser, _ := http.NewRequest("GET", "/", nil)
+	reqWrongUser, _ := http.NewRequest(http.MethodGet, "/", nil)
 	reqWrongUser.SetBasicAuth("eve", "admin")
 	wWrongUser := httptest.NewRecorder()
 	handler.ServeHTTP(wWrongUser, reqWrongUser)
@@ -53,20 +53,20 @@ func TestNewWebDAVHandler_UnsetCredentialsFailClosed(t *testing.T) {
 	handler := NewWebDAVHandler(mfs, "", "")
 
 	// No Authorization header at all
-	req1, _ := http.NewRequest("GET", "/", nil)
+	req1, _ := http.NewRequest(http.MethodGet, "/", nil)
 	w1 := httptest.NewRecorder()
 	handler.ServeHTTP(w1, req1)
 	require.Equal(t, 401, w1.Code)
 
 	// Empty/empty credentials explicitly presented
-	req2, _ := http.NewRequest("GET", "/", nil)
+	req2, _ := http.NewRequest(http.MethodGet, "/", nil)
 	req2.SetBasicAuth("", "")
 	w2 := httptest.NewRecorder()
 	handler.ServeHTTP(w2, req2)
 	require.Equal(t, 401, w2.Code)
 
 	// Random credentials presented
-	req3, _ := http.NewRequest("GET", "/", nil)
+	req3, _ := http.NewRequest(http.MethodGet, "/", nil)
 	req3.SetBasicAuth("admin", "admin")
 	w3 := httptest.NewRecorder()
 	handler.ServeHTTP(w3, req3)

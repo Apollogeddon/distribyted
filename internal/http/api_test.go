@@ -107,7 +107,7 @@ func TestApiStatusHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/status", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/status", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -129,7 +129,7 @@ func TestApiServersHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/servers", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/servers", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -145,7 +145,7 @@ func TestApiRoutesHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/routes", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/routes", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -168,7 +168,7 @@ func TestApiAddTorrentHandler(t *testing.T) {
 
 	body, _ := json.Marshal(RouteAdd{Magnet: "test-magnet"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/routes/test-route/torrent", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/routes/test-route/torrent", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -200,7 +200,7 @@ func TestApiLogHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := &CloseNotifyingRecorder{httptest.NewRecorder()}
-	req, _ := http.NewRequest("GET", "/api/log", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/log", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -216,7 +216,7 @@ func TestApiAddTorrentHandlerInvalidJson(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/routes/test-route/torrent", strings.NewReader("invalid json"))
+	req, _ := http.NewRequest(http.MethodPost, "/api/routes/test-route/torrent", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -239,7 +239,7 @@ func TestApiDelTorrentHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/routes/test-route/torrent/test-hash", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/routes/test-route/torrent/test-hash", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -267,7 +267,7 @@ func TestApiListLinksHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/links", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/links", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -302,7 +302,7 @@ func TestApiListLinksHandler_Empty(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/links", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/links", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -330,7 +330,7 @@ func TestApiListLinksHandler_ResolvesRoute(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/links", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/links", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -363,7 +363,7 @@ func TestApiListLinksHandler_Error(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/links", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/links", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -386,7 +386,7 @@ func TestApiAddLinkHandler(t *testing.T) {
 
 	body, _ := json.Marshal(LinkAdd{OldPath: "/downloads/movie.mkv", NewPath: "/library/movie.mkv"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/links", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -403,7 +403,7 @@ func TestApiAddLinkHandler_MissingField(t *testing.T) {
 
 	body, _ := json.Marshal(LinkAdd{OldPath: "/downloads/movie.mkv"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/links", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -425,7 +425,7 @@ func TestApiAddLinkHandler_SourceNotFound(t *testing.T) {
 
 	body, _ := json.Marshal(LinkAdd{OldPath: "/nope", NewPath: "/also-nope"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/links", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -447,7 +447,7 @@ func TestApiAddLinkHandler_DestExists(t *testing.T) {
 
 	body, _ := json.Marshal(LinkAdd{OldPath: "/a", NewPath: "/b"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/links", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -475,7 +475,7 @@ func TestApiDelLinkHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/links/library/movie.mkv", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/links/library/movie.mkv", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -490,7 +490,7 @@ func TestApiDelLinkHandler_RootRejected(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/links/", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/links/", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -526,7 +526,7 @@ func TestApiDelLinkHandler_OrphanedRecordSelfHeals(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/links/library/movie.mkv", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/links/library/movie.mkv", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -561,7 +561,7 @@ func TestApiDelLinkHandler_OtherErrorsStillFail(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/links/library/movie.mkv", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/links/library/movie.mkv", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -582,7 +582,7 @@ func TestApiDelLinkHandler_UnknownPathNotFound(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/links/not-a-link.txt", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/links/not-a-link.txt", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -607,7 +607,7 @@ func TestApiFsListHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/fs/library", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/fs/library", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -636,7 +636,7 @@ func TestApiFsListHandler_NotFound(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/fs/nope", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/fs/nope", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -657,7 +657,7 @@ func TestApiFsDeleteHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/fs/library/movie.mkv", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/fs/library/movie.mkv", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -680,7 +680,7 @@ func TestApiFsDeleteHandler_RouteContentNotFound(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/fs/downloads/movie.mkv", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/fs/downloads/movie.mkv", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -702,7 +702,7 @@ func TestApiFsMkdirHandler(t *testing.T) {
 
 	body, _ := json.Marshal(MkdirRequest{Path: "/library/new-folder"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/fs/mkdir", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/fs/mkdir", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -722,7 +722,7 @@ func TestApiFsRenameHandler_RejectsUnownedPath(t *testing.T) {
 
 	body, _ := json.Marshal(RenameRequest{OldPath: "/downloads/movie.mkv", NewPath: "/downloads/movie2.mkv"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/fs/rename", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -747,7 +747,7 @@ func TestApiFsRenameHandler(t *testing.T) {
 
 	body, _ := json.Marshal(RenameRequest{OldPath: "/library/old.mkv", NewPath: "/library/new.mkv"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/fs/rename", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/fs/rename", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -770,7 +770,7 @@ func TestQBitTorrentsAddHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/torrents/add", strings.NewReader("urls=test-magnet"))
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/torrents/add", strings.NewReader("urls=test-magnet"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.ServeHTTP(w, req)
 
@@ -793,7 +793,7 @@ func TestQBitTorrentsDeleteHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/torrents/delete", strings.NewReader("hashes=test-hash"))
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/torrents/delete", strings.NewReader("hashes=test-hash"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.ServeHTTP(w, req)
 
@@ -816,7 +816,7 @@ func TestApiAddTorrentHandlerError(t *testing.T) {
 
 	body, _ := json.Marshal(RouteAdd{Magnet: "test-magnet"})
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/routes/test-route/torrent", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "/api/routes/test-route/torrent", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -838,14 +838,14 @@ func TestQBitCategoryIsolation(t *testing.T) {
 
 	// Add a category to r1 only
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/torrents/createCategory", strings.NewReader("category=isolated-cat"))
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/torrents/createCategory", strings.NewReader("category=isolated-cat"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r1.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 
 	// r2 must not see that category
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/api/v2/torrents/categories", nil)
+	req, _ = http.NewRequest(http.MethodGet, "/api/v2/torrents/categories", nil)
 	r2.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 
@@ -863,14 +863,14 @@ func TestQBitTorrentsCategoriesFlow(t *testing.T) {
 
 	// Create category
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/torrents/createCategory", strings.NewReader("category=new-cat"))
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/torrents/createCategory", strings.NewReader("category=new-cat"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// List categories
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/api/v2/torrents/categories", nil)
+	req, _ = http.NewRequest(http.MethodGet, "/api/v2/torrents/categories", nil)
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -881,14 +881,14 @@ func TestQBitTorrentsCategoriesFlow(t *testing.T) {
 
 	// Remove category
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("POST", "/api/v2/torrents/removeCategories", strings.NewReader("categories=new-cat"))
+	req, _ = http.NewRequest(http.MethodPost, "/api/v2/torrents/removeCategories", strings.NewReader("categories=new-cat"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Verify removed
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/api/v2/torrents/categories", nil)
+	req, _ = http.NewRequest(http.MethodGet, "/api/v2/torrents/categories", nil)
 	r.ServeHTTP(w, req)
 	resp2 := make(map[string]interface{})
 	err = json.Unmarshal(w.Body.Bytes(), &resp2)
@@ -933,7 +933,7 @@ func TestQBitTorrentsInfoWithData(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/torrents/info", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/torrents/info", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -971,7 +971,7 @@ func TestQBitTransferInfoWithData(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/transfer/info", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/transfer/info", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -996,7 +996,7 @@ func TestApiDelTorrentHandlerError(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/routes/test-route/torrent/test-hash", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/routes/test-route/torrent/test-hash", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -1016,7 +1016,7 @@ func TestQBitWebapiVersionHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/app/webapiVersion", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/app/webapiVersion", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1031,7 +1031,7 @@ func TestQBitLoginHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/auth/login", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/auth/login", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1046,7 +1046,7 @@ func TestQBitAppVersionHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/app/version", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/app/version", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1062,7 +1062,7 @@ func TestQBitAppPreferencesHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/app/preferences", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/app/preferences", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1082,7 +1082,7 @@ func TestQBitAppSetPreferencesHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/app/setPreferences", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/app/setPreferences", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1098,7 +1098,7 @@ func TestQBitTransferInfoHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/transfer/info", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/transfer/info", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1117,7 +1117,7 @@ func TestQBitTorrentsInfoHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/torrents/info", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/torrents/info", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1136,7 +1136,7 @@ func TestQBitTorrentsCategoriesHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v2/torrents/categories", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/api/v2/torrents/categories", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1150,7 +1150,7 @@ func TestQBitTorrentsCreateCategoryHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/torrents/createCategory", strings.NewReader("category=test-cat"))
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/torrents/createCategory", strings.NewReader("category=test-cat"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.ServeHTTP(w, req)
 
@@ -1165,7 +1165,7 @@ func TestQBitTorrentsMockHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v2/torrents/pause", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/api/v2/torrents/pause", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -1182,7 +1182,7 @@ func TestWebHandlers(t *testing.T) {
 	paths := []string{"/", "/routes", "/logs", "/servers"}
 	for _, path := range paths {
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", path, nil)
+		req, _ := http.NewRequest(http.MethodGet, path, nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusOK, w.Code)
 	}

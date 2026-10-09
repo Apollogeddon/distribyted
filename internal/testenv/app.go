@@ -213,7 +213,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		_ = fc.Info()
 
 		pcp := filepath.Join(actualTempDir, "piece-completion")
-		if err := os.MkdirAll(pcp, 0744); err != nil {
+		if err := os.MkdirAll(pcp, 0o744); err != nil {
 			return nil, err
 		}
 		pc, err = storage.NewBoltPieceCompletion(pcp)
@@ -229,7 +229,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		// ResourcePieces directly for benchmarks that need the real behavior and
 		// deliberately don't run under -race.
 		pieceDir := filepath.Join(actualTempDir, "pieces")
-		if err := os.MkdirAll(pieceDir, 0744); err != nil {
+		if err := os.MkdirAll(pieceDir, 0o744); err != nil {
 			return nil, err
 		}
 		st = storage.NewFileWithCompletion(pieceDir, pc)

@@ -32,7 +32,7 @@ func TestQBitTorrentsMockEndpoints(t *testing.T) {
 	for _, endpoint := range endpoints {
 		t.Run(endpoint, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			req, _ := http.NewRequest("POST", endpoint, nil)
+			req, _ := http.NewRequest(http.MethodPost, endpoint, nil)
 			router.ServeHTTP(w, req)
 
 			assert.Equal(t, http.StatusOK, w.Code)

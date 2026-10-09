@@ -19,12 +19,12 @@ func TestFileinfo(t *testing.T) {
 	require.Equal(fi.Name(), "name")
 	require.Equal(fi.Size(), int64(42))
 	require.NotNil(fi.ModTime())
-	require.Equal(fi.Mode(), os.FileMode(0777))
+	require.Equal(fi.Mode(), os.FileMode(0o777))
 	require.Equal(fi.Sys(), nil)
 
 	fiDir := NewFileInfo("dir", 0, true)
 	require.Equal(fiDir.IsDir(), true)
-	require.Equal(fiDir.Mode(), os.FileMode(0777)|os.ModeDir)
+	require.Equal(fiDir.Mode(), os.FileMode(0o777)|os.ModeDir)
 }
 
 func TestDir(t *testing.T) {

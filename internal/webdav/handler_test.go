@@ -18,7 +18,7 @@ func TestNewHandler(t *testing.T) {
 	require.NotNil(t, h.LockSystem)
 	require.NotNil(t, h.Logger)
 
-	req, _ := http.NewRequest("GET", "/", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 	h.Logger(req, nil)
 	h.Logger(req, errors.New("test error"))
 }
