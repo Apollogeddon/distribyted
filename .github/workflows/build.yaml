@@ -38,7 +38,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # the tag, when building a release, so git describe names the binaries after it
           ref: ${{ inputs.release_tag }}
@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -176,10 +176,10 @@ jobs:
         if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
 
       - name: Convert coverage.out to coverage.lcov
-        uses: jandelgado/gcov2lcov-action@v1.2.0
+        uses: jandelgado/gcov2lcov-action@e4612787670fc5b5f49026b8c29c5569921de1db # v1.2.0
         if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
       - name: Coveralls
-        uses: coverallsapp/github-action@v2.3.8
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: coverage.lcov
@@ -193,7 +193,7 @@ jobs:
       # the release build runs in the same workflow run, where these names are already taken
       - name: Upload artifacts
         if: inputs.release_tag == ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           if-no-files-found: error
           name: build-${{ matrix.job_name }}
@@ -202,7 +202,7 @@ jobs:
       # release-please's tags are created with GITHUB_TOKEN, which starts no workflow, so the
       # pipeline calls this again with release_tag once it publishes a release
       - name: Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         if: inputs.release_tag != '' || startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
