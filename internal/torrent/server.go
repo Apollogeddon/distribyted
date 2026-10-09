@@ -86,7 +86,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	if err := os.MkdirAll(s.cfg.Path, 0750); err != nil {
+	if err := os.MkdirAll(s.cfg.Path, 0o750); err != nil {
 		return fmt.Errorf("error creating server folder: %s. Error: %w", s.cfg.Path, err)
 	}
 
@@ -187,7 +187,6 @@ func (s *Server) watch() {
 }
 
 func (s *Server) makeMagnet() error {
-
 	s.log.Info().Msg("starting serving new torrent")
 
 	info := metainfo.Info{

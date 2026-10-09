@@ -380,7 +380,7 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 		case r := <-res:
 			<-rw.sem
 			n := copy(p, buf[:r.n])
-			if r.err != nil && r.err != io.EOF {
+			if r.err != nil && !errors.Is(r.err, io.EOF) {
 				rw.log.Error().Err(r.err).Int64("off", off).
 					Float64("duration_sec", time.Since(start).Seconds()).
 					Msg("ReadAt failed")
@@ -475,7 +475,7 @@ func readAtLeast(r missinggo.ReadContexter, buf []byte, min int, prog chan<- str
 	}
 	if n >= min {
 		err = nil
-	} else if n > 0 && err == io.EOF {
+	} else if n > 0 && errors.Is(err, io.EOF) {
 		err = io.ErrUnexpectedEOF
 	}
 	return

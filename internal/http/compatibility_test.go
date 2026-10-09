@@ -30,7 +30,7 @@ func TestQBitCompatibility(t *testing.T) {
 
 	t.Run("AppVersion", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/api/v2/app/version", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/api/v2/app/version", nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -39,7 +39,7 @@ func TestQBitCompatibility(t *testing.T) {
 
 	t.Run("PreferencesFields", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/api/v2/app/preferences", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/api/v2/app/preferences", nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -57,7 +57,7 @@ func TestQBitCompatibility(t *testing.T) {
 		// but since we want to check the fields, empty list is fine for status code.
 		// To check fields, let's mock one if possible or just check the struct.
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/api/v2/torrents/info", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/api/v2/torrents/info", nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)

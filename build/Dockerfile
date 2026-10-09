@@ -4,7 +4,7 @@
 
 FROM golang:1.26-alpine as builder
 
-RUN apk add --no-cache fuse-dev gcc libc-dev g++ make git
+RUN apk add --no-cache fuse-dev gcc libc-dev g++ git
 
 WORKDIR /app
 
@@ -20,8 +20,7 @@ ARG VERSION=unknown
 ARG BUILD=unknown
 
 # Build with verbosity
-RUN BIN_OUTPUT=/bin/distribyted make build \
-    LDFLAGS="-X=main.Version=${VERSION} -X=main.Build=${BUILD}"
+RUN go tool -modfile=.forgego/task/go.mod task build BIN_OUTPUT=/bin/distribyted VERSION="${VERSION}" BUILD="${BUILD}"
 
 #===============
 # Stage 2: Run

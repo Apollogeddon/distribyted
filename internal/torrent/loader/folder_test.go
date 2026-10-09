@@ -16,23 +16,23 @@ func TestFolder_ListTorrentPaths(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	route1Dir := filepath.Join(tmpDir, "route1")
-	err = os.MkdirAll(route1Dir, 0755)
+	err = os.MkdirAll(route1Dir, 0o755)
 	require.NoError(t, err)
 
 	torrent1 := filepath.Join(route1Dir, "test1.torrent")
-	err = os.WriteFile(torrent1, []byte("torrent content"), 0644)
+	err = os.WriteFile(torrent1, []byte("torrent content"), 0o644)
 	require.NoError(t, err)
 
 	// Nested file
 	subDir := filepath.Join(route1Dir, "sub")
-	err = os.MkdirAll(subDir, 0755)
+	err = os.MkdirAll(subDir, 0o755)
 	require.NoError(t, err)
 	torrent2 := filepath.Join(subDir, "test2.torrent")
-	err = os.WriteFile(torrent2, []byte("torrent content 2"), 0644)
+	err = os.WriteFile(torrent2, []byte("torrent content 2"), 0o644)
 	require.NoError(t, err)
 
 	// Non-torrent file
-	err = os.WriteFile(filepath.Join(route1Dir, "test.txt"), []byte("text content"), 0644)
+	err = os.WriteFile(filepath.Join(route1Dir, "test.txt"), []byte("text content"), 0o644)
 	require.NoError(t, err)
 
 	routes := []*config.Route{
@@ -60,22 +60,22 @@ func TestFolder_ListMagnets(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	route1Dir := filepath.Join(tmpDir, "route1")
-	err = os.MkdirAll(route1Dir, 0755)
+	err = os.MkdirAll(route1Dir, 0o755)
 	require.NoError(t, err)
 
 	magnetContent1 := "magnet:?xt=urn:btih:1234567890abcdef"
 	magnet1 := filepath.Join(route1Dir, "test1.magnet")
-	err = os.WriteFile(magnet1, []byte(magnetContent1), 0644)
+	err = os.WriteFile(magnet1, []byte(magnetContent1), 0o644)
 	require.NoError(t, err)
 
 	// Magnet with whitespace/newlines
 	magnetContent2 := "  magnet:?xt=urn:btih:abcdef1234567890  \n\n"
 	magnet2 := filepath.Join(route1Dir, "test2.magnet")
-	err = os.WriteFile(magnet2, []byte(magnetContent2), 0644)
+	err = os.WriteFile(magnet2, []byte(magnetContent2), 0o644)
 	require.NoError(t, err)
 
 	// Non-magnet file
-	err = os.WriteFile(filepath.Join(route1Dir, "test.torrent"), []byte("torrent content"), 0644)
+	err = os.WriteFile(filepath.Join(route1Dir, "test.torrent"), []byte("torrent content"), 0o644)
 	require.NoError(t, err)
 
 	routes := []*config.Route{

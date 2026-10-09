@@ -50,5 +50,4 @@ func TestDefaults(t *testing.T) {
 	dr = AddDefaults(r)
 	require.NotNil(dr.Fuse)
 	require.Equal(mountFolder, dr.Fuse.Path)
-
 }

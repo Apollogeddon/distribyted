@@ -26,7 +26,7 @@ func (r *seekerWrapper) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekStart:
 		r.pos = offset
 	case io.SeekCurrent:
-		r.pos = r.pos + offset
+		r.pos += offset
 	case io.SeekEnd:
 		r.pos = r.size + offset
 	}

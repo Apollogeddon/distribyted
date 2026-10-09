@@ -34,7 +34,7 @@ func TestServer_StartAndWatch(t *testing.T) {
 
 	// create a dummy file
 	dummyFile := filepath.Join(serverFolder, "dummy.txt")
-	err = os.WriteFile(dummyFile, []byte("hello world"), 0644)
+	err = os.WriteFile(dummyFile, []byte("hello world"), 0o644)
 	require.NoError(t, err)
 
 	serverCfg := &config.Server{
@@ -61,7 +61,7 @@ func TestServer_StartAndWatch(t *testing.T) {
 
 	// test fsnotify by adding a new file
 	dummyFile2 := filepath.Join(serverFolder, "dummy2.txt")
-	err = os.WriteFile(dummyFile2, []byte("hello world 2"), 0644)
+	err = os.WriteFile(dummyFile2, []byte("hello world 2"), 0o644)
 	require.NoError(t, err)
 
 	// wait for watcher to trigger magnet recreation
@@ -109,13 +109,13 @@ func TestServer_Start_UnreadableSubdir(t *testing.T) {
 	serverFolder := t.TempDir()
 
 	readableFile := filepath.Join(serverFolder, "readable.txt")
-	require.NoError(t, os.WriteFile(readableFile, []byte("hello"), 0644))
+	require.NoError(t, os.WriteFile(readableFile, []byte("hello"), 0o644))
 
 	noAccessDir := filepath.Join(serverFolder, "noaccess")
-	require.NoError(t, os.Mkdir(noAccessDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(noAccessDir, "hidden.txt"), []byte("secret"), 0644))
-	require.NoError(t, os.Chmod(noAccessDir, 0000))
-	t.Cleanup(func() { _ = os.Chmod(noAccessDir, 0755) })
+	require.NoError(t, os.Mkdir(noAccessDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(noAccessDir, "hidden.txt"), []byte("secret"), 0o644))
+	require.NoError(t, os.Chmod(noAccessDir, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(noAccessDir, 0o755) })
 
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DataDir = t.TempDir()
@@ -150,7 +150,7 @@ func TestServer_Start_UnreadableSubdir(t *testing.T) {
 func TestServer_Start_InvalidPath(t *testing.T) {
 	// Create a file and try to use it as a base directory to guarantee MkdirAll fails
 	dummyFile := filepath.Join(t.TempDir(), "dummy")
-	require.NoError(t, os.WriteFile(dummyFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(dummyFile, []byte("test"), 0o644))
 	invalidPath := filepath.Join(dummyFile, "nested")
 
 	srv := NewServer(nil, nil, &config.Server{Path: invalidPath})

@@ -9,21 +9,17 @@ on:
     - cron: '26 14 * * 1' # Weekly scan
 
 jobs:
-  gitleaks:
-    name: Gitleaks
-    uses: ./.github/workflows/gitleaks.yaml
-
-  lint:
-    name: Lint
-    uses: ./.github/workflows/lint.yaml
-
-  govulncheck:
-    name: Govulncheck
-    uses: ./.github/workflows/govulncheck.yaml
+  # forgego's checks: Gitleaks, OSV-Scanner, govulncheck, forgego sync-check, go mod tidy,
+  # golangci-lint fmt and run. cgofuse needs the FUSE headers to compile.
+  quality:
+    name: Quality
+    uses: apollogeddon/forgego/.github/workflows/quality.yml@main
+    with:
+      system_packages: fuse libfuse-dev pkg-config
 
   codeql:
     name: CodeQL
-    needs: [gitleaks, lint, govulncheck]
+    needs: [quality]
     uses: ./.github/workflows/codeql-analysis.yml
     permissions:
       actions: read

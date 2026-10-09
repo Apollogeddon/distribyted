@@ -47,7 +47,7 @@ func TestThrottledDialer_HTTPDialContext_ThrottlesWebseedFetches(t *testing.T) {
 
 	srcDir := t.TempDir()
 	srcFile := filepath.Join(srcDir, "throttled.bin")
-	require.NoError(t, os.WriteFile(srcFile, content, 0644))
+	require.NoError(t, os.WriteFile(srcFile, content, 0o644))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeContent(w, r, "throttled.bin", time.Time{}, bytes.NewReader(content))

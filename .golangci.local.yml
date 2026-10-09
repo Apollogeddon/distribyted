@@ -1,0 +1,48 @@
+# This project's changes to forgego's golangci-lint config (.forgego/golangci.yml).
+# Mappings merge key by key, lists gain the items listed here, and any other value
+# replaces the base one. Run `task sync` after editing to regenerate .golangci.yml.
+version: "2"
+
+linters:
+  enable:
+    - bodyclose
+    - errcheck
+    - gosec
+    - revive
+    - forbidigo
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+
+    gosec:
+      excludes:
+        - G304
+        - G115
+
+    forbidigo:
+      forbid:
+        - pattern: 'fmt\.Print(ln|f)?'
+          msg: "use zerolog structured logger instead of fmt.Print*"
+
+    revive:
+      rules:
+        - name: var-naming
+
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # Don't enforce errcheck/gosec in test files
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+      # testenv helpers are test infrastructure only
+      - path: internal/testenv
+        linters:
+          - errcheck
+          - gosec

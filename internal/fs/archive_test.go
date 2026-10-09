@@ -3,6 +3,7 @@ package fs
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -39,7 +40,7 @@ func TestZipFilesystem(t *testing.T) {
 	// Test Read
 	out := make([]byte, 11)
 	n, err := f2.Read(out)
-	require.True(err == nil || err == io.EOF)
+	require.True(err == nil || errors.Is(err, io.EOF))
 	require.Equal(11, n)
 	require.Equal(fileContent, out)
 

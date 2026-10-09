@@ -1,0 +1,78 @@
+version: '3'
+vars:
+  TASK: go tool -modfile=.forgego/task/go.mod task
+  GOVULNCHECK: go tool -modfile=.forgego/govulncheck/go.mod govulncheck
+  FORGEGO: go run github.com/apollogeddon/forgego/cmd/forgego@v1.0.6
+  LEFTHOOK: go tool -modfile=.forgego/lefthook/go.mod lefthook
+  GOLANGCI_LINT: go tool -modfile=.forgego/golangci-lint/go.mod golangci-lint
+  VERSION:
+    sh: git describe --tags 2>/dev/null || echo dev
+  BUILD:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo unknown
+  BIN_OUTPUT: 'bin/distribyted-{{.VERSION}}-{{OS}}-{{ARCH}}{{exeExt}}'
+  GOTESTSUM: go tool -modfile=.forgego/gotestsum/go.mod gotestsum
+tasks:
+  security:
+    desc: Report known vulnerabilities the code calls
+    cmds:
+      - '{{.GOVULNCHECK}} ./...'
+  sync:
+    desc: Refresh the files forgego manages in .forgego/ and .golangci.yml
+    cmds:
+      - '{{.FORGEGO}} sync'
+  sync-check:
+    desc: Fail if a file forgego manages is out of date
+    cmds:
+      - '{{.FORGEGO}} sync --check'
+  hooks:
+    desc: Install the git hooks
+    cmds:
+      - '{{.LEFTHOOK}} install'
+  lint:
+    desc: Format, then lint and fix what can be fixed
+    cmds:
+      - '{{.GOLANGCI_LINT}} fmt'
+      - '{{.GOLANGCI_LINT}} run --fix'
+  format:
+    desc: Format the code
+    cmds:
+      - '{{.GOLANGCI_LINT}} fmt'
+  type:
+    desc: Type-check and vet every package
+    cmds:
+      - go vet ./...
+  generate:
+    desc: Generate code files
+    cmds:
+      - go generate ./...
+  build:
+    desc: Build the binary into bin/, named for the version and platform (override with BIN_OUTPUT=...)
+    deps: [generate]
+    cmds:
+      - go build -o {{.BIN_OUTPUT}} -tags release -ldflags "-X=main.Version={{.VERSION}} -X=main.Build={{.BUILD}}" ./cmd/distribyted
+  start:
+    desc: Run from source with examples/conf_example.yaml, or the config path after --
+    cmds:
+      - go run ./cmd/distribyted {{.CLI_ARGS | default "examples/conf_example.yaml"}}
+  test:
+    desc: Run every test, including the integration tests, with coverage and a JUnit report
+    cmds:
+      - '{{.GOTESTSUM}} --junitfile junit-report.xml -- -coverprofile=coverage.out -covermode=atomic ./...'
+  test:short:
+    desc: Run the unit tests only, skipping the integration tests
+    cmds:
+      - '{{.GOTESTSUM}} --junitfile junit-report.xml -- -short -coverprofile=coverage.out -covermode=atomic ./...'
+  bench:
+    desc: >-
+      Run the performance and latency benchmarks. Compare two runs with benchstat: task bench > old.txt, change the code, task bench > new.txt, benchstat old.txt new.txt
+    cmds:
+      - go test -bench=. -benchmem -run='^$' ./internal/fs/... ./internal/http/... ./internal/testenv/... ./internal/torrent/... ./internal/webdav/...
+  probe:
+    desc: >-
+      Add a real magnet over the real internet and print stage-by-stage cold-start timing. A manual diagnostic, not part of the build or tests; see docs/benchmarking.md. Pass its flags after --, e.g. task probe -- -magnet "magnet:?..." -timeout 30s
+    cmds:
+      - go run ./cmd/probe {{.CLI_ARGS}}
+  commit-msg:
+    desc: Check a commit message file against Conventional Commits
+    cmds:
+      - '{{.FORGEGO}} commit-msg {{.CLI_ARGS}}'

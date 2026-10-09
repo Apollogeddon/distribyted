@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -218,7 +219,7 @@ func TestIntegration_MultiProtocolConsistency(t *testing.T) {
 	// Use basic auth
 	client := &http.Client{}
 	url := fmt.Sprintf("http://%s/%s/multi_protocol.txt", app.WebDavAddr, route)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	require.NoError(t, err)
 	req.SetBasicAuth(app.Config.WebDAV.User, app.Config.WebDAV.Pass)
 
@@ -243,7 +244,7 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 
 	// 1. Create initial file
 	file1 := filepath.Join(tempDir, "file1.txt")
-	err = os.WriteFile(file1, []byte("content 1"), 0644)
+	err = os.WriteFile(file1, []byte("content 1"), 0o644)
 	require.NoError(t, err)
 
 	// 2. Start Test App to get a client
@@ -274,7 +275,7 @@ func TestIntegration_LiveServerUpdates(t *testing.T) {
 
 	// 5. Add new file
 	file2 := filepath.Join(tempDir, "file2.txt")
-	err = os.WriteFile(file2, []byte("content 2"), 0644)
+	err = os.WriteFile(file2, []byte("content 2"), 0o644)
 	require.NoError(t, err)
 
 	// 6. Wait for magnet update
@@ -503,7 +504,7 @@ func TestIntegration_ThunderingHerd_MediaSeeking(t *testing.T) {
 			n := 0
 			for n < readSize {
 				nn, err := f.ReadAt(buf[n:], offset+int64(n))
-				if err != nil && err != io.EOF {
+				if err != nil && !errors.Is(err, io.EOF) {
 					errCh <- fmt.Errorf("worker %d read failed: %w", workerID, err)
 					return
 				}
@@ -563,7 +564,7 @@ func TestIntegration_RemoteSeeding(t *testing.T) {
 
 	content := []byte("remote seeding test data")
 	fileName := "served_file.txt"
-	err = os.WriteFile(filepath.Join(serverDir, fileName), content, 0644)
+	err = os.WriteFile(filepath.Join(serverDir, fileName), content, 0o644)
 	require.NoError(t, err)
 
 	pc := storage.NewMapPieceCompletion()

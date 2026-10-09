@@ -21,7 +21,7 @@ func TestHandlerGetRaw_FileExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	confPath := filepath.Join(tmpDir, "config.yaml")
 	content := []byte("foo: bar\n")
-	err := os.WriteFile(confPath, content, 0644)
+	err := os.WriteFile(confPath, content, 0o644)
 	require.NoError(err)
 
 	h := NewHandler(confPath)
@@ -56,7 +56,7 @@ func TestHandlerGet(t *testing.T) {
 
 	// Create a valid yaml config
 	content := []byte("log:\n  debug: true\n")
-	err := os.WriteFile(confPath, content, 0644)
+	err := os.WriteFile(confPath, content, 0o644)
 	require.NoError(err)
 
 	h := NewHandler(confPath)
@@ -78,7 +78,7 @@ func TestHandlerGet_InvalidYAML(t *testing.T) {
 
 	// Create an invalid yaml config
 	content := []byte("log:\n  level: debug\n\tinvalid_indent: true\n")
-	err := os.WriteFile(confPath, content, 0644)
+	err := os.WriteFile(confPath, content, 0o644)
 	require.NoError(err)
 
 	h := NewHandler(confPath)

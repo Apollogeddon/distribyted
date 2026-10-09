@@ -21,6 +21,7 @@ type MockLoader struct {
 func (m *MockLoader) ListMagnets() (map[string][]string, error) {
 	return m.Magnets, nil
 }
+
 func (m *MockLoader) ListTorrentPaths() (map[string][]string, error) {
 	return m.TorrentPaths, nil
 }
@@ -41,15 +42,19 @@ func (m *MockLoaderAdder) AddMagnet(r, magnet string) error {
 	m.AddedMagnets[r] = magnet
 	return nil
 }
+
 func (m *MockLoaderAdder) ListLinks() (map[string]string, error) {
 	return m.Links, nil
 }
+
 func (m *MockLoaderAdder) AddLink(oldpath, newpath string) error {
 	return nil
 }
+
 func (m *MockLoaderAdder) RemoveLink(path string) error {
 	return nil
 }
+
 func (m *MockLoaderAdder) RemoveFromHash(r, h string) (bool, error) {
 	return true, nil
 }

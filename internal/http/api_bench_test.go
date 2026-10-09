@@ -40,7 +40,7 @@ func BenchmarkApiFsListHandler(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				w := httptest.NewRecorder()
-				req, _ := http.NewRequest("GET", "/api/fs/library", nil)
+				req, _ := http.NewRequest(http.MethodGet, "/api/fs/library", nil)
 				r.ServeHTTP(w, req)
 				if w.Code != http.StatusOK {
 					b.Fatalf("unexpected status: %d", w.Code)

@@ -83,7 +83,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 	require.Equal(filepath.Base("//folder/file.txt"), fileStat.Name())
 	require.Equal(int64(18), fileStat.Size())
 	require.False(fileStat.IsDir())
-	require.Equal(os.FileMode(0777), fileStat.Mode())
+	require.Equal(os.FileMode(0o777), fileStat.Mode())
 	require.NotNil(fileStat.ModTime())
 	require.Nil(fileStat.Sys())
 
@@ -97,14 +97,14 @@ func TestWebDAVFilesystem(t *testing.T) {
 	require.Equal("/folder/file.txt", fInfo.Name())
 	require.Equal(false, fInfo.IsDir())
 	require.Equal(int64(18), fInfo.Size())
-	require.Equal(os.FileMode(0777), fInfo.Mode())
+	require.Equal(os.FileMode(0o777), fInfo.Mode())
 	require.NotNil(fInfo.ModTime())
 	require.Nil(fInfo.Sys())
 
 	dirInfo, err := wfs.Stat(context.Background(), "/folder")
 	require.NoError(err)
 	require.True(dirInfo.IsDir())
-	require.Equal(os.FileMode(0777)|os.ModeDir, dirInfo.Mode())
+	require.Equal(os.FileMode(0o777)|os.ModeDir, dirInfo.Mode())
 }
 
 func TestWebDAVFilesystem_NotFound(t *testing.T) {

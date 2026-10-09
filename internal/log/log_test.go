@@ -42,7 +42,7 @@ func TestLoad_WithUncreatableLogPath(t *testing.T) {
 	// newRollingFile returns nil. Without the nil-guard in Load this panics.
 	tmpDir := t.TempDir()
 	blockingFile := filepath.Join(tmpDir, "notadir")
-	require.NoError(t, os.WriteFile(blockingFile, []byte(""), 0644))
+	require.NoError(t, os.WriteFile(blockingFile, []byte(""), 0o644))
 
 	conf := &config.Log{
 		Path:  filepath.Join(blockingFile, "logs"),

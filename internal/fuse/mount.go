@@ -66,7 +66,7 @@ func (fs *FS) Opendir(path string) (errc int, fh uint64) {
 }
 
 func (fs *FS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
-	stat.Mode = 0777
+	stat.Mode = 0o777
 	if path == "/" {
 		stat.Mode |= fuse.S_IFDIR
 		stat.Ino = 1
@@ -212,7 +212,7 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 	// Clamp to whatever's left in the file, not just the buffer size, so a
 	// read starting past EOF (off >= Size) returns 0 bytes instead of
 	// reading garbage/out-of-range data.
-	end := int(math.Min(float64(len(dest)), float64(int64(file.Size())-off)))
+	end := int(math.Min(float64(len(dest)), float64(file.Size()-off)))
 	if end < 0 {
 		end = 0
 	}
@@ -220,7 +220,7 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 	buf := dest[:end]
 
 	n, err := file.ReadAt(buf, off)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading data")
 		return -fuse.EIO
 	}
@@ -300,11 +300,12 @@ func (fs *FS) Rmdir(path string) int {
 func (fs *FS) Readdir(path string,
 	fill func(name string, stat *fuse.Stat_t, ofst int64) bool,
 	ofst int64,
-	fh uint64) (errc int) {
+	fh uint64,
+) (errc int) {
 	fill(".", nil, 0)
 	fill("..", nil, 0)
 
-	//TODO improve this function to make use of fh index if possible
+	// TODO improve this function to make use of fh index if possible
 	paths, err := fs.fh.ListDir(path)
 	if err != nil {
 		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading directory")
@@ -325,8 +326,10 @@ func (fs *FS) Readdir(path string,
 // negative values are valid/unavailable respectively for this unsigned type.
 const fhNone = ^uint64(0)
 
-var ErrHolderEmpty = errors.New("file holder is empty")
-var ErrBadHolderIndex = errors.New("holder index too big")
+var (
+	ErrHolderEmpty    = errors.New("file holder is empty")
+	ErrBadHolderIndex = errors.New("holder index too big")
+)
 
 type fileHandler struct {
 	mu     sync.RWMutex

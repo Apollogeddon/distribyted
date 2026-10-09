@@ -96,7 +96,6 @@ func (l *DB) AddMagnet(r, m string) error {
 		rp := path.Join(routeRootKey, ih, r)
 		return txn.Set([]byte(rp), []byte(m))
 	})
-
 	if err != nil {
 		return err
 	}

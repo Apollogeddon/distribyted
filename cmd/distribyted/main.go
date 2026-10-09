@@ -108,7 +108,7 @@ type storageLayer struct {
 }
 
 func initStorageLayer(conf *config.Root) (storageLayer, error) {
-	if err := os.MkdirAll(conf.Torrent.MetadataFolder, 0750); err != nil {
+	if err := os.MkdirAll(conf.Torrent.MetadataFolder, 0o750); err != nil {
 		return storageLayer{}, fmt.Errorf("error creating metadata folder: %w", err)
 	}
 
@@ -119,7 +119,7 @@ func initStorageLayer(conf *config.Root) (storageLayer, error) {
 	}
 
 	pcp := filepath.Join(conf.Torrent.MetadataFolder, "piece-completion")
-	if err := os.MkdirAll(pcp, 0750); err != nil {
+	if err := os.MkdirAll(pcp, 0o750); err != nil {
 		return storageLayer{}, fmt.Errorf("error creating piece completion folder: %w", err)
 	}
 
@@ -185,6 +185,7 @@ func startWebDAVMount(conf *config.Root, cfs *fs.ContainerFs, webDAVPort int) {
 	}()
 }
 
+//nolint:unparam // port is the --http-port flag, which the HTTP server ignores in favour of conf.HTTPGlobal.Port: a known bug, left for its own fix
 func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	ch := config.NewHandler(configPath)
 

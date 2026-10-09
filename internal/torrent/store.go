@@ -3,6 +3,7 @@ package torrent
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"sync"
 	"time"
 
@@ -108,7 +109,7 @@ func (fis *FileItemStore) Get(t bep44.Target) (*bep44.Item, error) {
 	defer tx.Discard()
 
 	dbi, err := tx.Get(t[:])
-	if err == badger.ErrKeyNotFound {
+	if errors.Is(err, badger.ErrKeyNotFound) {
 		return nil, bep44.ErrItemNotFound
 	}
 	if err != nil {

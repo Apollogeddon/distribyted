@@ -389,7 +389,6 @@ func (s *Service) addMagnet(r, m string) error {
 	}
 
 	return s.addTorrent(r, t)
-
 }
 
 func (s *Service) OnRouteAdded(f func(string, fs.Filesystem)) {

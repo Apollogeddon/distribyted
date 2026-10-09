@@ -2,6 +2,8 @@ module github.com/Apollogeddon/distribyted
 
 go 1.26.0
 
+toolchain go1.27.0
+
 require (
 	github.com/RoaringBitmap/roaring v1.9.4 // indirect
 	github.com/anacrolix/dht/v2 v2.24.0

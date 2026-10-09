@@ -186,7 +186,7 @@ func (wdf *webDAVFile) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekStart:
 		wdf.pos = offset
 	case io.SeekCurrent:
-		wdf.pos = wdf.pos + offset
+		wdf.pos += offset
 	case io.SeekEnd:
 		wdf.pos = wdf.fi.Size() + offset
 	}
@@ -222,10 +222,10 @@ func (wdfi *webDAVFileInfo) Size() int64 {
 
 func (wdfi *webDAVFileInfo) Mode() os.FileMode {
 	if wdfi.isDir {
-		return 0777 | os.ModeDir
+		return 0o777 | os.ModeDir
 	}
 
-	return 0777
+	return 0o777
 }
 
 func (wdfi *webDAVFileInfo) ModTime() time.Time {

@@ -70,7 +70,7 @@ func (s *Seeder) AddFile(name string, content []byte, announceURL string) (metai
 // smaller than typical media torrents (often 2-8MiB).
 func (s *Seeder) AddFileWithPieceLength(name string, content []byte, announceURL string, pieceLength int64) (metainfo.Magnet, error) {
 	path := filepath.Join(s.tmpDir, name)
-	if err := os.WriteFile(path, content, 0644); err != nil {
+	if err := os.WriteFile(path, content, 0o644); err != nil {
 		return metainfo.Magnet{}, err
 	}
 

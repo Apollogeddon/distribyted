@@ -223,7 +223,7 @@ func (s *Stats) Stats(hash string) (*TorrentStats, error) {
 	defer s.mut.Unlock()
 
 	t, ok := s.torrents[hash]
-	if !(ok) {
+	if !ok {
 		return nil, ErrTorrentNotFound
 	}
 

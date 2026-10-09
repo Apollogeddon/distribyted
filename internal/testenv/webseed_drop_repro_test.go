@@ -72,7 +72,7 @@ func TestWebseedDropPanic_Repro(t *testing.T) {
 
 	srcDir := t.TempDir()
 	srcFile := filepath.Join(srcDir, "repro.bin")
-	require.NoError(t, os.WriteFile(srcFile, content, 0644))
+	require.NoError(t, os.WriteFile(srcFile, content, 0o644))
 
 	// The handler blocks until requestStarted fires, so the test can wait
 	// for genuine proof a request is in flight (rather than guessing at a
