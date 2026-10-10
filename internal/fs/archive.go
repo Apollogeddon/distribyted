@@ -102,9 +102,15 @@ func (fs *Rar) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 		if err != nil {
 			return nil, err
 		}
+		if header.IsDir {
+			continue
+		}
 
+		// a RAR archive can only be read in order, and listing it has already read r to the
+		// end, so each entry is opened with a fresh reader skipped forward to it
+		name := header.Name
 		rf := func() (iio.Reader, error) {
-			return iio.NewDiskTeeReader(r)
+			return openRarEntry(reader, size, name)
 		}
 
 		n := filepath.Join(string(os.PathSeparator), header.Name) //nolint:gosec // G305: intentional archive path join
@@ -115,6 +121,25 @@ func (fs *Rar) getFiles(reader iio.Reader, size int64) (map[string]*ArchiveFile,
 	}
 
 	return out, nil
+}
+
+func openRarEntry(reader iio.Reader, size int64, name string) (iio.Reader, error) {
+	r, err := rardecode.NewReader(iio.NewSeekerWrapper(reader, size))
+	if err != nil {
+		return nil, err
+	}
+	for {
+		header, err := r.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil, os.ErrNotExist
+			}
+			return nil, err
+		}
+		if header.Name == name {
+			return iio.NewDiskTeeReader(r)
+		}
+	}
 }
 
 type loader interface {
@@ -128,7 +153,8 @@ type archive struct {
 	s *storage
 
 	size    int64
-	once    sync.Once
+	mu      sync.Mutex
+	loaded  bool
 	loadErr error
 	l       loader
 }
@@ -142,27 +168,45 @@ func NewArchive(r iio.Reader, size int64, l loader) *archive {
 	}
 }
 
+// loadOnce reads the archive's listing the first time it's needed. A corrupt archive stays
+// failed, but a read that timed out, on a slow or empty swarm, is tried again next time
+// rather than leaving the archive broken until restart.
 func (fs *archive) loadOnce() error {
-	fs.once.Do(func() {
-		files, err := fs.l.getFiles(fs.r, fs.size)
-		if err != nil {
-			fs.loadErr = err
-			return
-		}
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if fs.loaded {
+		return fs.loadErr
+	}
 
-		for name, file := range files {
-			if err := fs.s.Add(file, name); err != nil {
-				fs.loadErr = err
-				return
-			}
+	files, err := fs.l.getFiles(fs.r, fs.size)
+	if err != nil {
+		if errors.Is(err, ErrReadTimeout) || errors.Is(err, errReaderAbandoned) {
+			return err
 		}
-	})
+		fs.loaded, fs.loadErr = true, err
+		return err
+	}
 
-	return fs.loadErr
+	for name, file := range files {
+		if err := fs.s.Add(file, name); err != nil {
+			fs.loaded, fs.loadErr = true, err
+			return err
+		}
+	}
+	fs.loaded = true
+	return nil
+}
+
+// Close releases the reader the archive was opened with.
+func (fs *archive) Close() error {
+	if c, ok := fs.r.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
 }
 
 func (fs *archive) Open(filename string) (File, error) {
-	if filename == string(os.PathSeparator) {
+	if filename == separator || filename == string(os.PathSeparator) {
 		return &Dir{}, nil
 	}
 
@@ -206,12 +250,14 @@ func (fs *archive) Rmdir(path string) error {
 	return os.ErrPermission
 }
 
+// Create and Remove refuse, like the other changes: an archive is read only, and removing
+// an entry would only hide it until the archive is listed again.
 func (fs *archive) Create(path string) error {
-	return fs.s.Add(NewMemoryFile(nil), path)
+	return os.ErrPermission
 }
 
 func (fs *archive) Remove(path string) error {
-	return fs.s.Remove(path)
+	return os.ErrPermission
 }
 
 var _ File = &ArchiveFile{}
@@ -263,37 +309,41 @@ type ArchiveFileHandle struct {
 	mu     sync.Mutex
 }
 
-func (h *ArchiveFileHandle) load() error {
+// load returns the handle's reader, opening it on first use. Callers use the reader it
+// returns rather than reading h.reader again, which Close may set to nil meanwhile.
+func (h *ArchiveFileHandle) load() (iio.Reader, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	if h.reader != nil {
-		return nil
+		return h.reader, nil
 	}
 	r, err := h.readerFunc()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	h.reader = r
 
-	return nil
+	return r, nil
 }
 
 func (h *ArchiveFileHandle) Read(p []byte) (n int, err error) {
-	if err := h.load(); err != nil {
+	r, err := h.load()
+	if err != nil {
 		return 0, err
 	}
 
-	return h.reader.Read(p)
+	return r.Read(p)
 }
 
 func (h *ArchiveFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
-	if err := h.load(); err != nil {
+	r, err := h.load()
+	if err != nil {
 		return 0, err
 	}
 
-	return h.reader.ReadAt(p, off)
+	return r.ReadAt(p, off)
 }
 
 func (h *ArchiveFileHandle) Close() (err error) {

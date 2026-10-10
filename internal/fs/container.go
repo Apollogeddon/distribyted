@@ -1,6 +1,9 @@
 package fs
 
-import "sync"
+import (
+	"os"
+	"sync"
+)
 
 type ContainerFs struct {
 	mu sync.RWMutex
@@ -77,7 +80,10 @@ func (fs *ContainerFs) Open(filename string) (File, error) {
 	}
 	// Create a fresh handle so each Open gets its own reader and position,
 	// preventing shared-state bugs when the same file is stored via a link.
-	if h, ok := f.(*torrentFileHandle); ok {
+	switch h := f.(type) {
+	case *torrentFileHandle:
+		return h.NewHandle(), nil
+	case *ArchiveFileHandle:
 		return h.NewHandle(), nil
 	}
 	return f, nil
@@ -105,6 +111,10 @@ func (fs *ContainerFs) Link(oldpath, newpath string) error {
 		fs.mu.Unlock()
 		return err
 	}
+	// an archive opens as a folder; the link is to the archive file it was opened from
+	if src, ok := fs.s.Source(oldpath); ok {
+		f = src
+	}
 
 	if err := fs.s.Add(f, newpath); err != nil {
 		fs.mu.Unlock()
@@ -124,12 +134,30 @@ func (fs *ContainerFs) Link(oldpath, newpath string) error {
 	return nil
 }
 
+// Rename, Rmdir and Remove change only what the user made: links and folders. A route and
+// the torrents in it belong to the route, so through FUSE or WebDAV, as through the HTTP
+// API, they can't be renamed or removed.
 func (fs *ContainerFs) Rename(oldpath, newpath string) error {
 	fs.mu.Lock()
 	f, err := fs.s.Get(oldpath)
 	if err != nil {
 		fs.mu.Unlock()
 		return err
+	}
+	if !fs.s.IsOwned(oldpath) {
+		fs.mu.Unlock()
+		return os.ErrPermission
+	}
+	// moving a folder's contents would mean moving every link under it; refuse rather than
+	// leave them behind at the old path
+	if f.IsDir() && fs.s.HasChildren(oldpath) {
+		fs.mu.Unlock()
+		return ErrNotEmpty
+	}
+	// renaming onto something that exists would drop the source and keep the target
+	if _, err := fs.s.Get(newpath); err == nil {
+		fs.mu.Unlock()
+		return os.ErrExist
 	}
 
 	if err := fs.s.Add(f, newpath); err != nil {
@@ -155,6 +183,10 @@ func (fs *ContainerFs) Rename(oldpath, newpath string) error {
 
 func (fs *ContainerFs) Mkdir(path string) error {
 	fs.mu.Lock()
+	if _, err := fs.s.Get(path); err == nil {
+		fs.mu.Unlock()
+		return os.ErrExist
+	}
 	if err := fs.s.Add(&Dir{}, path); err != nil {
 		fs.mu.Unlock()
 		return err
@@ -173,6 +205,10 @@ func (fs *ContainerFs) Mkdir(path string) error {
 
 func (fs *ContainerFs) Rmdir(path string) error {
 	fs.mu.Lock()
+	if _, err := fs.s.Get(path); err == nil && !fs.s.IsOwned(path) {
+		fs.mu.Unlock()
+		return os.ErrPermission
+	}
 	if err := fs.s.Remove(path); err != nil {
 		fs.mu.Unlock()
 		return err
@@ -209,6 +245,10 @@ func (fs *ContainerFs) Create(path string) error {
 
 func (fs *ContainerFs) Remove(path string) error {
 	fs.mu.Lock()
+	if _, err := fs.s.Get(path); err == nil && !fs.s.IsOwned(path) {
+		fs.mu.Unlock()
+		return os.ErrPermission
+	}
 
 	hash := ""
 	if f, err := fs.s.Get(path); err == nil {

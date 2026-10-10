@@ -204,6 +204,10 @@ type reader interface {
 	// abandoned goroutine still owns the underlying torrent.Reader and its
 	// scratch buffer, so nothing else may ever touch them again.
 	abandoned() bool
+	// readFrom reads up to len(p) bytes at off, returning as soon as any arrive, as a
+	// sequential Read does. The handle keeps the position, so a fresh reader that
+	// replaces an abandoned one carries on where the last read stopped.
+	readFrom(p []byte, off int64) (int, error)
 }
 
 // readStats counts abandoned/recovered/poisoned reads for one torrentFile,
@@ -450,8 +454,23 @@ func (rw *readAtWrapper) markDead(off int64, length int, elapsed time.Duration) 
 		Msg("read exceeded hard deadline; abandoning underlying torrent reader")
 }
 
+// ReadAt fills p or fails. Running out of file part way is io.EOF, as io.ReaderAt
+// requires, not the io.ErrUnexpectedEOF readAtLeast reports.
 func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
-	return rw.doRead(p, off, true, len(p))
+	n, err := rw.doRead(p, off, true, len(p))
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		err = io.EOF
+	}
+	return n, err
+}
+
+func (rw *readAtWrapper) readFrom(p []byte, off int64) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	// seeking to where the reader already is changes nothing, so a run of reads keeps
+	// its readahead
+	return rw.doRead(p, off, true, 1)
 }
 
 func (rw *readAtWrapper) Read(p []byte) (int, error) {
@@ -587,6 +606,7 @@ type torrentFileHandle struct {
 	reader   reader
 	mu       sync.Mutex
 	closed   bool
+	pos      int64 // where the next Read starts
 	openedAt time.Time
 }
 
@@ -693,13 +713,19 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	if r == nil {
 		return 0, io.EOF
 	}
-	n, err = r.Read(p)
+	h.mu.Lock()
+	off := h.pos
+	h.mu.Unlock()
+	n, err = r.readFrom(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
-			n, err = r2.Read(p)
+			n, err = r2.readFrom(p, off)
 		}
 	}
 	if n > 0 {
+		h.mu.Lock()
+		h.pos = off + int64(n)
+		h.mu.Unlock()
 		h.reportFirstRead()
 	}
 	return n, err

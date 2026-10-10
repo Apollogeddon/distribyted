@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 	"sync"
 	"time"
 
@@ -34,7 +34,8 @@ func (wd *WebDAV) OpenFile(ctx context.Context, name string, flag int, perm os.F
 	}
 
 	wd.log.Info().Str("path", p).Msg("file opened")
-	wdf := newFile(filepath.Base(p), f, func() ([]os.FileInfo, error) {
+	// a slash path: filepath.Base on Windows reads "//folder/file" as a volume name
+	wdf := newFile(p, f, func() ([]os.FileInfo, error) {
 		return wd.listDir(p)
 	}, wd.log.With().Str("path", p).Logger())
 	return wdf, nil
@@ -46,6 +47,7 @@ func (wd *WebDAV) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = f.Close() }()
 	fi := newFileInfo(name, f.Size(), f.IsDir())
 	return fi, nil
 }
@@ -64,12 +66,29 @@ func (wd *WebDAV) RemoveAll(ctx context.Context, name string) error {
 		}
 		return err
 	}
+	isDir := f.IsDir()
+	_ = f.Close()
 
-	if f.IsDir() {
-		return wd.fs.Rmdir(p)
+	if !isDir {
+		return wd.fs.Remove(p)
 	}
 
-	return wd.fs.Remove(p)
+	// a WebDAV DELETE of a collection deletes everything in it; removing only the folder
+	// would fail on its contents, or orphan them
+	children, err := wd.fs.ReadDir(p)
+	if err != nil {
+		return err
+	}
+	for child := range children {
+		if err := wd.RemoveAll(ctx, path.Join(name, child)); err != nil {
+			return err
+		}
+	}
+	// removing a folder's last entry prunes the folder itself, which is the goal here
+	if err := wd.fs.Rmdir(p); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func (wd *WebDAV) Rename(ctx context.Context, oldName, newName string) error {
@@ -204,9 +223,11 @@ type webDAVFileInfo struct {
 	isDir bool
 }
 
+// newFileInfo takes a path or a bare name. Name() is the last element only, as
+// os.FileInfo requires: WebDAV clients show it as the entry's display name.
 func newFileInfo(name string, size int64, isDir bool) *webDAVFileInfo {
 	return &webDAVFileInfo{
-		name:  name,
+		name:  path.Base(name),
 		size:  size,
 		isDir: isDir,
 	}

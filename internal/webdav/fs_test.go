@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
@@ -80,7 +79,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 	// Test file Stat
 	fileStat, err := file.Stat()
 	require.NoError(err)
-	require.Equal(filepath.Base("//folder/file.txt"), fileStat.Name())
+	require.Equal("file.txt", fileStat.Name())
 	require.Equal(int64(18), fileStat.Size())
 	require.False(fileStat.IsDir())
 	require.Equal(os.FileMode(0o777), fileStat.Mode())
@@ -94,7 +93,7 @@ func TestWebDAVFilesystem(t *testing.T) {
 
 	fInfo, err := wfs.Stat(context.Background(), "/folder/file.txt")
 	require.NoError(err)
-	require.Equal("/folder/file.txt", fInfo.Name())
+	require.Equal("file.txt", fInfo.Name())
 	require.Equal(false, fInfo.IsDir())
 	require.Equal(int64(18), fInfo.Size())
 	require.Equal(os.FileMode(0o777), fInfo.Mode())
@@ -143,4 +142,30 @@ func TestMkdirRemoveRename(t *testing.T) {
 
 	// Test RemoveAll for file
 	require.NoError(wfs.RemoveAll(context.Background(), "folder/file.txt"))
+}
+
+// TestRemoveAll_Collection covers a WebDAV DELETE of a folder: it should delete the links
+// inside it, and it must not delete a route.
+func TestRemoveAll_Collection(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	mfs := fs.NewMemory()
+	require.NoError(mfs.Storage.Add(fs.NewMemoryFile([]byte("movie")), "/movie.mkv"))
+	c, err := fs.NewContainerFs(map[string]fs.Filesystem{"/route": mfs})
+	require.NoError(err)
+	require.NoError(c.Mkdir("/library"))
+	require.NoError(c.Link("/route/movie.mkv", "/library/a.mkv"))
+	require.NoError(c.Link("/route/movie.mkv", "/library/b.mkv"))
+
+	wfs := newFS(c, zerolog.Nop())
+	require.NoError(wfs.RemoveAll(context.Background(), "library"))
+	_, err = c.Open("/library/a.mkv")
+	require.ErrorIs(err, os.ErrNotExist)
+	_, err = c.Open("/library")
+	require.ErrorIs(err, os.ErrNotExist)
+
+	require.ErrorIs(wfs.RemoveAll(context.Background(), "route"), os.ErrPermission)
+	_, err = c.Open("/route/movie.mkv")
+	require.NoError(err, "the route is still there")
 }
