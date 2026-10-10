@@ -336,10 +336,6 @@ $(document).ready(function () {
 // arguments in data-* attributes. Template values are never interpolated into
 // inline JavaScript, where HTML escaping gives no protection.
 Distribyted.actions = {
-    "files.open": function (d) { Distribyted.files.open(d.path); },
-    "files.rename": function (d) { Distribyted.files.promptRename(d.path); },
-    "files.delete": function (d) { Distribyted.files.confirmDelete(d.path, d.isDir === "true"); },
-    "links.delete": function (d) { Distribyted.links.confirmDelete(d.path); },
     "clipboard.copy": function (d, el) {
         navigator.clipboard.writeText(d.text).then(function () {
             el.textContent = "Copied!";

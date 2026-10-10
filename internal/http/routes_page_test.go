@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -188,4 +189,18 @@ func TestTorrentHealth(t *testing.T) {
 			require.Contains(t, h.Reason, tc.reason)
 		})
 	}
+}
+
+// TestJSONStringIsASCII: header values reach the page as Latin-1, so the JSON in them must
+// be plain ASCII and still decode to the original text.
+func TestJSONStringIsASCII(t *testing.T) {
+	in := map[string]any{"toast": toast{Level: "success", Message: "Folder “Séries 🎬” created."}}
+	s, err := jsonString(in)
+	require.NoError(t, err)
+	for _, r := range s {
+		require.Less(t, r, rune(0x80), s)
+	}
+	var out map[string]toast
+	require.NoError(t, json.Unmarshal([]byte(s), &out))
+	require.Equal(t, "Folder “Séries 🎬” created.", out["toast"].Message)
 }

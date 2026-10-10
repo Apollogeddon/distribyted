@@ -1,0 +1,65 @@
+{{define "links-list"}}
+<section id="links" class="links" aria-label="Links"
+    hx-get="/links/list"
+    hx-trigger="every 5s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], links-changed from:body"
+    hx-swap="morph:outerHTML" hx-ext="morph">
+    {{with .Error}}
+    <div class="app-alert app-alert-danger" role="alert"><i class="mdi mdi-alert-outline" aria-hidden="true"></i><span>Couldn't list the links: {{.}}</span></div>
+    {{end}}
+    {{if .Links}}
+    <div class="card">
+        <ul class="link-list">
+            {{range .Links}}
+            <li class="link-row" id="{{.ID}}">
+                <div class="link-paths">
+                    <p class="link-target"><i class="mdi mdi-link-variant" aria-hidden="true"></i> {{.NewPath}}</p>
+                    <p class="link-source">
+                        {{if .IsDir}}A folder made here
+                        {{else}}<i class="mdi mdi-subdirectory-arrow-right" aria-hidden="true"></i> shows <a href="{{.SourceHref}}">{{.OldPath}}</a>{{end}}
+                        {{with .Route}}<span class="badge badge-info" title="Route">{{.}}</span>{{end}}
+                    </p>
+                </div>
+                <button type="button" class="btn-icon btn-icon-danger" hx-delete="{{.DeleteURL}}" hx-swap="none"
+                    hx-confirm="{{.DeleteQuestion}}" data-confirm-title="Delete link" data-confirm-label="Delete"
+                    title="Delete"><span class="sr-only">Delete {{.NewPath}}</span><i class="mdi mdi-delete-outline" aria-hidden="true"></i></button>
+            </li>
+            {{end}}
+        </ul>
+    </div>
+    {{else if not .Error}}
+    <div class="card empty-state">
+        <i class="mdi mdi-link-variant" aria-hidden="true"></i>
+        <p>No links yet. Use <strong>Add link</strong>, or <strong>Link</strong> next to a file on the <a href="/files">Files</a> page.</p>
+    </div>
+    {{end}}
+</section>
+{{end}}
+
+{{define "link-form"}}
+<form class="app-form" hx-post="/links" hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]" novalidate>
+    {{if .InDialog}}
+    <div class="app-dialog-header">
+        <h2 id="file-dialog-title">Link this file</h2>
+        <button type="button" class="btn-icon" data-close-dialog aria-label="Close"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+    </div>
+    <input type="hidden" name="in_dialog" value="true">
+    {{end}}
+    <div class="form-field">
+        <label for="link-source">File</label>
+        <input type="text" id="link-source" name="source" value="{{.Source}}" class="form-control"
+            placeholder="/movies/Some Film/film.mkv" autocomplete="off" spellcheck="false" required {{if not .InDialog}}autofocus{{end}}>
+    </div>
+    <div class="form-field">
+        <label for="link-target">Also show it at</label>
+        <input type="text" id="link-target" name="target" value="{{.Target}}" class="form-control{{if .Error}} is-invalid{{end}}"
+            placeholder="/library/Some Film (2024)/film.mkv" autocomplete="off" spellcheck="false" required {{if .InDialog}}autofocus{{end}}
+            aria-describedby="link-target-hint{{if .Error}} link-error{{end}}"{{if .Error}} aria-invalid="true"{{end}}>
+        <p class="form-hint" id="link-target-hint">A path from the top of the mount. Folders on the way are made for you.</p>
+        {{with .Error}}<p class="field-error" id="link-error" role="alert">{{.}}</p>{{end}}
+    </div>
+    <div class="form-actions">
+        <button type="button" class="btn btn-secondary" data-close-dialog>Cancel</button>
+        <button type="submit" class="btn btn-primary"><span class="btn-spinner" aria-hidden="true"></span> Link</button>
+    </div>
+</form>
+{{end}}

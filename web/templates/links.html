@@ -1,19 +1,17 @@
 <!DOCTYPE html>
+<html lang="en">
 
 <head>
-    {{template "header.html" "Links"}}
+    {{template "header.html" .Title}}
 </head>
-
 
 <body class="header-fixed sidebar-fixed sidebar-dark header-dark" id="body">
     <div class="wrapper">
         {{template "navbar.html" "links"}}
 
         <div class="page-wrapper">
-            <!-- Header -->
-            <header class="main-header " id="header">
+            <header class="main-header" id="header">
                 <nav class="navbar navbar-static-top navbar-expand-lg">
-                    <!-- Sidebar toggle button -->
                     <button id="sidebar-toggler" class="sidebar-toggle">
                         <span class="sr-only">Toggle navigation</span>
                     </button>
@@ -21,56 +19,34 @@
             </header>
 
             <div class="content-wrapper">
-                <div class="content">
-                    <div id="template_target"></div>
+                <main class="content">
+                    {{template "offline-banner"}}
 
-                    <div class="card card-default">
-                        <div class="card-header card-header-border-bottom">
-                            <h2>Add New Link</h2>
+                    <div class="page-header">
+                        <div>
+                            <h1>Links</h1>
+                            <p class="page-subtitle">A link shows a file at a second path, such as a film filed the way your library names it.</p>
                         </div>
-                        <div class="card-body">
-                            <form id="new-link">
-                                <div class="form-group">
-                                    <label>Existing Path</label>
-                                    <input type="text" id="link-old-path" class="form-control"
-                                        placeholder="/movies/Some Movie/movie.mkv">
-                                </div>
-                                <div class="form-group">
-                                    <label>New Link Path</label>
-                                    <input type="text" id="link-new-path" class="form-control"
-                                        placeholder="/library/Some Movie (2024)/movie.mkv">
-                                    <div class="invalid-feedback" id="link-feedback"></div>
-                                </div>
-                                <div class="form-group">
-                                    <button type="submit" class="btn btn-primary btn-default">Add</button>
-                                </div>
-                                <div class="form-footer pt-4 pt-5 mt-4 border-top">
-                                    <div class="sk-double-bounce" id="submit_link_loading" style="display: none;">
-                                        <div class="double-bounce1"></div>
-                                        <div class="double-bounce2"></div>
-                                    </div>
-                                </div>
-
-                            </form>
-                        </div>
+                        <button type="button" class="btn btn-primary" data-open-dialog="add-link">
+                            <i class="mdi mdi-plus" aria-hidden="true"></i> Add link
+                        </button>
                     </div>
-                </div>
 
-                <footer class="footer mt-auto">
-                    <div class="copyright bg-white">
-                    </div>
-                </footer>
+                    {{template "links-list" .}}
+                </main>
             </div>
+        </div>
+    </div>
 
-            {{template "footer.html"}}
+    <dialog id="add-link" class="app-dialog" aria-labelledby="add-link-title">
+        <div class="app-dialog-header">
+            <h2 id="add-link-title">Add a link</h2>
+            <button type="button" class="btn-icon" data-close-dialog aria-label="Close"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+        </div>
+        {{template "link-form" .Form}}
+    </dialog>
 
-            <script src="assets/js/links.js"></script>
-            <script>
-                Distribyted.poller(function () {
-                    Distribyted.links.loadView();
-                }, 2000, 30000)
-
-            </script>
+    {{template "footer.html"}}
 </body>
 
 </html>

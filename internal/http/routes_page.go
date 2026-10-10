@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
@@ -274,9 +276,30 @@ type toast struct {
 
 // triggerEvents has htmx fire these events on the page once it has the response.
 func triggerEvents(c *gin.Context, events map[string]any) {
-	b, err := json.Marshal(events)
-	if err != nil {
-		return
+	if b, err := jsonString(events); err == nil {
+		c.Header("HX-Trigger", b)
 	}
-	c.Header("HX-Trigger", string(b))
+}
+
+// jsonString encodes v for a response header. Browsers read header bytes as Latin-1, so
+// everything past ASCII is written as a \u escape, which JSON.parse turns back into the
+// character: a “ or an é in a name would otherwise arrive garbled.
+func jsonString(v any) (string, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, r := range string(b) {
+		switch {
+		case r < utf8.RuneSelf:
+			sb.WriteRune(r)
+		case r > 0xffff:
+			r1, r2 := utf16.EncodeRune(r)
+			fmt.Fprintf(&sb, "\\u%04x\\u%04x", r1, r2)
+		default:
+			fmt.Fprintf(&sb, "\\u%04x", r)
+		}
+	}
+	return sb.String(), nil
 }
