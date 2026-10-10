@@ -1,0 +1,37 @@
+{{define "servers-list"}}
+<section id="servers" class="servers" aria-label="Servers"
+    hx-get="/servers/list"
+    hx-trigger="every 5s [document.visibilityState === 'visible']"
+    hx-swap="morph:outerHTML" hx-ext="morph">
+    {{range .Servers}}
+    <article class="card server-card">
+        <header class="route-card-header">
+            <h2><i class="mdi mdi-folder-upload-outline" aria-hidden="true"></i> {{.Name}}</h2>
+            <span class="status-pill status-{{.Level}}">{{.State}}</span>
+        </header>
+        <div class="server-body">
+            <dl class="server-facts">
+                <div><dt>Folder</dt><dd class="server-folder">{{.Folder}}</dd></div>
+                <div><dt>Updated</dt><dd>{{if .Updated}}<time title="{{.UpdatedFull}}">{{.Updated}}</time>{{else}}Not yet{{end}}</dd></div>
+                <div><dt>Peers</dt><dd>{{.Peers}} <span class="text-muted">({{.Seeds}} seeding)</span></dd></div>
+            </dl>
+            <div class="form-field">
+                <label for="magnet-{{.Name}}">Magnet link</label>
+                <div class="copy-field">
+                    <input type="text" id="magnet-{{.Name}}" class="form-control" readonly value="{{.Magnet}}" aria-describedby="magnet-hint-{{.Name}}">
+                    <button type="button" class="btn btn-secondary" data-copy="magnet-{{.Name}}"{{if not .Magnet}} disabled{{end}}>
+                        <i class="mdi mdi-content-copy" aria-hidden="true"></i> <span>Copy</span>
+                    </button>
+                </div>
+                <p class="form-hint" id="magnet-hint-{{.Name}}">Share this to let others download the folder. It changes when the folder's contents do.</p>
+            </div>
+        </div>
+    </article>
+    {{else}}
+    <div class="card empty-state">
+        <i class="mdi mdi-folder-upload-outline" aria-hidden="true"></i>
+        <p>No folders are shared. Add one to the <code>servers</code> section of the configuration file.</p>
+    </div>
+    {{end}}
+</section>
+{{end}}

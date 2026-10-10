@@ -60,6 +60,25 @@
         }
     });
 
+    // copy buttons: data-copy names the field whose value they copy
+    document.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-copy]");
+        if (!btn) return;
+        var field = document.getElementById(btn.dataset.copy);
+        if (!field || !navigator.clipboard) {
+            if (field) { field.focus(); field.select(); }
+            return;
+        }
+        var label = btn.querySelector("span") || btn;
+        navigator.clipboard.writeText(field.value).then(function () {
+            label.textContent = "Copied";
+            setTimeout(function () { label.textContent = "Copy"; }, 1500);
+        }, function () {
+            field.focus();
+            field.select();
+        });
+    });
+
     if (!window.htmx) return;
 
     document.body.addEventListener("htmx:confirm", function (e) {
