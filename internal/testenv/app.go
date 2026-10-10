@@ -475,6 +475,8 @@ func (a *TestApp) Close() {
 	if a.httpServer != nil {
 		_ = a.httpServer.Shutdown(context.Background())
 	}
+	// as main.go's shutdown does, before the client's connections go
+	a.Service.RecordPeers()
 	a.Client.Close()
 	a.Timings.Close()
 	if a.pc != nil {

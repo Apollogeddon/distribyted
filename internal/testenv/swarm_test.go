@@ -295,3 +295,24 @@ func BenchmarkSwarm_Restart(b *testing.B) {
 		})
 	}
 }
+
+// TestSwarm_RemembersGoodPeers: the peers a torrent read from are saved across a restart,
+// and those that had nothing or never answered aren't.
+func TestSwarm_RemembersGoodPeers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping swarm test in short mode")
+	}
+	s := newSwarm(t, SwarmSpec{
+		Seeders:  []PeerProfile{fastPeer},
+		Leechers: 5, LeecherProfile: fastPeer,
+		Dead: 10,
+	})
+	dir := t.TempDir()
+	restart(t, s, dir)
+
+	app, err := NewTestAppSwarm(s, dir, nil)
+	require.NoError(t, err)
+	t.Cleanup(app.Close)
+	saved := app.db.LoadPeers(s.Magnet.InfoHash.HexString())
+	require.Equal(t, s.SeederAddrs(), saved, "only the seeder sent data")
+}

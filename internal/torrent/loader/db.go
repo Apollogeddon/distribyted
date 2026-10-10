@@ -2,6 +2,8 @@ package loader
 
 import (
 	"path"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +22,7 @@ const (
 	routeRootKey = "/route"
 	linkRootKey  = "/link"
 	infoRootKey  = "/info"
+	peersRootKey = "/peers"
 )
 
 type DB struct {
@@ -254,6 +257,43 @@ func (l *DB) ForgetInfo(hash string) error {
 	return l.db.Sync()
 }
 
+func (l *DB) SavePeers(hash string, addrs []string) error {
+	err := l.db.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte(path.Join(peersRootKey, hash)), []byte(strings.Join(addrs, "\n")))
+	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
+}
+
+func (l *DB) LoadPeers(hash string) []string {
+	var addrs []string
+	_ = l.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(path.Join(peersRootKey, hash)))
+		if err != nil {
+			return err
+		}
+		return item.Value(func(v []byte) error {
+			if len(v) > 0 {
+				addrs = strings.Split(string(v), "\n")
+			}
+			return nil
+		})
+	})
+	return addrs
+}
+
+func (l *DB) ForgetPeers(hash string) error {
+	err := l.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte(path.Join(peersRootKey, hash)))
+	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
+}
+
 func (l *DB) SavedHashes() ([]string, error) {
 	var hashes []string
 	err := l.db.View(func(txn *badger.Txn) error {
@@ -261,9 +301,14 @@ func (l *DB) SavedHashes() ([]string, error) {
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		prefix := []byte(infoRootKey + "/")
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			hashes = append(hashes, string(it.Item().Key()[len(prefix):]))
+		for _, root := range []string{infoRootKey, peersRootKey} {
+			prefix := []byte(root + "/")
+			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+				h := string(it.Item().Key()[len(prefix):])
+				if !slices.Contains(hashes, h) {
+					hashes = append(hashes, h)
+				}
+			}
 		}
 		return nil
 	})

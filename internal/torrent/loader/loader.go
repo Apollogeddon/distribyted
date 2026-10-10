@@ -21,6 +21,13 @@ type LoaderAdder interface {
 	SaveInfo(hash string, info []byte) error
 	LoadInfo(hash string) ([]byte, bool)
 	ForgetInfo(hash string) error
+
+	// SavePeers keeps the addresses of a torrent's peers that sent it data, to try first
+	// when it next needs peers. LoadPeers returns them, and ForgetPeers drops them.
+	SavePeers(hash string, addrs []string) error
+	LoadPeers(hash string) []string
+	ForgetPeers(hash string) error
+
 	// SavedHashes lists the torrents something is saved for, so that what's kept for a
 	// torrent no longer loaded from anywhere can be forgotten.
 	SavedHashes() ([]string, error)

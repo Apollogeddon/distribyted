@@ -35,6 +35,30 @@ type MockLoaderAdder struct {
 	Links        map[string]string
 	AddedMagnets map[string]string
 	Infos        map[string][]byte
+	Peers        map[string][]string
+}
+
+func (m *MockLoaderAdder) SavePeers(hash string, addrs []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Peers == nil {
+		m.Peers = make(map[string][]string)
+	}
+	m.Peers[hash] = addrs
+	return nil
+}
+
+func (m *MockLoaderAdder) LoadPeers(hash string) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.Peers[hash]
+}
+
+func (m *MockLoaderAdder) ForgetPeers(hash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.Peers, hash)
+	return nil
 }
 
 func (m *MockLoaderAdder) SaveInfo(hash string, info []byte) error {
@@ -60,6 +84,11 @@ func (m *MockLoaderAdder) SavedHashes() ([]string, error) {
 	var hashes []string
 	for h := range m.Infos {
 		hashes = append(hashes, h)
+	}
+	for h := range m.Peers {
+		if _, ok := m.Infos[h]; !ok {
+			hashes = append(hashes, h)
+		}
 	}
 	return hashes, nil
 }
@@ -675,6 +704,7 @@ func TestService_Load_ForgetsUnloadedInfo(t *testing.T) {
 		db := &MockLoaderAdder{MockLoader: MockLoader{Magnets: map[string][]string{"films": {"magnet:?xt=urn:btih:" + inDB}}}}
 		for _, h := range []string{kept, inDB, gone} {
 			require.NoError(t, db.SaveInfo(h, []byte("d4:name4:filme")))
+			require.NoError(t, db.SavePeers(h, []string{"1.2.3.4:6881"}))
 		}
 		return db
 	}
@@ -688,6 +718,8 @@ func TestService_Load_ForgetsUnloadedInfo(t *testing.T) {
 	saved, err := db.SavedHashes()
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{kept, inDB}, saved)
+	require.Empty(t, db.LoadPeers(gone), "its peers forgotten too")
+	require.NotEmpty(t, db.LoadPeers(kept))
 
 	db = newDB()
 	folder := &MockLoader{TorrentPaths: map[string][]string{"films": {filepath.Join(t.TempDir(), "unreadable.torrent")}}}

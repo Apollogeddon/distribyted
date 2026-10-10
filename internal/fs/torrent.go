@@ -29,6 +29,7 @@ type TorrentFS struct {
 	responsiveReads bool
 	log             zerolog.Logger
 	onFirstRead     func(hash, path string, sinceOpen time.Duration)
+	onReadStart     func(hash string)
 }
 
 // OnFirstRead registers a callback fired at most once per file, the first
@@ -41,6 +42,15 @@ func (fs *TorrentFS) OnFirstRead(f func(hash, path string, sinceOpen time.Durati
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	fs.onFirstRead = f
+}
+
+// OnReadStart registers a callback fired whenever a handle starts reading a torrent's
+// file, i.e. creates its reader, with the torrent's hash: the moment the torrent needs
+// peers again after sitting unread. Like OnFirstRead, it must be called before AddTorrent.
+func (fs *TorrentFS) OnReadStart(f func(hash string)) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.onReadStart = f
 }
 
 func NewTorrent(readTimeout int, responsiveReads bool) *TorrentFS {
@@ -101,6 +111,7 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			responsive:  fs.responsiveReads,
 			stats:       &readStats{},
 			onFirstRead: fs.onFirstRead,
+			onReadStart: fs.onReadStart,
 			log:         fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
 		tf.SetIno(HashIno(ih + file.Path()))
@@ -561,6 +572,7 @@ type torrentFile struct {
 	responsive  bool
 	stats       *readStats
 	onFirstRead func(hash, path string, sinceOpen time.Duration)
+	onReadStart func(hash string)
 	log         zerolog.Logger
 }
 
@@ -691,6 +703,9 @@ func (h *torrentFileHandle) load() reader {
 		h.reader = nil
 	}
 	if h.reader == nil {
+		if h.onReadStart != nil {
+			h.onReadStart(h.hash)
+		}
 		r := h.readerFunc()
 		if r != nil {
 			r.SetReadahead(readahead)

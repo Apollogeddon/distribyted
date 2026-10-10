@@ -125,6 +125,15 @@ func NewSwarm(spec SwarmSpec) (_ *Swarm, err error) {
 	return s, nil
 }
 
+// SeederAddrs are the addresses distribyted reaches the Swarm's seeders at.
+func (s *Swarm) SeederAddrs() []string {
+	var addrs []string
+	for _, sd := range s.seeders {
+		addrs = append(addrs, loopback(sd.PeerAddr()))
+	}
+	return addrs
+}
+
 // loopback is a listen address as peers dial it: 127.0.0.1 rather than the unspecified
 // address a client listens on.
 func loopback(addr string) string {
