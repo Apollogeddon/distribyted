@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -366,4 +367,77 @@ func TestContainer_RemoveHashlessFileDoesNotCascade(t *testing.T) {
 	require.NoError(c.Create("/plain.txt"))
 	require.NoError(c.Remove("/plain.txt"))
 	require.False(called)
+}
+
+// TestContainer_RoutesAndFoldersAreProtected covers what FUSE and WebDAV could do to a
+// route: rmdir or mv on its mount point unmounted it until restart, removing a folder with
+// links in it orphaned them, and renaming a file onto a folder deleted the file.
+func TestContainer_RoutesAndFoldersAreProtected(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	c, err := NewContainerFs(map[string]Filesystem{"/movies": &DummyFs{}})
+	require.NoError(err)
+
+	// the route and the torrents in it
+	require.ErrorIs(c.Rmdir("/movies"), os.ErrPermission)
+	require.ErrorIs(c.Rename("/movies", "/films"), os.ErrPermission)
+	require.ErrorIs(c.Remove("/movies/dir/here/file1.txt"), os.ErrPermission)
+	_, err = c.Open("/movies/dir/here/file1.txt")
+	require.NoError(err, "the route is still mounted")
+
+	// a folder of links
+	require.NoError(c.Mkdir("/library"))
+	require.ErrorIs(c.Mkdir("/library"), os.ErrExist)
+	require.NoError(c.Link("/movies/dir/here/file1.txt", "/library/movie.mkv"))
+	require.ErrorIs(c.Rmdir("/library"), ErrNotEmpty)
+	require.ErrorIs(c.Rename("/library", "/lib"), ErrNotEmpty)
+	_, err = c.Open("/library/movie.mkv")
+	require.NoError(err, "the link is still there")
+
+	// renaming onto an existing folder keeps both
+	require.NoError(c.Mkdir("/other"))
+	require.ErrorIs(c.Rename("/library/movie.mkv", "/other"), os.ErrExist)
+	_, err = c.Open("/library/movie.mkv")
+	require.NoError(err)
+
+	// removing its last entry prunes the empty folder, and a later mkdir doesn't bring its
+	// old link back
+	require.NoError(c.Remove("/library/movie.mkv"))
+	require.NoError(c.Mkdir("/library"))
+	entries, err := c.ReadDir("/library")
+	require.NoError(err)
+	require.Empty(entries)
+}
+
+// TestContainer_LinkToArchive covers hard-linking an archive, as Sonarr and Radarr do on
+// import: the link was made to the archive's folder view, so it opened as an empty file and
+// listing it failed with "not a valid zip file".
+func TestContainer_LinkToArchive(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	route := NewMemory()
+	require.NoError(route.Storage.Add(NewMemoryFile(zipOf(t, "inside.txt", "hello")), "/T/a.zip"))
+	c, err := NewContainerFs(map[string]Filesystem{"/route": route})
+	require.NoError(err)
+
+	require.NoError(c.Link("/route/T/a.zip", "/lib/a.zip"))
+	entries, err := c.ReadDir("/lib/a.zip")
+	require.NoError(err)
+	require.Contains(entries, "inside.txt")
+
+	// each open of an entry gets its own handle, so closing one can't pull the reader from
+	// under another
+	require.NoError(c.Link("/lib/a.zip/inside.txt", "/lib/inside.txt"))
+	h1, err := c.Open("/lib/inside.txt")
+	require.NoError(err)
+	h2, err := c.Open("/lib/inside.txt")
+	require.NoError(err)
+	require.NotSame(h1, h2)
+	require.NoError(h1.Close())
+	buf := make([]byte, 5)
+	n, err := h2.ReadAt(buf, 0)
+	require.NoError(err)
+	require.Equal("hello", string(buf[:n]))
 }

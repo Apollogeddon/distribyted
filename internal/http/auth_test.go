@@ -202,7 +202,13 @@ func TestLogout(t *testing.T) {
 	require.NoError(t, err)
 	loginResp.Body.Close()
 
-	logoutResp, err := client.Get(srv.URL + "/logout")
+	// a GET can come from another site's link or image, so it must not log out
+	getResp, err := client.Get(srv.URL + "/logout")
+	require.NoError(t, err)
+	getResp.Body.Close()
+	require.NotEqual(t, "/login", getResp.Header.Get("Location"))
+
+	logoutResp, err := client.PostForm(srv.URL+"/logout", url.Values{})
 	require.NoError(t, err)
 	logoutResp.Body.Close()
 	require.Equal(t, "/login", logoutResp.Header.Get("Location"))
@@ -225,7 +231,7 @@ func TestWebUI_RequiresAuth(t *testing.T) {
 	require.Contains(t, w.Header().Get("Location"), "/login")
 
 	// public assets stay public
-	reqAssets, _ := http.NewRequest(http.MethodGet, "/assets/js/common.js", nil)
+	reqAssets, _ := http.NewRequest(http.MethodGet, "/assets/js/app.js", nil)
 	wAssets := httptest.NewRecorder()
 	r.ServeHTTP(wAssets, reqAssets)
 	require.NotEqual(t, http.StatusFound, wAssets.Code)
@@ -319,4 +325,133 @@ func newSessionStoreForTest(t *testing.T, r http.Handler) (string, error) {
 		}
 	}
 	return "", errors.New("no session cookie set")
+}
+
+func TestSafeNext(t *testing.T) {
+	for next, want := range map[string]string{
+		"":                  "/",
+		"/routes":           "/routes",
+		"/files#/a/b":       "/files#/a/b",
+		"/logs?level=error": "/logs?level=error",
+		"https://evil.com":  "/",
+		"//evil.com":        "/",
+		`/\evil.com`:        "/",
+		`/\/evil.com`:       "/",
+		"/\t/evil.com":      "/",
+		"/\n/evil.com":      "/",
+		"routes":            "/",
+	} {
+		require.Equal(t, want, safeNext(next), "safeNext(%q)", next)
+	}
+}
+
+func TestCrossOriginRequestsRejected(t *testing.T) {
+	conf := authedConf()
+	conf.HTTPGlobal.DisableAuth = true // the case where nothing else stops a forged request
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", conf, "", nil)
+	require.NoError(t, err)
+
+	post := func(header, value string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/v2/torrents/createCategory", strings.NewReader("category=x"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if header != "" {
+			req.Header.Set(header, value)
+		}
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	// a browser on another site, including another port on the same host
+	require.Equal(t, http.StatusForbidden, post("Sec-Fetch-Site", "cross-site"))
+	require.Equal(t, http.StatusForbidden, post("Sec-Fetch-Site", "same-site"))
+	require.Equal(t, http.StatusForbidden, post("Origin", "http://evil.example"))
+	// the UI itself, and API clients such as Sonarr that send neither header
+	require.Equal(t, http.StatusOK, post("Sec-Fetch-Site", "same-origin"))
+	require.Equal(t, http.StatusOK, post("", ""))
+
+	// a GET can't change state: state-changing endpoints accept POST only
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/torrents/createCategory?category=x", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusOK, w.Code)
+}
+
+func TestLoginLimiter(t *testing.T) {
+	now := time.Unix(1_000_000, 0)
+	ll := newLoginLimiter()
+	ll.now = func() time.Time { return now }
+
+	for range freeLoginAttempts - 1 {
+		require.True(t, ll.allowed("1.2.3.4"))
+		ll.failed("1.2.3.4")
+	}
+	require.True(t, ll.allowed("1.2.3.4"))
+	ll.failed("1.2.3.4")
+
+	// past the free attempts the address waits, and longer after each further failure
+	require.False(t, ll.allowed("1.2.3.4"))
+	require.True(t, ll.allowed("5.6.7.8"), "other addresses are unaffected")
+	now = now.Add(time.Second)
+	require.True(t, ll.allowed("1.2.3.4"))
+	ll.failed("1.2.3.4")
+	now = now.Add(time.Second)
+	require.False(t, ll.allowed("1.2.3.4"))
+	now = now.Add(time.Second)
+	require.True(t, ll.allowed("1.2.3.4"))
+
+	// a successful login clears the record
+	ll.succeeded("1.2.3.4")
+	ll.failed("1.2.3.4")
+	require.True(t, ll.allowed("1.2.3.4"))
+}
+
+func TestLoginRateLimitedAndSessionCookie(t *testing.T) {
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
+	require.NoError(t, err)
+
+	login := func(pass string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, loginRequest("test", pass))
+		return w
+	}
+
+	// a good login sets a session cookie with no Max-Age, so the browser keeps it while the
+	// server's sliding expiry keeps the session alive
+	w := login("test")
+	require.Equal(t, "Ok.", w.Body.String())
+	require.NotContains(t, w.Header().Get("Set-Cookie"), "Max-Age")
+
+	for range freeLoginAttempts {
+		require.Equal(t, "Fails.", login("wrong").Body.String())
+	}
+	// the right password is refused too until the wait is over
+	require.Equal(t, http.StatusTooManyRequests, login("test").Code)
+}
+
+// TestSessionCookieSecureOverHTTPS: the session cookie is Secure when the browser came over
+// HTTPS, and not over plain HTTP, where a browser would drop it.
+func TestSessionCookieSecureOverHTTPS(t *testing.T) {
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
+	require.NoError(t, err)
+
+	login := func(proto string) *http.Cookie {
+		form := url.Values{"username": {"test"}, "password": {"test"}}
+		req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if proto != "" {
+			req.Header.Set("X-Forwarded-Proto", proto)
+		}
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		for _, c := range w.Result().Cookies() {
+			if c.Name == sessionCookieName {
+				return c
+			}
+		}
+		t.Fatal("no session cookie")
+		return nil
+	}
+	require.False(t, login("").Secure)
+	require.True(t, login("https").Secure)
 }

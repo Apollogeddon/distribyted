@@ -1,8 +1,11 @@
 package fuse
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/stretchr/testify/require"
@@ -136,4 +139,63 @@ func TestFS_Unit(t *testing.T) {
 		errc, _ := f.Open("/notexists", 0)
 		require.Equal(-fuse.ENOENT, errc)
 	})
+}
+
+func TestErrno(t *testing.T) {
+	for err, want := range map[error]int{
+		nil:                                      0,
+		os.ErrNotExist:                           -fuse.ENOENT,
+		os.ErrExist:                              -fuse.EEXIST,
+		os.ErrPermission:                         -fuse.EPERM,
+		fs.ErrNotEmpty:                           -fuse.ENOTEMPTY,
+		fmt.Errorf("x: %w", fs.ErrEntryTooLarge): -fuse.EFBIG,
+		fmt.Errorf("wrapped: %w", fs.ErrNotEmpty): -fuse.ENOTEMPTY,
+		errors.New("anything else"):               -fuse.EIO,
+	} {
+		require.Equal(t, want, errno(err), "%v", err)
+	}
+}
+
+// slowDirFs blocks ReadDir until release is closed, as listing an archive does while its
+// central directory downloads.
+type slowDirFs struct {
+	fs.Filesystem
+	release chan struct{}
+}
+
+func (s *slowDirFs) ReadDir(p string) (map[string]fs.File, error) {
+	<-s.release
+	return s.Filesystem.ReadDir(p)
+}
+
+// TestFileHandler_SlowListingDoesNotBlockReads guards against a slow listing stalling every
+// open file: ListDir held the handle lock across ReadDir, a concurrent open queued for the
+// write lock behind it, and every read then queued behind that.
+func TestFileHandler_SlowListingDoesNotBlockReads(t *testing.T) {
+	mem := fs.NewMemory()
+	require.NoError(t, mem.Storage.Add(fs.NewMemoryFile([]byte("open already")), "/a.txt"))
+	require.NoError(t, mem.Storage.Add(fs.NewMemoryFile([]byte("opened later")), "/b.txt"))
+	slow := &slowDirFs{Filesystem: mem, release: make(chan struct{})}
+	fh := &fileHandler{fs: slow}
+
+	open, err := fh.OpenHolder("/a.txt")
+	require.NoError(t, err)
+
+	go func() { _, _ = fh.ListDir("/") }()
+	time.Sleep(50 * time.Millisecond)
+	go func() { _, _ = fh.OpenHolder("/b.txt") }()
+	time.Sleep(50 * time.Millisecond)
+
+	read := make(chan error, 1)
+	go func() {
+		_, err := fh.GetFile("/a.txt", open)
+		read <- err
+	}()
+	select {
+	case err := <-read:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("reading an open file waited for an unrelated directory listing")
+	}
+	close(slow.release)
 }

@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/dgraph-io/badger/v4"
+
 	"github.com/anacrolix/torrent/storage"
 	"github.com/stretchr/testify/require"
 )
@@ -98,4 +100,42 @@ func TestDB_Links(t *testing.T) {
 	require.Contains(links, "new/path2")
 
 	_ = s.Close()
+}
+
+func TestDB_InvalidRouteNames(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	s, err := NewDB("")
+	require.NoError(err)
+	defer s.Close()
+
+	// "." made the key /route/<hash>, which crashed every later startup, and "../.."
+	// reached into the links store
+	for _, r := range []string{".", "..", "../../link/evil", "a/b", ""} {
+		require.Error(s.AddMagnet(r, m1), r)
+	}
+
+	links, err := s.ListLinks()
+	require.NoError(err)
+	require.Empty(links)
+}
+
+func TestDB_ListMagnetsSkipsMalformedKeys(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	s, err := NewDB("")
+	require.NoError(err)
+	defer s.Close()
+
+	require.NoError(s.AddMagnet("good", m1))
+	// a key an older version could write, with no route segment
+	require.NoError(s.db.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte(routeRootKey+"/c9e15763f722f23e98a29decdfae341b98d53056"), []byte(m1))
+	}))
+
+	magnets, err := s.ListMagnets()
+	require.NoError(err)
+	require.Equal(map[string][]string{"good": {m1}}, magnets)
 }

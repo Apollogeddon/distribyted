@@ -74,8 +74,11 @@ func (s *Seeder) AddFileWithPieceLength(name string, content []byte, announceURL
 		return metainfo.Magnet{}, err
 	}
 
-	mi := metainfo.MetaInfo{
-		AnnounceList: [][]string{{announceURL}},
+	// no announce URL: a seeder in a Swarm, which mustn't learn of (and dial) the other
+	// peers through a tracker
+	var mi metainfo.MetaInfo
+	if announceURL != "" {
+		mi.AnnounceList = [][]string{{announceURL}}
 	}
 
 	info := metainfo.Info{
@@ -113,4 +116,13 @@ func (s *Seeder) PeerAddr() string {
 		return addrs[0].String()
 	}
 	return ""
+}
+
+// MetaInfo is the metainfo of a torrent this seeder added, for a Leecher of the same torrent.
+func (s *Seeder) MetaInfo(h metainfo.Hash) (metainfo.MetaInfo, bool) {
+	t, ok := s.client.Torrent(h)
+	if !ok {
+		return metainfo.MetaInfo{}, false
+	}
+	return t.Metainfo(), true
 }

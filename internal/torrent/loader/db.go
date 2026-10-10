@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Apollogeddon/distribyted/internal/config"
+
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/dgraph-io/badger/v4"
@@ -54,6 +56,7 @@ func NewDB(path string) (*DB, error) {
 		db:       db,
 		close:    make(chan struct{}),
 		inMemory: path == "",
+		log:      l,
 	}
 	if !d.inMemory {
 		go d.runGC()
@@ -85,6 +88,10 @@ func (l *DB) ListTorrentPaths() (map[string][]string, error) {
 }
 
 func (l *DB) AddMagnet(r, m string) error {
+	if err := config.ValidateRouteName(r); err != nil {
+		return err
+	}
+
 	err := l.db.Update(func(txn *badger.Txn) error {
 		spec, err := metainfo.ParseMagnetUri(m)
 		if err != nil {
@@ -103,6 +110,10 @@ func (l *DB) AddMagnet(r, m string) error {
 }
 
 func (l *DB) RemoveFromHash(r, h string) (bool, error) {
+	if err := config.ValidateRouteName(r); err != nil {
+		return false, err
+	}
+
 	tx := l.db.NewTransaction(true)
 	defer tx.Discard()
 
@@ -138,7 +149,17 @@ func (l *DB) ListMagnets() (map[string][]string, error) {
 		l.log.Debug().Str("key", k).Msg("found magnet key")
 		// key is /route/<hash>/<route_name>
 		// routeRootKey + "/" + hash(40) + "/"
+		// a key written before route names were validated, such as /route/<hash> for the
+		// route ".", has no route segment; skip it rather than fail every startup
+		if len(k) <= len(routeRootKey)+42 || k[len(routeRootKey)+41] != '/' {
+			l.log.Warn().Str("key", k).Msg("skipping a stored torrent with an invalid route")
+			continue
+		}
 		r := k[len(routeRootKey)+42:]
+		if config.ValidateRouteName(r) != nil {
+			l.log.Warn().Str("key", k).Msg("skipping a stored torrent with an invalid route")
+			continue
+		}
 
 		val, err := item.ValueCopy(nil)
 		if err != nil {

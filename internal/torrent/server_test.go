@@ -69,6 +69,19 @@ func TestServer_StartAndWatch(t *testing.T) {
 
 	info2 := srv.Info()
 	require.NotEqual(t, firstMagnet, info2.Magnet, "magnet should be updated after new file")
+	// the torrent for the old contents is dropped, not left seeding beside the new one
+	require.Len(t, client.Torrents(), 1)
+
+	// a folder created after start is watched too: a file written inside it changes the
+	// magnet again
+	sub := filepath.Join(serverFolder, "later")
+	require.NoError(t, os.Mkdir(sub, 0o755))
+	time.Sleep(2 * time.Second)
+	afterMkdir := srv.Info().Magnet
+	require.NoError(t, os.WriteFile(filepath.Join(sub, "inside.txt"), []byte("inside"), 0o644))
+	time.Sleep(2 * time.Second)
+	require.NotEqual(t, afterMkdir, srv.Info().Magnet, "a change inside a new subfolder should update the magnet")
+	require.Len(t, client.Torrents(), 1)
 }
 
 func TestServer_Trackers(t *testing.T) {

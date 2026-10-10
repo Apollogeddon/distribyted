@@ -54,7 +54,9 @@ func (c *Handler) createFromTemplateFile() ([]byte, error) {
 		return nil, fmt.Errorf("error generating default password: %w", err)
 	}
 	tb = bytes.ReplaceAll(tb, []byte("pass: admin"), []byte("pass: "+pass))
-	log.Warn().Str("password", pass).Msg("generated a random default password for http/webdav auth on first run — save it, it will not be shown again")
+	// the password goes only into the config file, which is readable by its owner alone;
+	// console output often ends up in container or system logs
+	log.Warn().Str("path", c.p).Msg("generated a random password for the web interface and WebDAV on first run; it is in the configuration file")
 
 	if err := os.MkdirAll(filepath.Dir(c.p), 0o750); err != nil {
 		return nil, fmt.Errorf("error creating path for configuration file: %s, %w", c.p, err)

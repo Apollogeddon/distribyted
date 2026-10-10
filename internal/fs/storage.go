@@ -1,6 +1,8 @@
 package fs
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -16,33 +18,22 @@ type FsFactory func(f File) (Filesystem, error)
 
 func GetSupportedFactories() map[string]FsFactory {
 	return map[string]FsFactory{
-		".zip": func(f File) (Filesystem, error) {
-			if tf, ok := f.(*torrentFile); ok {
-				f = tf.NewHandle()
-			}
-			if af, ok := f.(*ArchiveFile); ok {
-				f = af.NewHandle()
-			}
-			return NewArchive(f, f.Size(), &Zip{}), nil
-		},
-		".rar": func(f File) (Filesystem, error) {
-			if tf, ok := f.(*torrentFile); ok {
-				f = tf.NewHandle()
-			}
-			if af, ok := f.(*ArchiveFile); ok {
-				f = af.NewHandle()
-			}
-			return NewArchive(f, f.Size(), &Rar{}), nil
-		},
-		".7z": func(f File) (Filesystem, error) {
-			if tf, ok := f.(*torrentFile); ok {
-				f = tf.NewHandle()
-			}
-			if af, ok := f.(*ArchiveFile); ok {
-				f = af.NewHandle()
-			}
-			return NewArchive(f, f.Size(), &SevenZip{}), nil
-		},
+		".zip": archiveFactory(&Zip{}),
+		".rar": archiveFactory(&Rar{}),
+		".7z":  archiveFactory(&SevenZip{}),
+	}
+}
+
+// archiveFactory opens an archive file as a folder, reading it through a handle of its own.
+func archiveFactory(l loader) FsFactory {
+	return func(f File) (Filesystem, error) {
+		if tf, ok := f.(*torrentFile); ok {
+			f = tf.NewHandle()
+		}
+		if af, ok := f.(*ArchiveFile); ok {
+			f = af.NewHandle()
+		}
+		return NewArchive(f, f.Size(), l), nil
 	}
 }
 
@@ -53,7 +44,10 @@ type storage struct {
 
 	files       map[string]File
 	filesystems map[string]Filesystem
-	children    map[string]map[string]File
+	// sources holds the file each archive in filesystems was opened from, so the archive
+	// goes with its torrent and a link to it links the file
+	sources  map[string]File
+	children map[string]map[string]File
 }
 
 func newStorage(factories map[string]FsFactory) *storage {
@@ -61,6 +55,7 @@ func newStorage(factories map[string]FsFactory) *storage {
 		files:       make(map[string]File),
 		children:    make(map[string]map[string]File),
 		filesystems: make(map[string]Filesystem),
+		sources:     make(map[string]File),
 		factories:   factories,
 		log:         dlog.Logger("fs-storage"),
 	}
@@ -122,14 +117,11 @@ func (s *storage) AddFS(fs Filesystem, p string) error {
 	defer s.mu.Unlock()
 
 	p = clean(p)
-	if s.hasLocked(p) {
-		if dir, err := s.getLocked(p); err == nil {
-			if !dir.IsDir() {
-				return os.ErrExist
-			}
-		}
-
-		return nil
+	// something is already there: another mount, or a folder or file of the user's own.
+	// Mounting over it would hide what it holds, so the caller has to know the route
+	// didn't appear.
+	if _, mounted := s.filesystems[p]; mounted || s.hasLocked(p) {
+		return os.ErrExist
 	}
 
 	s.filesystems[p] = fs
@@ -169,6 +161,7 @@ func (s *storage) addLocked(f File, p string) error {
 		}
 
 		s.filesystems[p] = fs
+		s.sources[p] = f
 		f.SetIno(GenerateIno())
 		f.IncNlink()
 	} else {
@@ -180,11 +173,24 @@ func (s *storage) addLocked(f File, p string) error {
 	return s.createParentLocked(p, f)
 }
 
+// ErrNotEmpty is returned for removing or renaming a folder that still has entries.
+var ErrNotEmpty = errors.New("directory not empty")
+
 func (s *storage) Remove(p string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if len(s.children[clean(p)]) > 0 {
+		return ErrNotEmpty
+	}
 	return s.removeLocked(p, nil)
+}
+
+// HasChildren reports whether the folder at p has any entries.
+func (s *storage) HasChildren(p string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.children[clean(p)]) > 0
 }
 
 // RemovePaths removes p and reports every path actually deleted, including
@@ -193,6 +199,9 @@ func (s *storage) RemovePaths(p string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if len(s.children[clean(p)]) > 0 {
+		return nil, ErrNotEmpty
+	}
 	var removed []string
 	err := s.removeLocked(p, &removed)
 	return removed, err
@@ -212,8 +221,15 @@ func (s *storage) removeLocked(p string, removed *[]string) error {
 		f.DecNlink()
 	}
 
+	if fsys, ok := s.filesystems[p]; ok {
+		if c, ok := fsys.(io.Closer); ok {
+			_ = c.Close()
+		}
+	}
 	delete(s.files, p)
 	delete(s.filesystems, p)
+	delete(s.sources, p)
+	delete(s.children, p)
 	if removed != nil {
 		*removed = append(*removed, p)
 	}
@@ -246,7 +262,20 @@ func (s *storage) HasHash(h string) bool {
 			return true
 		}
 	}
+	for _, f := range s.sources {
+		if f.MatchHash(h) {
+			return true
+		}
+	}
 	return false
+}
+
+// Source returns the file the archive mounted at p was opened from.
+func (s *storage) Source(p string) (File, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	f, ok := s.sources[clean(p)]
+	return f, ok
 }
 
 // RemoveByHash removes entries matching hash h held directly by this
@@ -261,6 +290,14 @@ func (s *storage) RemoveByHash(h string) []string {
 		if f.MatchHash(h) {
 			if err := s.removeLocked(p, &removed); err != nil {
 				s.log.Error().Err(err).Str(dlog.KeyPath, p).Msg("failed to remove file from storage during hash eviction")
+			}
+		}
+	}
+	// archives inside the torrent are mounted as folders, not held as files
+	for p, f := range s.sources {
+		if f.MatchHash(h) {
+			if err := s.removeLocked(p, &removed); err != nil {
+				s.log.Error().Err(err).Str(dlog.KeyPath, p).Msg("failed to remove archive from storage during hash eviction")
 			}
 		}
 	}

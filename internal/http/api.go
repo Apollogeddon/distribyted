@@ -1,7 +1,6 @@
 package http
 
 import (
-	"errors"
 	"io"
 	"math"
 	"net/http"
@@ -13,11 +12,13 @@ import (
 	dfs "github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/anacrolix/missinggo/v2/filecache"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/gin-gonic/gin"
 )
 
 type torrentService interface {
 	AddMagnet(r, m string) error
+	AddTorrentMetaInfo(r string, mi *metainfo.MetaInfo) error
 	RemoveFromHash(r, h string) error
 	RemoveFromHashOnly(h string) error
 	ListLinks() (map[string]string, error)
@@ -52,58 +53,18 @@ type containerFS interface {
 
 var apiFsListHandler = func(cfs containerFS) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		p := path.Clean(ctx.Param("path"))
-
-		children, err := cfs.ReadDir(p)
+		out, err := listDir(cfs, ctx.Param("path"))
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				ctx.JSON(http.StatusNotFound, gin.H{"error": "no such directory: " + p})
-				return
-			}
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			respondJSON(ctx, err)
 			return
 		}
-
-		out := make([]FSEntry, 0, len(children))
-		for name, f := range children {
-			childPath := path.Join(p, name)
-			out = append(out, FSEntry{
-				Name:  name,
-				Path:  childPath,
-				IsDir: f.IsDir(),
-				Size:  f.Size(),
-				Hash:  f.Hash(),
-				Owned: cfs.IsOwned(childPath),
-			})
-		}
-		sort.Slice(out, func(i, j int) bool {
-			if out[i].IsDir != out[j].IsDir {
-				return out[i].IsDir
-			}
-			return out[i].Name < out[j].Name
-		})
-
 		ctx.JSON(http.StatusOK, out)
 	}
 }
 
 var apiFsDeleteHandler = func(cfs containerFS) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		p := path.Clean(ctx.Param("path"))
-		if p == "" || p == "/" || p == "." {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
-			return
-		}
-
-		err := cfs.Remove(p)
-		switch {
-		case err == nil:
-			ctx.JSON(http.StatusOK, nil)
-		case errors.Is(err, os.ErrNotExist):
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "no such path: " + p})
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+		respondJSON(ctx, removeEntry(cfs, ctx.Param("path")))
 	}
 }
 
@@ -114,22 +75,7 @@ var apiFsMkdirHandler = func(cfs containerFS) gin.HandlerFunc {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-
-		p := path.Clean(json.Path)
-		if p == "" || p == "/" || p == "." {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
-			return
-		}
-
-		err := cfs.Mkdir(p)
-		switch {
-		case err == nil:
-			ctx.JSON(http.StatusOK, nil)
-		case errors.Is(err, os.ErrExist):
-			ctx.JSON(http.StatusConflict, gin.H{"error": "path already exists: " + p})
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+		respondJSON(ctx, makeDir(cfs, json.Path))
 	}
 }
 
@@ -140,30 +86,7 @@ var apiFsRenameHandler = func(cfs containerFS) gin.HandlerFunc {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-
-		oldPath := path.Clean(json.OldPath)
-		newPath := path.Clean(json.NewPath)
-		if oldPath == "" || oldPath == "/" || newPath == "" || newPath == "/" {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "old_path and new_path are required"})
-			return
-		}
-
-		if !cfs.IsOwned(oldPath) {
-			ctx.JSON(http.StatusForbidden, gin.H{"error": "not renameable: part of a torrent's route content"})
-			return
-		}
-
-		err := cfs.Rename(oldPath, newPath)
-		switch {
-		case err == nil:
-			ctx.JSON(http.StatusOK, nil)
-		case errors.Is(err, os.ErrNotExist):
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "source path does not exist: " + oldPath})
-		case errors.Is(err, os.ErrExist):
-			ctx.JSON(http.StatusConflict, gin.H{"error": "destination path already exists: " + newPath})
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+		respondJSON(ctx, renameEntry(cfs, json.OldPath, json.NewPath))
 	}
 }
 
@@ -282,34 +205,11 @@ func routeForPath(p string, routeNames []string) string {
 
 var apiListLinksHandler = func(s torrentService, ss *torrent.Stats) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		links, err := s.ListLinks()
+		out, err := listLinks(s, ss)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			respondJSON(ctx, err)
 			return
 		}
-
-		var routeNames []string
-		if ss != nil { // nil only in tests that don't exercise route resolution
-			routeNames = ss.RouteNames()
-		}
-
-		out := make([]Link, 0, len(links))
-		for newPath, oldPath := range links {
-			isDir := oldPath == "/" || oldPath == ""
-			normOld := normalizeLinkPath(oldPath)
-			route := ""
-			if !isDir {
-				route = routeForPath(normOld, routeNames)
-			}
-			out = append(out, Link{
-				OldPath: normOld,
-				NewPath: normalizeLinkPath(newPath),
-				IsDir:   isDir,
-				Route:   route,
-			})
-		}
-		sort.Slice(out, func(i, j int) bool { return out[i].NewPath < out[j].NewPath })
-
 		ctx.JSON(http.StatusOK, out)
 	}
 }
@@ -321,64 +221,13 @@ var apiAddLinkHandler = func(lfs linkFs) gin.HandlerFunc {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-
-		err := lfs.Link(json.OldPath, json.NewPath)
-		switch {
-		case err == nil:
-			ctx.JSON(http.StatusOK, nil)
-		case errors.Is(err, os.ErrNotExist):
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "source path does not exist: " + json.OldPath})
-		case errors.Is(err, os.ErrExist):
-			ctx.JSON(http.StatusConflict, gin.H{"error": "destination path already exists: " + json.NewPath})
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+		respondJSON(ctx, addLink(lfs, json.OldPath, json.NewPath))
 	}
 }
 
 var apiDelLinkHandler = func(lfs linkFs, s torrentService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		p := path.Clean(ctx.Param("path"))
-		if p == "" || p == "/" || p == "." {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
-			return
-		}
-
-		links, err := s.ListLinks()
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		found := false
-		for newPath := range links {
-			if normalizeLinkPath(newPath) == p {
-				found = true
-				break
-			}
-		}
-		if !found {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "no link at path: " + p})
-			return
-		}
-
-		err = lfs.Remove(p)
-		switch {
-		case err == nil:
-			ctx.JSON(http.StatusOK, nil)
-		case errors.Is(err, os.ErrNotExist):
-			// The DB record exists (found == true above) but the live tree
-			// entry is already gone — an orphaned link, e.g. left behind by
-			// a torrent deletion that cascaded before this fix shipped.
-			// lfs.Remove can't clean up a record it can't find in the tree,
-			// so reconcile the DB directly instead of leaving it stuck.
-			if rmErr := s.RemoveLink(p); rmErr != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": rmErr.Error()})
-				return
-			}
-			ctx.JSON(http.StatusOK, nil)
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+		respondJSON(ctx, removeLink(lfs, s, ctx.Param("path")))
 	}
 }
 
