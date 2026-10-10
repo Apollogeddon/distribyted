@@ -128,6 +128,8 @@ type Service struct {
 
 	lastHealth map[string]healthState
 	timings    *Timings
+	// peersOffered is when each torrent was last given its saved peers (see offerPeers)
+	peersOffered map[string]time.Time
 }
 
 type healthState struct {
@@ -154,9 +156,11 @@ func NewService(loaders []loader.Loader, db loader.LoaderAdder, stats *Stats, c 
 		cancel:                 cancel,
 		lastHealth:             make(map[string]healthState),
 		timings:                tm,
+		peersOffered:           make(map[string]time.Time),
 	}
 
 	go s.runHealthLogger()
+	go s.runPeerRecorder()
 
 	return s
 }
@@ -529,6 +533,7 @@ func (s *Service) addRoute(r string) {
 	if !exists {
 		tfs = fs.NewTorrent(s.readTimeout, s.responsiveReads)
 		tfs.OnFirstRead(s.timings.FirstRead)
+		tfs.OnReadStart(s.offerPeersOnRead)
 		s.fss[folder] = tfs
 		listeners = append(listeners, s.routeAddedListeners...)
 	}
@@ -546,6 +551,8 @@ func (s *Service) addRoute(r string) {
 func (s *Service) addTorrent(r string, t fs.Torrent) error {
 	hash := t.InfoHash().String()
 	s.timings.Added(hash, r, t.Name(), webseedCount(t), t)
+	// peers that sent it data before, which can also send the metadata
+	s.offerPeers(t)
 
 	// only get info if name is not available
 	if t.Info() == nil {
@@ -659,6 +666,12 @@ func (s *Service) RemoveFromHash(r, h string) error {
 	if err := s.db.ForgetInfo(h); err != nil {
 		s.log.Warn().Err(err).Str(dlog.KeyHash, h).Msg("forgetting the saved torrent info")
 	}
+	if err := s.db.ForgetPeers(h); err != nil {
+		s.log.Warn().Err(err).Str(dlog.KeyHash, h).Msg("forgetting the torrent's good peers")
+	}
+	s.mu.Lock()
+	delete(s.peersOffered, h)
+	s.mu.Unlock()
 
 	// Remove from client
 	var mh metainfo.Hash

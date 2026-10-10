@@ -283,6 +283,8 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		}
 		log.Info().Msg("closing items database...")
 		_ = sl.fis.Close() //nolint:errcheck // best-effort on shutdown
+		log.Info().Msg("saving the torrents' good peers...")
+		ts.RecordPeers()
 		log.Info().Msg("closing magnet database...")
 		_ = dbl.Close() //nolint:errcheck // best-effort on shutdown
 		log.Info().Msg("closing torrent client...")

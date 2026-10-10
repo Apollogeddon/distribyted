@@ -34,6 +34,30 @@ type MockLoaderAdder struct {
 	Links        map[string]string
 	AddedMagnets map[string]string
 	Infos        map[string][]byte
+	Peers        map[string][]string
+}
+
+func (m *MockLoaderAdder) SavePeers(hash string, addrs []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Peers == nil {
+		m.Peers = make(map[string][]string)
+	}
+	m.Peers[hash] = addrs
+	return nil
+}
+
+func (m *MockLoaderAdder) LoadPeers(hash string) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.Peers[hash]
+}
+
+func (m *MockLoaderAdder) ForgetPeers(hash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.Peers, hash)
+	return nil
 }
 
 func (m *MockLoaderAdder) SaveInfo(hash string, info []byte) error {

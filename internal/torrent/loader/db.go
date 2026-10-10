@@ -2,6 +2,7 @@ package loader
 
 import (
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ const (
 	routeRootKey = "/route"
 	linkRootKey  = "/link"
 	infoRootKey  = "/info"
+	peersRootKey = "/peers"
 )
 
 type DB struct {
@@ -247,6 +249,43 @@ func (l *DB) LoadInfo(hash string) ([]byte, bool) {
 func (l *DB) ForgetInfo(hash string) error {
 	err := l.db.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte(path.Join(infoRootKey, hash)))
+	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
+}
+
+func (l *DB) SavePeers(hash string, addrs []string) error {
+	err := l.db.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte(path.Join(peersRootKey, hash)), []byte(strings.Join(addrs, "\n")))
+	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
+}
+
+func (l *DB) LoadPeers(hash string) []string {
+	var addrs []string
+	_ = l.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(path.Join(peersRootKey, hash)))
+		if err != nil {
+			return err
+		}
+		return item.Value(func(v []byte) error {
+			if len(v) > 0 {
+				addrs = strings.Split(string(v), "\n")
+			}
+			return nil
+		})
+	})
+	return addrs
+}
+
+func (l *DB) ForgetPeers(hash string) error {
+	err := l.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte(path.Join(peersRootKey, hash)))
 	})
 	if err != nil {
 		return err

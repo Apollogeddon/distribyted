@@ -917,6 +917,34 @@ func TestTorrentFileHandle_FirstRead_NilSafeWhenUnset(t *testing.T) {
 	require.Equal(t, 4, n)
 }
 
+// TestTorrentFileHandle_ReadStart: OnReadStart fires when a handle starts reading, once
+// per reader rather than per read, and again for the next handle.
+func TestTorrentFileHandle_ReadStart(t *testing.T) {
+	var starts []string
+	tf := &torrentFile{
+		hash:    "h",
+		path:    "/p",
+		timeout: 5,
+		stats:   &readStats{},
+		log:     zerolog.Nop(),
+		readerFunc: func() torrent.Reader {
+			return &stubTorrentReader{data: []byte{1, 2, 3, 4}}
+		},
+		onReadStart: func(hash string) { starts = append(starts, hash) },
+	}
+	h := tf.NewHandle()
+	require.Empty(t, starts, "opening isn't reading")
+	for range 3 {
+		_, err := h.ReadAt(make([]byte, 4), 0)
+		require.NoError(t, err)
+	}
+	require.Equal(t, []string{"h"}, starts)
+
+	_, err := tf.NewHandle().ReadAt(make([]byte, 4), 0)
+	require.NoError(t, err)
+	require.Equal(t, []string{"h", "h"}, starts)
+}
+
 // BenchmarkReadAtWrapper_ReadAt_Cached isolates readAtWrapper's own overhead
 // (goroutine spawn, channel handoff, scratch-buffer copy) from real I/O, by
 // serving every read from memory in a single ReadContext call. Compare

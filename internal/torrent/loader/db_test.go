@@ -167,3 +167,25 @@ func TestDB_Info(t *testing.T) {
 	require.False(t, ok)
 	require.NoError(t, db.ForgetInfo(h), "forgetting twice is fine")
 }
+
+func TestDB_Peers(t *testing.T) {
+	dir := t.TempDir()
+	db, err := NewDB(dir)
+	require.NoError(t, err)
+
+	const h = "c9e15763f722f23e98a29decdfae341b98d53056"
+	require.Empty(t, db.LoadPeers(h))
+	require.NoError(t, db.SavePeers(h, []string{"1.2.3.4:6881", "[2001:db8::1]:51413"}))
+	require.NoError(t, db.Close())
+
+	db, err = NewDB(dir)
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	require.Equal(t, []string{"1.2.3.4:6881", "[2001:db8::1]:51413"}, db.LoadPeers(h), "kept across a restart")
+	l, err := db.ListMagnets()
+	require.NoError(t, err)
+	require.Empty(t, l, "peers aren't listed as magnets")
+
+	require.NoError(t, db.ForgetPeers(h))
+	require.Empty(t, db.LoadPeers(h))
+}
