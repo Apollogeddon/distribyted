@@ -37,7 +37,7 @@ require (
 
 require (
 	github.com/a-h/templ v0.3.1070
-	github.com/anacrolix/chansync v0.7.0
+	github.com/anacrolix/chansync v0.8.0
 	github.com/anacrolix/generics v0.2.0
 	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/dustin/go-humanize v1.1.0
