@@ -20,7 +20,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.16
-	github.com/nwaples/rardecode/v2 v2.4.1
+	github.com/nwaples/rardecode/v2 v2.4.2
 	github.com/pion/rtp v1.8.26 // indirect
 	github.com/pion/sctp v1.8.41 // indirect
 	github.com/rs/zerolog v1.35.1
@@ -36,10 +36,10 @@ require (
 )
 
 require (
-	github.com/a-h/templ v0.3.1020
+	github.com/a-h/templ v0.3.1070
 	github.com/anacrolix/generics v0.2.0
 	github.com/dgraph-io/badger/v4 v4.9.6
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/winfsp/cgofuse v1.6.0
 )
 
@@ -56,7 +56,7 @@ require (
 	github.com/anacrolix/sync v0.6.0 // indirect
 	github.com/anacrolix/upnp v0.1.4 // indirect
 	github.com/anacrolix/utp v0.2.0 // indirect
-	github.com/andybalholm/brotli v1.2.2 // indirect
+	github.com/andybalholm/brotli v1.2.6 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/immutable v0.4.3 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
@@ -92,7 +92,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.19.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
