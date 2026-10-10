@@ -27,7 +27,7 @@
 
 ---
 
-## 🚀 Use Cases
+## Use Cases
 
 - **Multimedia:** Stream 4K movies directly in VLC or Plex without waiting for the full download.
 - **Datasets:** Browse massive public datasets and only download the specific files or offsets needed for analysis.
@@ -53,7 +53,7 @@
 
 </details>
 
-## ✨ Core Features
+## Core Features
 
 - **Filesystem Access:** Mount torrents via **FUSE** (Linux/Windows), **WebDAV**, or **HTTP**.
 - **On-Demand Downloading:** Only downloads the specific blocks of data being read.
@@ -62,7 +62,7 @@
 - **Servers:** Turn any local folder into a live torrent with automatic magnet link updates.
 - **qBitTorrent API Compatibility:** Drop-in integration with **Radarr**, **Sonarr**, and **Prowlarr**.
 
-## 🛠️ How it Works
+## How it Works
 
 Distribyted acts as a bridge between the BitTorrent swarm and your operating system. When a file is accessed:
 
@@ -70,7 +70,7 @@ Distribyted acts as a bridge between the BitTorrent swarm and your operating sys
 2. The **Torrent Engine** requests only those specific pieces from the swarm.
 3. Data is streamed directly to the requesting application, using a local cache for performance.
 
-## 🏁 Quick Start
+## Quick Start
 
 ### 1. Configuration
 
@@ -90,7 +90,7 @@ The application uses a YAML configuration file. See `examples/conf_example.yaml`
 
 ---
 
-## 🔌 Integrations
+## Integrations
 
 ### Radarr / Sonarr
 
@@ -106,7 +106,7 @@ Add `distribyted` as a **qBitTorrent** download client:
 - `POST /torrents/add` (Adds magnets to routes)
 - `POST /torrents/delete` (Surgical removal)
 
-## 📚 Documentation
+## Documentation
 
 The full guides are on the [documentation site](https://apollogeddon.github.io/distribyted/docs/) (source in [`docs/`](./docs/)):
 
@@ -116,11 +116,11 @@ The full guides are on the [documentation site](https://apollogeddon.github.io/d
 - **[Architecture](https://apollogeddon.github.io/distribyted/docs/architecture/)**: Learn how the internal VFS and Torrent engine work.
 - **[Development](https://apollogeddon.github.io/distribyted/docs/development/)**: Guide for building from source and contributing.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please check the [Development Guide](https://apollogeddon.github.io/distribyted/docs/development/) to get started.
 
-## 🍴 About this fork
+## About this fork
 
 This is a fork of [distribyted/distribyted](https://github.com/distribyted/distribyted), created by Antonio Navarro Pérez and its contributors. It has been modified since April 2026, among other things with:
 - security fixes
@@ -130,7 +130,7 @@ This is a fork of [distribyted/distribyted](https://github.com/distribyted/distr
 
 The [commit history](https://github.com/Apollogeddon/distribyted/commits/main) and [CHANGELOG](./CHANGELOG.md) record every change.
 
-## 📄 License
+## License
 
 Distributed under the GNU General Public License, version 3, the same as the original project. See [`LICENSE`](./LICENSE) for the full text.
 
