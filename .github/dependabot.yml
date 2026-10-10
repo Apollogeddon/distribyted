@@ -1,10 +1,14 @@
 version: 2
+# Every update waits 3 days after a version is published before it's proposed, so a
+# compromised release has time to be caught and yanked upstream first.
 updates:
   # 1. GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     groups:
       actions-dependencies:
         patterns:
@@ -22,7 +26,9 @@ updates:
       - "/"
       - "/tools/templ"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 10
     pull-request-branch-name:
       separator: "-"
@@ -49,6 +55,8 @@ updates:
     directory: "/docs"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     labels:
       - "dependencies"
     groups:
@@ -63,6 +71,8 @@ updates:
     directory: "/build"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     labels:
       - "docker"
     groups:
@@ -76,6 +86,8 @@ updates:
     directory: "/build/tools"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     labels:
       - "docker"
       - "tools"
