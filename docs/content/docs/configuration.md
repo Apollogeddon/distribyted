@@ -1,4 +1,7 @@
-# Configuration
+---
+title: Configuration
+weight: 3
+---
 
 Distribyted uses a YAML configuration file to define its behavior, network settings, and data sources. By default, it looks for a file at `./distribyted-data/config/config.yaml`.
 

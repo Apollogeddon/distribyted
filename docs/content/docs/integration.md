@@ -1,4 +1,7 @@
-# Integration Guide
+---
+title: Integration
+weight: 4
+---
 
 Distribyted is designed to work seamlessly with existing automation and media tools. This guide explains how to set up these integrations.
 

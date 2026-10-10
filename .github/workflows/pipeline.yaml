@@ -68,3 +68,21 @@ jobs:
       contents: read
       packages: write
       security-events: write
+
+  # The documentation site in docs/, a forgego --website module. Pull requests build it;
+  # every push to main deploys it to GitHub Pages.
+  pages:
+    name: Docs
+    uses: apollogeddon/forgego/.github/workflows/website.yml@main
+    with:
+      working_directory: 'docs'
+      enable_versioning: false
+      enable_secrets: false
+      # the main pipeline's patch workflow merges Dependabot PRs
+      auto_merge: false
+      artifact_name: 'pages-dist'
+    permissions:
+      contents: write
+      id-token: write
+      pages: write
+      pull-requests: write

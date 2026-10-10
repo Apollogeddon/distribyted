@@ -69,7 +69,7 @@ tasks:
       - go test -bench=. -benchmem -run='^$' ./internal/fs/... ./internal/http/... ./internal/testenv/... ./internal/torrent/... ./internal/webdav/...
   probe:
     desc: >-
-      Add a real magnet over the real internet and print stage-by-stage cold-start timing. A manual diagnostic, not part of the build or tests; see docs/benchmarking.md. Pass its flags after --, e.g. task probe -- -magnet "magnet:?..." -timeout 30s
+      Add a real magnet over the real internet and print stage-by-stage cold-start timing. A manual diagnostic, not part of the build or tests; see docs/content/docs/benchmarking.md. Pass its flags after --, e.g. task probe -- -magnet "magnet:?..." -timeout 30s
     cmds:
       - go run ./cmd/probe {{.CLI_ARGS}}
   commit-msg:

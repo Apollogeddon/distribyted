@@ -73,7 +73,7 @@ type coldStartSnapshot struct {
 // connect a peer, and receive its first useful byte, plus how long each
 // opened file takes to serve its first byte — the production visibility
 // that was missing when diagnosing "slow to start streaming" reports (see
-// docs/benchmarking.md's "Scoped out: DHT/tracker peer-discovery latency").
+// docs/content/docs/benchmarking.md's "Scoped out: DHT/tracker peer-discovery latency").
 //
 // It polls Torrent.Stats()/Info() on a fixed interval rather than hooking
 // per-chunk/per-connection library callbacks, deliberately: those callbacks

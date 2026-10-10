@@ -1,0 +1,5 @@
+{{- /* A screenshot of the web interface in the reader's theme: name-light.png and name-dark.png in static/images/screenshots, one shown per theme by assets/css/custom.css. */ -}}
+{{- $name := .Get "name" -}}
+{{- $alt := .Get "alt" -}}
+<img class="screenshot screenshot-light" src="{{ printf "images/screenshots/%s-light.png" $name | relURL }}" alt="{{ $alt }}" loading="lazy">
+<img class="screenshot screenshot-dark" src="{{ printf "images/screenshots/%s-dark.png" $name | relURL }}" alt="{{ $alt }}" loading="lazy">
