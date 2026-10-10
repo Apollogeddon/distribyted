@@ -1,33 +1,30 @@
-[![Releases][releases-shield]][releases-url]
-[![GPL3 License][license-shield]][license-url]
-[![Coveralls][coveralls-shield]][coveralls-url]
-
-<!-- PROJECT LOGO -->
 <br />
-<p align="center">
-  <a href="https://github.com/Apollogeddon/distribyted">
-    <img src="docs/static/images/logo.svg" alt="Logo" width="96">
+<div align="center">
+  <a href="https://apollogeddon.github.io/distribyted/">
+    <img src="docs/static/images/logo.svg" alt="distribyted logo" width="96">
   </a>
 
   <h3 align="center">distribyted</h3>
 
   <p align="center">
-    <b>Access Terabytes of data instantly using minimal local disk space.</b>
+    Torrent client with on-demand file downloading as a virtual filesystem
     <br />
-    Torrent client with on-demand file downloading as a virtual filesystem.
+    <a href="https://apollogeddon.github.io/distribyted/docs/"><strong>Read the docs</strong></a>
     <br />
     <br />
-    <a href="https://github.com/Apollogeddon/distribyted/issues">Report a Bug</a>
-    ·
-    <a href="https://github.com/Apollogeddon/distribyted/issues">Request Feature</a>
-    ·
-    <a href="https://apollogeddon.github.io/distribyted/docs/">Documentation</a>
+    <a href="https://apollogeddon.github.io/distribyted/docs/configuration/">Configuration</a>
+    &middot;
+    <a href="https://apollogeddon.github.io/distribyted/docs/integration/">Integration</a>
+    &middot;
+    <a href="https://apollogeddon.github.io/distribyted/docs/development/">Development</a>
   </p>
-</p>
+</div>
 
----
+<br />
 
-## Use Cases
+## Overview
+
+distribyted gives you access to terabytes of data instantly using minimal local disk space. It adds torrents as files you can open straight away, and downloads only the parts that are read.
 
 - **Multimedia:** Stream 4K movies directly in VLC or Plex without waiting for the full download.
 - **Datasets:** Browse massive public datasets and only download the specific files or offsets needed for analysis.
@@ -53,7 +50,7 @@
 
 </details>
 
-## Core Features
+## Features
 
 - **Filesystem Access:** Mount torrents via **FUSE** (Linux/Windows), **WebDAV**, or **HTTP**.
 - **On-Demand Downloading:** Only downloads the specific blocks of data being read.
@@ -70,7 +67,21 @@ Distribyted acts as a bridge between the BitTorrent swarm and your operating sys
 2. The **Torrent Engine** requests only those specific pieces from the swarm.
 3. Data is streamed directly to the requesting application, using a local cache for performance.
 
-## Quick Start
+## Requirements
+
+Mounting torrents as a folder needs a FUSE driver:
+
+- **Linux**: FUSE (the `fuse` or `fuse3` package).
+- **Windows**: [WinFsp](https://github.com/winfsp/winfsp).
+- **macOS**: [macFUSE](https://osxfuse.github.io/).
+
+WebDAV, HTTP and the web interface need nothing extra.
+
+## Installation
+
+Download a binary for Linux, macOS or Windows from the [releases page](https://github.com/Apollogeddon/distribyted/releases), or run the container image `ghcr.io/apollogeddon/distribyted`.
+
+## Quick start
 
 ### 1. Configuration
 
@@ -135,11 +146,3 @@ The [commit history](https://github.com/Apollogeddon/distribyted/commits/main) a
 Distributed under the GNU General Public License, version 3, the same as the original project. See [`LICENSE`](./LICENSE) for the full text.
 
 Third-party code and assets bundled in `web/assets` keep their own licenses, given in their file headers or in a `LICENSE` file beside them.
-
-<!-- Links -->
-[releases-shield]: https://img.shields.io/github/v/release/Apollogeddon/distribyted.svg?style=flat-square
-[releases-url]: https://github.com/Apollogeddon/distribyted/releases
-[license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
-[license-url]: https://github.com/Apollogeddon/distribyted/blob/main/LICENSE
-[coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
-[coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted

@@ -176,16 +176,6 @@ jobs:
           go tool -modfile=.forgego/task/go.mod task test
         if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
 
-      - name: Convert coverage.out to coverage.lcov
-        uses: jandelgado/gcov2lcov-action@e4612787670fc5b5f49026b8c29c5569921de1db # v1.2.0
-        if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
-      - name: Coveralls
-        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: coverage.lcov
-        if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
-
       - name: Build
         shell: bash
         run: |
