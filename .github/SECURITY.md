@@ -19,6 +19,5 @@ This repository's CI runs on every pull request, on every push to `main` and wee
 - **Gitleaks** scans for committed secrets.
 - **govulncheck** reports known vulnerabilities in the Go code distribyted calls.
 - **OSV-Scanner** reports known vulnerabilities in the Go modules.
-- **CodeQL** analyses the Go code for security issues.
 
 **Dependabot** proposes updates to Go modules, Docker images and GitHub Actions.
