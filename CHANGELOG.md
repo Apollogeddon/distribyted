@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.30.0](https://github.com/Apollogeddon/distribyted/compare/v0.29.0...v0.30.0) (2026-10-10)
+
+
+### Features
+
+* **http:** Render the UI with templ and a new light/dark design ([76b6fa4](https://github.com/Apollogeddon/distribyted/commit/76b6fa467df566a92b69a64da9b34b028b795938))
+* **http:** Render the UI with templ and a new light/dark design ([8f919af](https://github.com/Apollogeddon/distribyted/commit/8f919afc674a0efb6f3263002e0ffa5b4e0ebdb7))
+* **qbittorrent:** Accept .torrent uploads in torrents/add ([683c055](https://github.com/Apollogeddon/distribyted/commit/683c0552b13ca8176eaffb017d3b22763cfabd81))
+
+
+### Bug Fixes
+
+* **auth:** Limit login attempts, keep active sessions, keep the password off the console ([e883c72](https://github.com/Apollogeddon/distribyted/commit/e883c72475f08a875534a91800a32e5ee6b2859d))
+* **ci:** Attach the built binaries to releases ([44caf99](https://github.com/Apollogeddon/distribyted/commit/44caf995502c692f1dcb7fa250e02260d330c4c5))
+* **ci:** Attach the built binaries to releases ([5145462](https://github.com/Apollogeddon/distribyted/commit/514546217baed30fe5680b652890e412d602a258))
+* Clear govulncheck and two timing-sensitive tests ([323f09e](https://github.com/Apollogeddon/distribyted/commit/323f09ea912eb1727b2d4ec0e8ef506f5399f776))
+* **cli:** Make --http-port work and stop --webdav-port overriding the config ([5a40d1c](https://github.com/Apollogeddon/distribyted/commit/5a40d1ce0e3f15f5c734737df5e0d7628efcf7e6))
+* Close the web UI's script injection, CSRF and route-name holes ([5acba5b](https://github.com/Apollogeddon/distribyted/commit/5acba5bf74f9f6285f1a21632720a19a09abd213))
+* **deps:** Update x/net and pion past the advisories govulncheck reports ([cecb54a](https://github.com/Apollogeddon/distribyted/commit/cecb54a47ba34011646f79443b98279af7e31fbb))
+* **fs:** Protect routes from rmdir and mv, and folders from losing their contents ([f377b07](https://github.com/Apollogeddon/distribyted/commit/f377b079eb044e1e784c6ea6af1a86a89e912f08))
+* **fs:** Read files inside RAR archives ([86b5c75](https://github.com/Apollogeddon/distribyted/commit/86b5c756208d9332de9ea667e78a41f01401c102))
+* **fuse:** Don't hold the handle lock while listing or opening ([20e35db](https://github.com/Apollogeddon/distribyted/commit/20e35dbb3257b60e0e54c5ab2d9dc1c3bfd785a7))
+* **http:** Reject cross-origin changes, off-site redirects and route deletes ([f9c6b9e](https://github.com/Apollogeddon/distribyted/commit/f9c6b9e523a9ca02ba5cc90d729591e3bc1a8dc7))
+* Report routes that can't be mounted, stop re-reading the config per poll ([9457475](https://github.com/Apollogeddon/distribyted/commit/9457475bf232c3f6c823ea4855769af298c4fe96))
+* **server:** Drop the superseded torrent and watch folders created later ([7c74592](https://github.com/Apollogeddon/distribyted/commit/7c745923db3cace0b364fbb0daf691d087634aa8))
+* Torrent service, qBittorrent API and auth correctness ([8da21bc](https://github.com/Apollogeddon/distribyted/commit/8da21bc18343cb6f86cda3d3799116693fe71dc1))
+* **torrent:** Drop torrents whose add failed, and stop waiting for removed ones ([51e3c59](https://github.com/Apollogeddon/distribyted/commit/51e3c596b12b2691893b51a57114dab4003eb72a))
+* **torrent:** Removing a torrent from one route leaves its other routes alone ([7729d16](https://github.com/Apollogeddon/distribyted/commit/7729d1652cd5dd14f0225f245963e6a92e21bc2d))
+* **torrent:** Report speeds from consistent samples ([9acce5a](https://github.com/Apollogeddon/distribyted/commit/9acce5aaa7fc61d1a72795121c09813263eeeba3))
+* **torrent:** Use MagnetV2 for uploaded torrent files ([b08874e](https://github.com/Apollogeddon/distribyted/commit/b08874e151c7146d0ee9fa9e9c8cfa139dc48601))
+* **torrent:** Validate route names before they reach the database ([efb23bc](https://github.com/Apollogeddon/distribyted/commit/efb23bc51b40f47bb5d05b29628a0ba6c4baf830))
+* **web:** Escape toast messages ([466135a](https://github.com/Apollogeddon/distribyted/commit/466135a553ba48c360d768972a4f7603ba8c5a86))
+* **web:** Stop interpolating untrusted text into HTML and inline scripts ([746d111](https://github.com/Apollogeddon/distribyted/commit/746d11165d95b1be2481018dd43f9740ab7a0098))
+* **web:** Style the logout button like the other sidebar links ([0bae9de](https://github.com/Apollogeddon/distribyted/commit/0bae9de5ee48252357e620bd1076c81d834cf544))
+
 ## [0.29.0](https://github.com/Apollogeddon/distribyted/compare/v0.28.0...v0.29.0) (2026-08-09)
 
 
