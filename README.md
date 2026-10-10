@@ -103,9 +103,21 @@ Detailed technical guides are available in the [docs](./docs/) folder:
 
 Contributions are welcome! Please check the [Development Guide](./docs/development.md) to get started.
 
+## 🍴 About this fork
+
+This is a fork of [distribyted/distribyted](https://github.com/distribyted/distribyted), created by Antonio Navarro Pérez and its contributors. It has been modified since April 2026, among other things with:
+- security fixes
+- a reworked torrent service and filesystem
+- a server-rendered web interface
+- a new build and release pipeline
+
+The [commit history](https://github.com/Apollogeddon/distribyted/commits/main) and [CHANGELOG](./CHANGELOG.md) record every change.
+
 ## 📄 License
 
-Distributed under the GPL3 license. See `LICENSE` for more information.
+Distributed under the GNU General Public License, version 3, the same as the original project. See [`LICENSE`](./LICENSE) for the full text.
+
+Third-party code and assets bundled in `web/assets` keep their own licenses, given in their file headers or in a `LICENSE` file beside them.
 
 <!-- Links -->
 [releases-shield]: https://img.shields.io/github/v/release/Apollogeddon/distribyted.svg?style=flat-square

@@ -231,7 +231,7 @@ func TestWebUI_RequiresAuth(t *testing.T) {
 	require.Contains(t, w.Header().Get("Location"), "/login")
 
 	// public assets stay public
-	reqAssets, _ := http.NewRequest(http.MethodGet, "/assets/js/common.js", nil)
+	reqAssets, _ := http.NewRequest(http.MethodGet, "/assets/js/app.js", nil)
 	wAssets := httptest.NewRecorder()
 	r.ServeHTTP(wAssets, reqAssets)
 	require.NotEqual(t, http.StatusFound, wAssets.Code)

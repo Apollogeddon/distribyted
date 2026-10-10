@@ -1,0 +1,124 @@
+package http
+
+import "fmt"
+
+templ serversView(p serversPage) {
+	@page("Servers", "servers") {
+		@pageHeader("Servers", "Folders on this machine shared as torrents. Each one's magnet link follows its contents.")
+		@serversList(p)
+	}
+}
+
+templ serversList(p serversPage) {
+	<section id="servers" class="stack" aria-label="Servers" hx-get="/servers/list" hx-trigger="every 5s [document.visibilityState === 'visible']" hx-swap="morph:outerHTML" hx-ext="morph">
+		for _, s := range p.Servers {
+			<article class="card">
+				<header class="card-header">
+					<h2>
+						@icon("share-2")
+						{ s.Name }
+					</h2>
+					<span class={ "pill", "tone-" + s.Level }>{ s.State }</span>
+				</header>
+				<div class="card-body">
+					<dl class="facts">
+						<div><dt>Folder</dt><dd class="mono">{ s.Folder }</dd></div>
+						<div>
+							<dt>Updated</dt>
+							<dd>
+								if s.Updated != "" {
+									<time title={ s.UpdatedFull }>{ s.Updated }</time>
+								} else {
+									Not yet
+								}
+							</dd>
+						</div>
+						<div><dt>Peers</dt><dd>{ fmt.Sprint(s.Peers) } <span class="kpi-sub">({ fmt.Sprint(s.Seeds) } seeding)</span></dd></div>
+					</dl>
+					<div class="field">
+						<label for={ "magnet-" + s.Name }>Magnet link</label>
+						<div class="copy-row">
+							<input type="text" id={ "magnet-" + s.Name } class="input mono" readonly value={ s.Magnet } aria-describedby={ "magnet-hint-" + s.Name }/>
+							<button type="button" class="btn btn-secondary" data-copy={ "magnet-" + s.Name } disabled?={ s.Magnet == "" }>
+								@icon("copy")
+								<span>Copy</span>
+							</button>
+						</div>
+						<p class="hint" id={ "magnet-hint-" + s.Name }>Share this to let others download the folder. It changes when the folder's contents do.</p>
+					</div>
+				</div>
+			</article>
+		}
+		if len(p.Servers) == 0 {
+			@emptyState("share-2") {
+				No folders are shared. Add one to the <code>servers</code> section of the configuration file.
+			}
+		}
+	</section>
+}
+
+templ logsView(p logsPage) {
+	@page("Logs", "logs") {
+		@pageHeader("Logs", "The newest entries first. New ones appear as they're written.")
+		@logsList(p)
+	}
+}
+
+templ logsList(p logsPage) {
+	<section id="logs" class="stack" aria-label="Log entries" hx-get={ p.ListURL } hx-trigger="every 3s [document.visibilityState === 'visible']" hx-swap="morph:outerHTML" hx-ext="morph">
+		<nav class="filters" aria-label="Show">
+			for _, f := range p.Filters {
+				<a href={ templ.SafeURL(f.Href) } class="filter" hx-get={ f.ListURL } hx-target="#logs" hx-swap="outerHTML" hx-push-url={ f.Href }
+					if f.Active {
+						aria-current="true"
+					}>{ f.Label }</a>
+			}
+		</nav>
+		if p.Error != "" {
+			<div class="alert alert-danger" role="alert">
+				@icon("triangle-alert")
+				<span>{ p.Error }</span>
+			</div>
+		}
+		if len(p.Lines) > 0 {
+			<div class="card">
+				<div class="log-scroll" tabindex="0" aria-label="Log entries, newest first">
+					<table class="log-table">
+						<thead><tr><th scope="col">Time</th><th scope="col">Level</th><th scope="col">Component</th><th scope="col">Message</th></tr></thead>
+						<tbody>
+							for _, l := range p.Lines {
+								<tr class={ "log-" + l.Level }>
+									<td class="log-time"><time title={ l.FullTime }>{ l.Time }</time></td>
+									<td>
+										if l.Level != "" {
+											<span class={ "level", "level-" + l.Level }>{ l.Level }</span>
+										}
+									</td>
+									<td class="log-component">{ l.Component }</td>
+									<td class="log-message">
+										{ l.Message }
+										if len(l.Fields) > 0 {
+											<dl class="fields">
+												for _, f := range l.Fields {
+													<div><dt>{ f.Key }</dt><dd>{ f.Value }</dd></div>
+												}
+											</dl>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		} else if p.Error == "" {
+			@emptyState("scroll-text") {
+				if p.Level == "all" {
+					The log is empty.
+				} else {
+					Nothing at this level in the latest entries.
+				}
+			}
+		}
+	</section>
+}

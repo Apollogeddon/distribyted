@@ -1,0 +1,122 @@
+package http
+
+templ filesView(p filesPage) {
+	@page("Files", "files") {
+		@pageHeader("Files", "Everything the mounts show: each route's torrents, and the folders and links you add.")
+		@filesList(p)
+		<dialog id="file-dialog" aria-labelledby="file-dialog-title">
+			<div id="file-dialog-body"></div>
+		</dialog>
+	}
+}
+
+// filesList is the folder being shown, which refreshes, and which folder links replace.
+templ filesList(p filesPage) {
+	<section id="files-view" class="stack" aria-label="Folder contents" hx-get={ p.ListURL } hx-trigger="every 5s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], files-changed from:body" hx-swap="morph:outerHTML" hx-ext="morph">
+		<div class="toolbar">
+			<nav class="crumbs" aria-label="Folder">
+				<ol>
+					for _, c := range p.Crumbs {
+						<li>
+							if c.Current {
+								<span aria-current="page">{ c.Name }</span>
+							} else {
+								<a href={ templ.SafeURL(c.Href) } hx-get={ c.ListURL } hx-target="#files-view" hx-swap="outerHTML" hx-push-url={ c.Href }>{ c.Name }</a>
+							}
+						</li>
+					}
+				</ol>
+			</nav>
+			if !p.Missing {
+				<button type="button" class="btn btn-secondary" hx-get={ p.FolderForm } hx-target="#file-dialog-body" hx-swap="innerHTML">
+					@icon("folder-plus")
+					New folder
+				</button>
+			}
+		</div>
+		if p.Missing {
+			@emptyState("folder") {
+				This folder doesn't exist any more. <a href="/files">Go to all files</a>
+			}
+		} else if len(p.Entries) == 0 {
+			@emptyState("folder") {
+				This folder is empty.
+			}
+		} else {
+			<div class="card">
+				<ul class="list">
+					for _, e := range p.Entries {
+						@fileRow(e)
+					}
+				</ul>
+			</div>
+		}
+	</section>
+}
+
+templ fileRow(e fileView) {
+	<li class="file" id={ e.ID }>
+		<div class="file-name">
+			<span class="file-label">
+				if e.IsDir {
+					@icon("folder", "folder")
+					<a href={ templ.SafeURL(e.Href) } hx-get={ e.ListURL } hx-target="#files-view" hx-swap="outerHTML" hx-push-url={ e.Href }>{ e.Name }</a>
+				} else {
+					@icon("file")
+					<span>{ e.Name }</span>
+				}
+			</span>
+			if !e.Owned {
+				<span class="badge" title="Part of a torrent in a route. Manage it from Routes.">Torrent</span>
+			}
+		</div>
+		<span class="file-size">{ e.Size }</span>
+		<div class="file-actions">
+			if e.Download != "" {
+				<a class="btn-icon" href={ templ.SafeURL(e.Download) } download title="Download">
+					<span class="sr-only">Download { e.Name }</span>
+					@icon("download")
+				</a>
+			}
+			if e.LinkForm != "" {
+				<button type="button" class="btn-icon" hx-get={ e.LinkForm } hx-target="#file-dialog-body" hx-swap="innerHTML" title="Link">
+					<span class="sr-only">Link { e.Name }</span>
+					@icon("link-2")
+				</button>
+			}
+			if e.RenameForm != "" {
+				<button type="button" class="btn-icon" hx-get={ e.RenameForm } hx-target="#file-dialog-body" hx-swap="innerHTML" title="Rename">
+					<span class="sr-only">Rename { e.Name }</span>
+					@icon("pencil")
+				</button>
+			}
+			if e.DeleteURL != "" {
+				<button type="button" class="btn-icon danger" hx-delete={ e.DeleteURL } hx-swap="none" hx-confirm={ e.DeleteQuestion } data-confirm-title="Delete" data-confirm-label="Delete" title="Delete">
+					<span class="sr-only">Delete { e.Name }</span>
+					@icon("trash-2")
+				</button>
+			}
+		</div>
+	</li>
+}
+
+// nameForm names a new folder, or renames an entry, in the Files page's dialog.
+templ nameFormView(f nameForm) {
+	<form hx-post={ f.Action } hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]" novalidate>
+		@dialogHead("file-dialog-title", f.Title)
+		<input type="hidden" name="path" value={ f.Path }/>
+		<div class="field">
+			<label for="name-field">Name</label>
+			<input type="text" id="name-field" name="name" value={ f.Name } class="input" autocomplete="off" spellcheck="false" required autofocus
+				if f.Error != "" {
+					aria-invalid="true"
+					aria-describedby="name-error"
+				}/>
+			@fieldError("name-error", f.Error)
+		</div>
+		<div class="actions">
+			<button type="button" class="btn btn-secondary" data-close-dialog>Cancel</button>
+			<button type="submit" class="btn btn-primary"><span class="spinner" aria-hidden="true"></span> { f.Submit }</button>
+		</div>
+	</form>
+}
