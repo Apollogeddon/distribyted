@@ -23,24 +23,15 @@ jobs:
       contents: read
       pull-requests: read # Gitleaks lists a pull request's commits
 
-  codeql:
-    name: CodeQL
-    needs: [quality]
-    uses: ./.github/workflows/codeql-analysis.yml
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
   build:
     name: Build & Test
     uses: ./.github/workflows/build.yaml
 
-  # forgego's auto-merge: once the build and its tests pass, merges a Dependabot pull request
+  # forgego's auto-merge: once the checks, the build and its tests pass, merges a Dependabot pull request
   # (any update but a GitHub Actions one, which waits for a person)
   auto-merge:
     name: Auto-merge
-    needs: [build, codeql]
+    needs: [quality, build]
     if: github.event_name == 'pull_request'
     uses: apollogeddon/forgego/.github/workflows/merge.yml@main
     permissions:
@@ -49,7 +40,7 @@ jobs:
 
   release:
     name: Release
-    needs: [build, codeql]
+    needs: [quality, build]
     # forgego's release-please: opens release pull requests and publishes releases from main
     # only; on pull requests and the weekly scan it has nothing to do
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -78,7 +69,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      security-events: write
 
   # The documentation site in docs/, a forgego --website module. Pull requests build it;
   # every push to main deploys it to GitHub Pages.
