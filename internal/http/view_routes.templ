@@ -1,0 +1,134 @@
+package http
+
+import "fmt"
+
+templ routesView(p routesPage) {
+	@page("Routes", "routes") {
+		@pageHeader("Routes", "Each route is a folder of torrents in every mount.") {
+			<button type="button" class="btn btn-primary" data-open-dialog="add-magnet">
+				@icon("plus")
+				Add magnet
+			</button>
+		}
+		@routesTable(p)
+		<dialog id="add-magnet" aria-labelledby="add-magnet-title">
+			@dialogHead("add-magnet-title", "Add a magnet")
+			@magnetFormView(p.Form())
+		</dialog>
+	}
+}
+
+// routesTable is the part of the Routes page that refreshes. It waits while a dialog is open,
+// so a refresh can't move a button out from under a confirmation.
+templ routesTable(p routesPage) {
+	<section id="routes" class="stack" aria-label="Routes" hx-get="/routes/table" hx-trigger="every 2s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], routes-changed from:body" hx-swap="morph:outerHTML" hx-ext="morph">
+		for _, r := range p.Routes {
+			<article class="card">
+				<header class="card-header">
+					<h2>
+						@icon("folder")
+						{ r.Name }
+					</h2>
+					<span class="card-meta">{ countOf(len(r.Torrents), "torrent") }</span>
+				</header>
+				if len(r.Torrents) == 0 {
+					<p class="empty-inline">No torrents yet. Use <strong>Add magnet</strong> to add one.</p>
+				} else {
+					<ul class="list">
+						for _, t := range r.Torrents {
+							@torrentRow(t)
+						}
+					</ul>
+				}
+			</article>
+		}
+		if len(p.Routes) == 0 {
+			@emptyState("folders") {
+				No routes yet. Add one to the <code>routes</code> section of the configuration file.
+			}
+		}
+	</section>
+}
+
+templ torrentRow(t torrentView) {
+	<li class="torrent" id={ t.ID }>
+		<div class="torrent-main">
+			<p class="torrent-name">{ t.Name }</p>
+			if len(t.Pieces) > 0 {
+				<div class="pieces" role="img" aria-label={ t.Progress }>
+					for _, s := range t.Pieces {
+						<span class={ s.Class } style={ "width: " + s.Width } title={ s.Label }></span>
+					}
+				</div>
+				<p class="torrent-meta">{ t.Progress } · { t.PieceSize } pieces</p>
+			} else {
+				<div class="pieces pending" aria-hidden="true"></div>
+			}
+			<p class="health">
+				<span class={ "pill", "tone-" + t.Health.Level }>{ t.Health.Label }</span>
+				if t.Health.Reason != "" {
+					<span class="health-text">{ t.Health.Reason }</span>
+				}
+			</p>
+		</div>
+		<dl class="stats">
+			<div>
+				<dt>
+					@icon("arrow-down")
+					Down
+				</dt>
+				<dd>{ t.Down }</dd>
+			</div>
+			<div>
+				<dt>
+					@icon("arrow-up")
+					Up
+				</dt>
+				<dd>{ t.Up }</dd>
+			</div>
+			<div>
+				<dt>
+					@icon("users")
+					Peers
+				</dt>
+				<dd>{ fmt.Sprint(t.Peers) } <small>({ fmt.Sprint(t.Seeders) } seeding)</small></dd>
+			</div>
+		</dl>
+		<button type="button" class="btn-icon danger" hx-delete={ t.DeleteURL } hx-swap="none" hx-confirm={ "Delete “" + t.Name + "” from " + t.Route + "? Its files disappear from every mount, and links to them stop working." } data-confirm-title="Delete torrent" data-confirm-label="Delete" title="Delete">
+			<span class="sr-only">Delete { t.Name }</span>
+			@icon("trash-2")
+		</button>
+	</li>
+}
+
+templ magnetFormView(f addMagnetForm) {
+	<form hx-post="/routes/torrents" hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]" novalidate>
+		if len(f.Names) == 0 {
+			<p>There are no routes to add a magnet to. Add one to the <code>routes</code> section of the configuration file.</p>
+			<div class="actions"><button type="button" class="btn btn-secondary" data-close-dialog>Close</button></div>
+		} else {
+			<div class="field">
+				<label for="add-magnet-link">Magnet link</label>
+				<input type="text" id="add-magnet-link" name="magnet" value={ f.Magnet } class="input mono" placeholder="magnet:?xt=urn:btih:…" autocomplete="off" spellcheck="false" required autofocus
+					if f.Error != "" {
+						aria-invalid="true"
+						aria-describedby="add-magnet-error"
+					}/>
+				@fieldError("add-magnet-error", f.Error)
+			</div>
+			<div class="field">
+				<label for="add-magnet-route">Route</label>
+				<select id="add-magnet-route" name="route" class="input">
+					for _, n := range f.Names {
+						<option value={ n } selected?={ n == f.Route }>{ n }</option>
+					}
+				</select>
+			</div>
+			<p class="hint">distribyted waits for the torrent's file list before adding it, which can take a little while.</p>
+			<div class="actions">
+				<button type="button" class="btn btn-secondary" data-close-dialog>Cancel</button>
+				<button type="submit" class="btn btn-primary"><span class="spinner" aria-hidden="true"></span> Add</button>
+			</div>
+		}
+	</form>
+}

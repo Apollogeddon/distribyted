@@ -209,4 +209,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ inputs.release_tag }}
-          files: bin/*
+          files: |
+            bin/*
+            LICENSE

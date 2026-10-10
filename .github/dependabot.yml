@@ -15,8 +15,12 @@ updates:
           - "patch"
 
   # 2. Go Modules
+  # /tools/templ pins the templ generator; the runtime in / must match it
+  # (TestTemplVersionsMatch), so the two are grouped into one PR.
   - package-ecosystem: "gomod"
-    directory: "/"
+    directories:
+      - "/"
+      - "/tools/templ"
     schedule:
       interval: "daily"
     open-pull-requests-limit: 10
@@ -26,6 +30,9 @@ updates:
       - "dependencies"
       - "go"
     groups:
+      templ:
+        patterns:
+          - "github.com/a-h/templ*"
       go-non-major:
         update-types:
           - "minor"

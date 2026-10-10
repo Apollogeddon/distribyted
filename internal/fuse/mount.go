@@ -183,8 +183,8 @@ func (fs *FS) Utimens(path string, tmsp []fuse.Timespec) int {
 func (fs *FS) Unlink(path string) int {
 	fs.log.Info().Str(dlog.KeyPath, path).Msg("unlinking file")
 	err := fs.fh.fs.Remove(path)
-	if os.IsNotExist(err) {
-		return -fuse.ENOENT
+	if code := errno(err); code != -fuse.EIO {
+		return code
 	}
 	if err != nil {
 		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error unlinking file")
@@ -222,7 +222,7 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 	n, err := file.ReadAt(buf, off)
 	if err != nil && !errors.Is(err, io.EOF) {
 		log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading data")
-		return -fuse.EIO
+		return errno(err)
 	}
 
 	return n
@@ -245,8 +245,8 @@ func (fs *FS) Releasedir(path string, fh uint64) int {
 func (fs *FS) Link(oldpath string, newpath string) int {
 	fs.log.Info().Str("old", oldpath).Str("new", newpath).Msg("linking file")
 	err := fs.fh.fs.Link(oldpath, newpath)
-	if os.IsNotExist(err) {
-		return -fuse.ENOENT
+	if code := errno(err); code != -fuse.EIO {
+		return code
 	}
 	if err != nil {
 		fs.log.Error().Err(err).Str("oldpath", oldpath).Str("newpath", newpath).Msg("error linking file")
@@ -259,8 +259,8 @@ func (fs *FS) Link(oldpath string, newpath string) int {
 func (fs *FS) Rename(oldpath string, newpath string) int {
 	fs.log.Info().Str("old", oldpath).Str("new", newpath).Msg("renaming file")
 	err := fs.fh.fs.Rename(oldpath, newpath)
-	if os.IsNotExist(err) {
-		return -fuse.ENOENT
+	if code := errno(err); code != -fuse.EIO {
+		return code
 	}
 	if err != nil {
 		fs.log.Error().Err(err).Str("oldpath", oldpath).Str("newpath", newpath).Msg("error renaming file")
@@ -273,8 +273,8 @@ func (fs *FS) Rename(oldpath string, newpath string) int {
 func (fs *FS) Mkdir(path string, mode uint32) int {
 	fs.log.Info().Str(dlog.KeyPath, path).Msg("mkdir operation")
 	err := fs.fh.fs.Mkdir(path)
-	if os.IsExist(err) {
-		return -fuse.EEXIST
+	if code := errno(err); code != -fuse.EIO {
+		return code
 	}
 	if err != nil {
 		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error creating directory")
@@ -286,8 +286,8 @@ func (fs *FS) Mkdir(path string, mode uint32) int {
 
 func (fs *FS) Rmdir(path string) int {
 	err := fs.fh.fs.Rmdir(path)
-	if os.IsNotExist(err) {
-		return -fuse.ENOENT
+	if code := errno(err); code != -fuse.EIO {
+		return code
 	}
 	if err != nil {
 		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error removing directory")
@@ -309,7 +309,7 @@ func (fs *FS) Readdir(path string,
 	paths, err := fs.fh.ListDir(path)
 	if err != nil {
 		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading directory")
-		return -fuse.ENOSYS
+		return errno(err)
 	}
 
 	for _, p := range paths {
@@ -331,6 +331,9 @@ var (
 	ErrBadHolderIndex = errors.New("holder index too big")
 )
 
+// fileHandler tracks open files by handle. mu guards opened and nothing else: listing a
+// folder or opening a file can wait on the network for as long as the read timeout, and
+// holding mu across that blocked every read of every open file behind any waiting Lock.
 type fileHandler struct {
 	mu     sync.RWMutex
 	opened []fs.File
@@ -338,19 +341,16 @@ type fileHandler struct {
 }
 
 func (fh *fileHandler) GetFile(path string, fhi uint64) (fs.File, error) {
-	fh.mu.RLock()
-	defer fh.mu.RUnlock()
-
 	if fhi == fhNone {
 		return fh.lookupFile(path)
 	}
+
+	fh.mu.RLock()
+	defer fh.mu.RUnlock()
 	return fh.get(fhi)
 }
 
 func (fh *fileHandler) ListDir(path string) ([]string, error) {
-	fh.mu.RLock()
-	defer fh.mu.RUnlock()
-
 	var out []string
 	files, err := fh.fs.ReadDir(path)
 	if err != nil {
@@ -411,13 +411,10 @@ func (fh *fileHandler) Remove(fhi uint64) error {
 		return ErrHolderEmpty
 	}
 
-	if err := f.Close(); err != nil {
-		return err
-	}
-
+	// the kernel has released the handle whatever Close says, so the slot is freed first
 	fh.opened[int(fhi)] = nil
 
-	return nil
+	return f.Close()
 }
 
 func (fh *fileHandler) lookupFile(path string) (fs.File, error) {
@@ -431,4 +428,25 @@ func (fh *fileHandler) lookupFile(path string) (fs.File, error) {
 	}
 
 	return nil, os.ErrNotExist
+}
+
+// errno maps a filesystem error to the FUSE error the kernel reports, -fuse.EIO for any
+// error without a better one, and 0 for nil.
+func errno(err error) int {
+	switch {
+	case err == nil:
+		return 0
+	case errors.Is(err, os.ErrNotExist):
+		return -fuse.ENOENT
+	case errors.Is(err, os.ErrExist):
+		return -fuse.EEXIST
+	case errors.Is(err, os.ErrPermission):
+		return -fuse.EPERM
+	case errors.Is(err, fs.ErrNotEmpty):
+		return -fuse.ENOTEMPTY
+	case errors.Is(err, fs.ErrEntryTooLarge):
+		return -fuse.EFBIG
+	default:
+		return -fuse.EIO
+	}
 }

@@ -1,6 +1,8 @@
 package fs
 
 import (
+	"archive/zip"
+	"bytes"
 	"os"
 	"testing"
 
@@ -407,4 +409,76 @@ func (d *Dummy) Read(p []byte) (n int, err error) {
 
 func (d *Dummy) ReadAt(p []byte, off int64) (n int, err error) {
 	return 0, nil
+}
+
+// TestStorageAddFs_OverUserFolder guards a route added while running whose name matches a
+// folder the user made: it was silently not mounted, and the caller ignored the outcome.
+func TestStorageAddFs_OverUserFolder(t *testing.T) {
+	t.Parallel()
+
+	s := newStorage(dummyFactories)
+	require.NoError(t, s.Add(&Dir{}, "/movies"))
+
+	require.ErrorIs(t, s.AddFS(&DummyFs{}, "/movies"), os.ErrExist)
+}
+
+// hashedFile is an in-memory file that belongs to a torrent.
+type hashedFile struct {
+	*MemoryFile
+	hash string
+}
+
+func (h *hashedFile) MatchHash(x string) bool { return h.hash == x }
+func (h *hashedFile) Hash() string            { return h.hash }
+
+func zipOf(t *testing.T, name, content string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create(name)
+	require.NoError(t, err)
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+	return buf.Bytes()
+}
+
+// closeCountingReader is an archive's underlying reader that records Close.
+type closeCountingReader struct {
+	*MemoryFile
+	closes int
+}
+
+func (c *closeCountingReader) Close() error { c.closes++; return nil }
+
+// TestStorage_ArchivesGoWithTheirTorrent guards against archives outliving their torrent:
+// they are mounted as folders, not held as files, so removing the torrent missed them and
+// their readers were never closed.
+func TestStorage_ArchivesGoWithTheirTorrent(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	s := newStorage(GetSupportedFactories())
+	require.NoError(s.Add(&hashedFile{NewMemoryFile(zipOf(t, "inside.txt", "hello")), "h1"}, "/T/a.zip"))
+	require.NoError(s.Add(&hashedFile{NewMemoryFile([]byte("video")), "h1"}, "/T/b.mkv"))
+	require.True(s.HasHash("h1"))
+
+	s.RemoveByHash("h1")
+	require.False(s.HasHash("h1"))
+	_, err := s.Get("/T/a.zip")
+	require.ErrorIs(err, os.ErrNotExist)
+	_, err = s.Get("/T")
+	require.ErrorIs(err, os.ErrNotExist)
+}
+
+func TestStorage_RemovingAnArchiveClosesIt(t *testing.T) {
+	t.Parallel()
+
+	r := &closeCountingReader{MemoryFile: NewMemoryFile(zipOf(t, "inside.txt", "hello"))}
+	s := newStorage(map[string]FsFactory{".zip": func(File) (Filesystem, error) {
+		return NewArchive(r, r.Size(), &Zip{}), nil
+	}})
+	require.NoError(t, s.Add(NewMemoryFile(nil), "/a.zip"))
+	require.NoError(t, s.Remove("/a.zip"))
+	require.Equal(t, 1, r.closes)
 }

@@ -79,7 +79,16 @@ func main() {
 		},
 
 		Action: func(c *cli.Context) error {
-			err := load(c.String(configFlag), c.Int(portFlag), c.Int(webDAVPortFlag), c.Bool(fuseAllowOther))
+			// a port given on the command line or in the environment overrides the config
+			// file; 0 means use the config's (the flags' defaults match the config defaults)
+			var port, webDAVPort int
+			if c.IsSet(portFlag) {
+				port = c.Int(portFlag)
+			}
+			if c.IsSet(webDAVPortFlag) {
+				webDAVPort = c.Int(webDAVPortFlag)
+			}
+			err := load(c.String(configFlag), port, webDAVPort, c.Bool(fuseAllowOther))
 
 			// stop program execution on errors to avoid flashing consoles
 			if err != nil && runtime.GOOS == "windows" {
@@ -185,7 +194,6 @@ func startWebDAVMount(conf *config.Root, cfs *fs.ContainerFs, webDAVPort int) {
 	}()
 }
 
-//nolint:unparam // port is the --http-port flag, which the HTTP server ignores in favour of conf.HTTPGlobal.Port: a known bug, left for its own fix
 func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	ch := config.NewHandler(configPath)
 
@@ -196,6 +204,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	if err := config.Validate(conf); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
+	}
+	if port != 0 {
+		conf.HTTPGlobal.Port = port
 	}
 
 	dlog.Load(conf.Log)
@@ -285,6 +296,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	log.Info().Msg(fmt.Sprintf("setting cache size to %d MB", conf.Torrent.GlobalCacheSize))
 	sl.fc.SetCapacity(conf.Torrent.GlobalCacheSize * 1024 * 1024)
+	fs.SetExtractLimit(max(conf.Torrent.ArchiveExtractLimit, 0) * 1024 * 1024)
 
 	fss, err := ts.Load()
 	if err != nil {
@@ -356,7 +368,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
 		log.Info().Str(dlog.KeyPath, p).Msg("dynamically adding new route to filesystem")
-		_ = cfs.AddFS(p, fss) //nolint:errcheck // route may already be mounted
+		if err := cfs.AddFS(p, fss); err != nil {
+			log.Error().Err(err).Str(dlog.KeyPath, p).Msg("the new route can't be mounted: something else is already at its path")
+		}
 	})
 
 	fusePath := "/distribyted-data/mount"

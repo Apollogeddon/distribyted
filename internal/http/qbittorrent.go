@@ -1,6 +1,8 @@
 package http
 
 import (
+	"fmt"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"sync"
@@ -9,6 +11,7 @@ import (
 	"github.com/Apollogeddon/distribyted/internal/config"
 	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -138,23 +141,21 @@ func newCategoryStore() *categoryStore {
 	return &categoryStore{cats: make(map[string]bool)}
 }
 
-func qBitTorrentsCategoriesHandler(cs *categoryStore, ch *config.Handler, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
+// routes are the ones loaded at startup: re-reading the config file on every poll cost a
+// parse per request, and regenerated the file with a new password if it had been removed
+func qBitTorrentsCategoriesHandler(cs *categoryStore, routes []*config.Route, ss *torrent.Stats, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		resp := make(map[string]gin.H)
 
 		// First, add all explicitly configured routes
-		if ch != nil {
-			if root, err := ch.Get(); err == nil && root != nil {
-				for _, r := range root.Routes {
-					savePath := fusePath
-					if r.Name != "" {
-						savePath = fusePath + "/" + r.Name
-					}
-					resp[r.Name] = gin.H{
-						"name":     r.Name,
-						"savePath": savePath,
-					}
-				}
+		for _, r := range routes {
+			savePath := fusePath
+			if r.Name != "" {
+				savePath = fusePath + "/" + r.Name
+			}
+			resp[r.Name] = gin.H{
+				"name":     r.Name,
+				"savePath": savePath,
 			}
 		}
 
@@ -243,7 +244,11 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 		now := time.Now().Unix()
 
 		for hash, t := range torrents {
-			ts, _ := ss.Stats(hash)
+			ts, err := ss.Stats(hash)
+			if err != nil {
+				// removed between listing and reading its stats
+				continue
+			}
 			info := t.Info()
 			name := t.Name()
 			size := int64(0)
@@ -259,7 +264,7 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 
 			var dlSpeed int64
 			var upSpeed int64
-			if ts != nil && ts.TimePassed > 0 {
+			if ts.TimePassed > 0 {
 				dlSpeed = int64(float64(ts.DownloadedBytes) / ts.TimePassed)
 				upSpeed = int64(float64(ts.UploadedBytes) / ts.TimePassed)
 			}
@@ -336,8 +341,27 @@ func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 			}
 		}
 
-		if succeeded == 0 && lastErr != nil {
-			c.String(http.StatusInternalServerError, lastErr.Error())
+		// .torrent files arrive as multipart "torrents" parts, which Sonarr and Radarr
+		// send for indexers that serve files rather than magnets
+		if form, err := c.MultipartForm(); err == nil {
+			for _, fh := range form.File["torrents"] {
+				if err := addTorrentFile(s, category, fh); err != nil {
+					log.Error().Err(err).Str("category", category).Str("file", fh.Filename).Msg("error adding torrent file via qBit API")
+					lastErr = err
+				} else {
+					succeeded++
+				}
+			}
+		}
+
+		if succeeded == 0 {
+			if lastErr != nil {
+				c.String(http.StatusInternalServerError, lastErr.Error())
+				return
+			}
+			// nothing to add: qBittorrent answers Fails., which the *arr apps treat as a
+			// failed grab rather than a download that never appears
+			c.String(http.StatusOK, "Fails.")
 			return
 		}
 		c.String(http.StatusOK, "Ok.")
@@ -373,19 +397,15 @@ func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
 	}
 }
 
-func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, ch *config.Handler, fusePath string) gin.HandlerFunc {
+func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, routes []*config.Route, fusePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		categories := make(map[string]gin.H)
-		if ch != nil {
-			if root, err := ch.Get(); err == nil && root != nil {
-				for _, r := range root.Routes {
-					savePath := fusePath
-					if r.Name != "" {
-						savePath = fusePath + "/" + r.Name
-					}
-					categories[r.Name] = gin.H{"name": r.Name, "savePath": savePath}
-				}
+		for _, r := range routes {
+			savePath := fusePath
+			if r.Name != "" {
+				savePath = fusePath + "/" + r.Name
 			}
+			categories[r.Name] = gin.H{"name": r.Name, "savePath": savePath}
 		}
 		cs.mu.RLock()
 		for cat := range cs.cats {
@@ -517,4 +537,18 @@ func qBitSyncMaindataHandler(ss *torrent.Stats, cs *categoryStore, ch *config.Ha
 
 func qBitTransferSpeedLimitsModeHandler(c *gin.Context) {
 	c.String(http.StatusOK, "0")
+}
+
+func addTorrentFile(s torrentService, category string, fh *multipart.FileHeader) error {
+	f, err := fh.Open()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	mi, err := metainfo.Load(f)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", fh.Filename, err)
+	}
+	return s.AddTorrentMetaInfo(category, mi)
 }

@@ -1,0 +1,79 @@
+package http
+
+templ dashboardView(st dashboardStats) {
+	@page("Dashboard", "dashboard") {
+		@pageHeader("Dashboard", "Transfer across every torrent, and how full the piece cache is.")
+		@dashboardStatsView(st)
+	}
+}
+
+// dashboardStatsView is the part of the dashboard that refreshes.
+templ dashboardStatsView(st dashboardStats) {
+	<div id="stats" class="stack" hx-get="/dashboard/stats" hx-trigger="every 2s [document.visibilityState === 'visible']" hx-swap="morph:outerHTML" hx-ext="morph">
+		<section class="kpis" aria-label="Now">
+			<div class="card kpi">
+				<p class="kpi-label">
+					@icon("arrow-down", "down")
+					Download
+				</p>
+				<p class="kpi-value">{ st.Down }</p>
+			</div>
+			<div class="card kpi">
+				<p class="kpi-label">
+					@icon("arrow-up", "up")
+					Upload
+				</p>
+				<p class="kpi-value">{ st.Up }</p>
+			</div>
+			<div class="card kpi kpi-wide">
+				<p class="kpi-label">
+					@icon("hard-drive", "cache")
+					Piece cache
+				</p>
+				if st.HasCache {
+					<p class="kpi-value">{ st.CachePercent }% <span class="kpi-sub">{ st.CacheUsed } of { st.CacheCapacity } · { st.CacheItems } files</span></p>
+					<div class="meter" role="meter" aria-label="Piece cache used" aria-valuemin="0" aria-valuemax="100" aria-valuenow={ st.CachePercent }>
+						<span style={ st.CacheWidth() }></span>
+					</div>
+				} else {
+					<p class="kpi-value kpi-sub">Not in use</p>
+				}
+			</div>
+		</section>
+		<section class="card" aria-labelledby="speed-title">
+			<div class="card-header">
+				<h2 id="speed-title">Speed, last minute</h2>
+				<ul class="legend">
+					<li><span class="swatch down"></span> Download</li>
+					<li><span class="swatch up"></span> Upload</li>
+				</ul>
+			</div>
+			@speedChart(st.Chart)
+		</section>
+	</div>
+}
+
+templ speedChart(cv chartView) {
+	<div class="chart">
+		<div class="chart-axis" aria-hidden="true">
+			for _, t := range cv.Ticks {
+				<span style={ "top: " + t.Top() }>{ t.Label }</span>
+			}
+		</div>
+		<div class="chart-plot">
+			<svg viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label={ cv.Label }>
+				for _, t := range cv.Ticks {
+					<line class="chart-grid" x1="0" x2="300" y1={ t.Y } y2={ t.Y } vector-effect="non-scaling-stroke"></line>
+				}
+				if cv.DownLine != "" {
+					<path class="chart-area" d={ cv.DownArea }></path>
+					<path class="chart-line up" d={ cv.UpLine } vector-effect="non-scaling-stroke"></path>
+					<path class="chart-line down" d={ cv.DownLine } vector-effect="non-scaling-stroke"></path>
+				}
+			</svg>
+			if cv.DownLine == "" {
+				<p class="chart-empty">Collecting the first few seconds…</p>
+			}
+		</div>
+	</div>
+}

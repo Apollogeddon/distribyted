@@ -1,11 +1,14 @@
 package fs
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -321,6 +324,7 @@ func (f *raceFakeReader) readLocked(p []byte) (int, error) {
 func (f *raceFakeReader) Read(p []byte) (int, error)              { return f.readLocked(p) }
 func (f *raceFakeReader) ReadAt(p []byte, off int64) (int, error) { return f.readLocked(p) }
 func (f *raceFakeReader) abandoned() bool                         { return false }
+func (f *raceFakeReader) readFrom(p []byte, _ int64) (int, error) { return f.readLocked(p) }
 
 func (f *raceFakeReader) Close() error {
 	f.mu.Lock()
@@ -931,4 +935,104 @@ func BenchmarkReadAtWrapper_ReadAt_Cached(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// TestTorrentFS_RemoveBeforeMetadataStopsWaiting guards against a goroutine leak: a
+// torrent waiting for metadata that never arrives (a dead magnet) kept a goroutine
+// blocked on GotInfo forever after it was removed.
+func TestTorrentFS_RemoveBeforeMetadataStopsWaiting(t *testing.T) {
+	ih := infohash.HashBytes([]byte("metadata that never arrives"))
+	to, _ := Cli.AddTorrentOpt(torrent.AddTorrentOpts{InfoHash: ih})
+	defer to.Drop()
+
+	waiters := func() int {
+		buf := make([]byte, 1<<20)
+		return strings.Count(string(buf[:runtime.Stack(buf, true)]), "(*TorrentFS).AddTorrent.func")
+	}
+
+	tfs := NewTorrent(5, false)
+	tfs.AddTorrent(TorrentWrapper{to})
+	require.Eventually(t, func() bool { return waiters() == 1 }, time.Second, 10*time.Millisecond)
+
+	tfs.RemoveTorrent(ih.HexString())
+	require.Eventually(t, func() bool { return waiters() == 0 }, time.Second, 10*time.Millisecond,
+		"the goroutine waiting for metadata should stop once the torrent is removed")
+}
+
+// seekingTorrentReader serves data from a position Seek sets. With stallAfter set, every
+// read once that many reads have run blocks until stall is closed.
+type seekingTorrentReader struct {
+	*bytes.Reader
+	stall      chan struct{}
+	stallAfter int64
+	reads      atomic.Int64
+}
+
+func (s *seekingTorrentReader) SetContext(context.Context)             {}
+func (s *seekingTorrentReader) SetReadahead(int64)                     {}
+func (s *seekingTorrentReader) SetReadaheadFunc(torrent.ReadaheadFunc) {}
+func (s *seekingTorrentReader) SetResponsive()                         {}
+func (s *seekingTorrentReader) Close() error                           { return nil }
+
+func (s *seekingTorrentReader) ReadContext(_ context.Context, p []byte) (int, error) {
+	if s.stall != nil && s.reads.Add(1) > s.stallAfter {
+		<-s.stall
+	}
+	return s.Read(p)
+}
+
+// TestReadAtWrapper_ReadAtPastTheEndIsEOF: a ReadAt that runs off the end of the file
+// returns what's there with io.EOF, not io.ErrUnexpectedEOF.
+func TestReadAtWrapper_ReadAtPastTheEndIsEOF(t *testing.T) {
+	r := newReadAtWrapper(&seekingTorrentReader{Reader: bytes.NewReader([]byte("0123456789"))},
+		time.Second, &readStats{}, zerolog.Nop())
+
+	buf := make([]byte, 8)
+	n, err := r.ReadAt(buf, 6)
+	require.Equal(t, 4, n)
+	require.ErrorIs(t, err, io.EOF)
+	require.NotErrorIs(t, err, io.ErrUnexpectedEOF)
+	require.Equal(t, "6789", string(buf[:n]))
+}
+
+// TestTorrentFileHandle_ReadResumesAfterAbandonedRead: once a stuck read has been
+// abandoned, the next Read carries on where the file was, rather than starting again at
+// the beginning with the fresh reader that replaces it.
+func TestTorrentFileHandle_ReadResumesAfterAbandonedRead(t *testing.T) {
+	data := []byte("01234567")
+	stall := make(chan struct{})
+	t.Cleanup(func() { close(stall) })
+
+	var calls atomic.Int64
+	h := &torrentFileHandle{
+		torrentFile: &torrentFile{
+			timeout: 1,
+			stats:   &readStats{},
+			log:     zerolog.Nop(),
+			readerFunc: func() torrent.Reader {
+				if calls.Add(1) == 1 {
+					return &seekingTorrentReader{Reader: bytes.NewReader(data), stall: stall, stallAfter: 1}
+				}
+				return &seekingTorrentReader{Reader: bytes.NewReader(data)}
+			},
+		},
+	}
+
+	buf := make([]byte, 4)
+	n, err := h.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "0123", string(buf[:n]))
+
+	_, err = h.Read(buf)
+	require.ErrorIs(t, err, ErrReadTimeout)
+
+	n, err = h.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "4567", string(buf[:n]))
+
+	// ReadAt doesn't move the position Read uses
+	_, err = h.ReadAt(buf, 0)
+	require.NoError(t, err)
+	_, err = h.Read(buf)
+	require.ErrorIs(t, err, io.EOF)
 }

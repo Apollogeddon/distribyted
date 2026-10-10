@@ -35,6 +35,8 @@ RUN apk add --no-cache fuse libstdc++ libgcc
 RUN addgroup -S distribyted && adduser -S distribyted -G distribyted
 
 COPY --from=builder /bin/distribyted /bin/distribyted
+# GPL-3.0 requires the license to accompany the program
+COPY --from=builder /app/LICENSE /usr/share/licenses/distribyted/LICENSE
 RUN chmod +x /bin/distribyted
 
 # FUSE configuration

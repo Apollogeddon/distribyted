@@ -53,3 +53,16 @@ func TestValidate_TemplateConfig(t *testing.T) {
 	conf := AddDefaults(DefaultConfig())
 	require.NoError(t, Validate(conf))
 }
+
+func TestValidateRouteName(t *testing.T) {
+	for _, name := range []string{"multimedia", "TV Shows", "films-2024", "série"} {
+		if err := ValidateRouteName(name); err != nil {
+			t.Errorf("ValidateRouteName(%q) = %v, want nil", name, err)
+		}
+	}
+	for _, name := range []string{"", ".", "..", "a/b", "../link", `a\b`, "a\nb", "a\x00b"} {
+		if err := ValidateRouteName(name); err == nil {
+			t.Errorf("ValidateRouteName(%q) = nil, want an error", name)
+		}
+	}
+}

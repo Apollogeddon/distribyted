@@ -3,9 +3,12 @@ package fs
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"io"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/internal/iio"
@@ -67,13 +70,15 @@ func TestZipFilesystem(t *testing.T) {
 	_, err = zfs.ReadDir("/invalid/path")
 	require.Error(err)
 
-	// Test mutation operations (some should return ErrPermission, some should work as memory-backed)
+	// an archive can't be changed
 	require.Equal(os.ErrPermission, zfs.Link("", ""))
 	require.Equal(os.ErrPermission, zfs.Rename("", ""))
 	require.Equal(os.ErrPermission, zfs.Mkdir(""))
 	require.Equal(os.ErrPermission, zfs.Rmdir(""))
-	require.NoError(zfs.Create("/newfile.txt"))
-	require.NoError(zfs.Remove("/newfile.txt"))
+	require.Equal(os.ErrPermission, zfs.Create("/newfile.txt"))
+	require.Equal(os.ErrPermission, zfs.Remove("/path/to/test/file/1.txt"))
+	_, err = zfs.Open("/path/to/test/file/1.txt")
+	require.NoError(err)
 }
 
 func TestZipFilesystem_Empty(t *testing.T) {
@@ -196,4 +201,197 @@ func newCBR(b []byte) *closeableByteReader {
 
 func (*closeableByteReader) Close() error {
 	return nil
+}
+
+// storedRar builds a RAR 4 archive holding files without compression, which is enough to
+// exercise reading entries back; no rar tool is needed.
+func storedRar(files map[string][]byte, order []string) []byte {
+	var b bytes.Buffer
+	header := func(body []byte) {
+		crc := crc32.ChecksumIEEE(body)
+		_ = binary.Write(&b, binary.LittleEndian, uint16(crc))
+		b.Write(body)
+	}
+	b.Write([]byte{0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00}) // marker
+	// archive header: type, flags, size, reserved
+	main := []byte{0x73}
+	main = binary.LittleEndian.AppendUint16(main, 0)
+	main = binary.LittleEndian.AppendUint16(main, 13)
+	main = append(main, make([]byte, 6)...)
+	header(main)
+	for _, name := range order {
+		data := files[name]
+		h := []byte{0x74}
+		h = binary.LittleEndian.AppendUint16(h, 0x8000)
+		h = binary.LittleEndian.AppendUint16(h, uint16(32+len(name)))
+		h = binary.LittleEndian.AppendUint32(h, uint32(len(data))) // packed size
+		h = binary.LittleEndian.AppendUint32(h, uint32(len(data))) // unpacked size
+		h = append(h, 0)                                           // host OS
+		h = binary.LittleEndian.AppendUint32(h, crc32.ChecksumIEEE(data))
+		h = binary.LittleEndian.AppendUint32(h, 0) // time
+		h = append(h, 20, 0x30)                    // version 2.0, stored
+		h = binary.LittleEndian.AppendUint16(h, uint16(len(name)))
+		h = binary.LittleEndian.AppendUint32(h, 0x20) // attributes
+		h = append(h, name...)
+		header(h)
+		b.Write(data)
+	}
+	end := []byte{0x7b}
+	end = binary.LittleEndian.AppendUint16(end, 0x4000)
+	end = binary.LittleEndian.AppendUint16(end, 7)
+	header(end)
+	return b.Bytes()
+}
+
+// TestRarFilesystem reads every entry of a RAR archive. Each entry used to share the one
+// stream that listing had already read to the end, so every read failed.
+func TestRarFilesystem(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	files := map[string][]byte{"first.txt": []byte("first file"), "second.txt": []byte("the second file")}
+	data := storedRar(files, []string{"first.txt", "second.txt"})
+	rfs := NewArchive(newCBR(data), int64(len(data)), &Rar{})
+
+	dir, err := rfs.ReadDir("/")
+	require.NoError(err)
+	require.Len(dir, 2)
+
+	// read the later entry first, then the earlier one
+	for _, name := range []string{"second.txt", "first.txt"} {
+		f, err := rfs.Open("/" + name)
+		require.NoError(err)
+		buf := make([]byte, len(files[name]))
+		n, err := f.ReadAt(buf, 0)
+		require.NoError(err, name)
+		require.Equal(files[name], buf[:n])
+		require.NoError(f.Close())
+	}
+}
+
+// flakyLoader times out on its first listing, as a read from a slow swarm does.
+type flakyLoader struct {
+	calls int
+	Zip
+}
+
+func (l *flakyLoader) getFiles(r iio.Reader, size int64) (map[string]*ArchiveFile, error) {
+	l.calls++
+	if l.calls == 1 {
+		return nil, ErrReadTimeout
+	}
+	return l.Zip.getFiles(r, size)
+}
+
+func TestArchive_RetriesAfterATimeout(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	data := zipOf(t, "inside.txt", "hello")
+	l := &flakyLoader{}
+	a := NewArchive(newCBR(data), int64(len(data)), l)
+
+	_, err := a.ReadDir("/")
+	require.ErrorIs(err, ErrReadTimeout)
+	entries, err := a.ReadDir("/")
+	require.NoError(err, "a timeout must not leave the archive broken")
+	require.Contains(entries, "inside.txt")
+}
+
+// countingSource is an archive entry's decompressed stream that counts how often it is
+// opened and closed, and can run on past the entry's size.
+type countingSource struct {
+	data          []byte
+	opens, closes int
+	mu            sync.Mutex
+}
+
+func (c *countingSource) open() (io.Reader, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.opens++
+	return &closeCounter{Reader: bytes.NewReader(c.data), c: c}, nil
+}
+
+type closeCounter struct {
+	io.Reader
+	c *countingSource
+}
+
+func (r *closeCounter) Close() error {
+	r.c.mu.Lock()
+	defer r.c.mu.Unlock()
+	r.c.closes++
+	return nil
+}
+
+// TestArchiveFile_HandlesShareOneCopy: every reader of an entry reads the same extracted
+// copy, each from its own position, and the copy goes when the last of them closes.
+func TestArchiveFile_HandlesShareOneCopy(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	src := &countingSource{data: []byte("0123456789")}
+	af := NewArchiveFile(src.open, 10)
+	a, b := af.NewHandle(), af.NewHandle()
+
+	buf := make([]byte, 4)
+	n, err := a.Read(buf)
+	require.NoError(err)
+	require.Equal("0123", string(buf[:n]))
+	n, err = b.Read(buf)
+	require.NoError(err)
+	require.Equal("0123", string(buf[:n]), "each handle reads from its own position")
+	n, err = a.Read(buf)
+	require.NoError(err)
+	require.Equal("4567", string(buf[:n]))
+	require.Equal(1, src.opens, "one extraction for both handles")
+
+	require.NoError(a.Close())
+	require.Equal(0, src.closes, "still in use by b")
+	_, err = b.ReadAt(buf, 6)
+	require.NoError(err)
+	require.NoError(b.Close())
+	require.Equal(1, src.closes)
+	require.NoError(b.Close(), "closing twice is harmless")
+	require.Equal(1, src.closes)
+
+	// a later reader extracts again
+	c := af.NewHandle()
+	_, err = c.ReadAt(buf, 0)
+	require.NoError(err)
+	require.Equal(2, src.opens)
+	require.NoError(c.Close())
+}
+
+func TestArchiveFile_ExtractLimit(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	src := &countingSource{data: []byte("0123456789")}
+	af := NewArchiveFile(src.open, 10)
+	af.limit = 4
+	_, err := af.NewHandle().ReadAt(make([]byte, 2), 0)
+	require.ErrorIs(err, ErrEntryTooLarge)
+	require.Zero(src.opens, "nothing is extracted")
+}
+
+// TestArchiveFile_StopsAtDeclaredSize: an entry whose data runs on past the size its header
+// claims is cut at that size, so the claimed size bounds what is written to disk.
+func TestArchiveFile_StopsAtDeclaredSize(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	src := &countingSource{data: bytes.Repeat([]byte("x"), 1<<20)}
+	af := NewArchiveFile(src.open, 8)
+	h := af.NewHandle()
+	defer func() { _ = h.Close() }()
+
+	buf := make([]byte, 16)
+	n, err := h.ReadAt(buf, 4)
+	require.Equal(4, n)
+	require.ErrorIs(err, io.EOF)
+	n, err = h.ReadAt(buf, 8)
+	require.Zero(n)
+	require.ErrorIs(err, io.EOF)
 }

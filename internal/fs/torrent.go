@@ -19,9 +19,12 @@ import (
 var _ Filesystem = &TorrentFS{}
 
 type TorrentFS struct {
-	mu              sync.Mutex
-	s               *storage
-	ts              map[string]Torrent
+	mu sync.Mutex
+	s  *storage
+	ts map[string]Torrent
+	// waiting holds a channel per torrent still waiting for its metadata, closed when
+	// the torrent is removed so the goroutine waiting for it can stop
+	waiting         map[string]chan struct{}
 	readTimeout     int
 	responsiveReads bool
 	log             zerolog.Logger
@@ -44,6 +47,7 @@ func NewTorrent(readTimeout int, responsiveReads bool) *TorrentFS {
 	return &TorrentFS{
 		s:               newStorage(GetSupportedFactories()),
 		ts:              make(map[string]Torrent),
+		waiting:         make(map[string]chan struct{}),
 		readTimeout:     readTimeout,
 		responsiveReads: responsiveReads,
 		log:             dlog.Logger("torrent-fs"),
@@ -61,13 +65,25 @@ func (fs *TorrentFS) AddTorrent(t Torrent) {
 		return
 	}
 
+	if _, ok := fs.waiting[ih]; ok {
+		return // already waiting for this torrent's metadata
+	}
+	removed := make(chan struct{})
+	fs.waiting[ih] = removed
 	go func() {
-		<-t.GotInfo()
+		// a torrent removed before its metadata arrives never sends it
+		select {
+		case <-t.GotInfo():
+		case <-removed:
+			return
+		}
 		fs.mu.Lock()
 		defer fs.mu.Unlock()
-		if _, ok := fs.ts[ih]; !ok {
-			return // removed while waiting for metadata
+		// RemoveTorrent may have run while this waited for the lock
+		if fs.waiting[ih] != removed {
+			return
 		}
+		delete(fs.waiting, ih)
 		fs.addFiles(t)
 	}()
 }
@@ -99,6 +115,10 @@ func (fs *TorrentFS) RemoveTorrent(h string) {
 
 	fs.mu.Lock()
 	delete(fs.ts, h)
+	if removed, ok := fs.waiting[h]; ok {
+		close(removed)
+		delete(fs.waiting, h)
+	}
 	fs.mu.Unlock()
 
 	fs.s.RemoveByHash(h)
@@ -184,6 +204,10 @@ type reader interface {
 	// abandoned goroutine still owns the underlying torrent.Reader and its
 	// scratch buffer, so nothing else may ever touch them again.
 	abandoned() bool
+	// readFrom reads up to len(p) bytes at off, returning as soon as any arrive, as a
+	// sequential Read does. The handle keeps the position, so a fresh reader that
+	// replaces an abandoned one carries on where the last read stopped.
+	readFrom(p []byte, off int64) (int, error)
 }
 
 // readStats counts abandoned/recovered/poisoned reads for one torrentFile,
@@ -430,8 +454,23 @@ func (rw *readAtWrapper) markDead(off int64, length int, elapsed time.Duration) 
 		Msg("read exceeded hard deadline; abandoning underlying torrent reader")
 }
 
+// ReadAt fills p or fails. Running out of file part way is io.EOF, as io.ReaderAt
+// requires, not the io.ErrUnexpectedEOF readAtLeast reports.
 func (rw *readAtWrapper) ReadAt(p []byte, off int64) (int, error) {
-	return rw.doRead(p, off, true, len(p))
+	n, err := rw.doRead(p, off, true, len(p))
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		err = io.EOF
+	}
+	return n, err
+}
+
+func (rw *readAtWrapper) readFrom(p []byte, off int64) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	// seeking to where the reader already is changes nothing, so a run of reads keeps
+	// its readahead
+	return rw.doRead(p, off, true, 1)
 }
 
 func (rw *readAtWrapper) Read(p []byte) (int, error) {
@@ -567,6 +606,7 @@ type torrentFileHandle struct {
 	reader   reader
 	mu       sync.Mutex
 	closed   bool
+	pos      int64 // where the next Read starts
 	openedAt time.Time
 }
 
@@ -673,13 +713,19 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	if r == nil {
 		return 0, io.EOF
 	}
-	n, err = r.Read(p)
+	h.mu.Lock()
+	off := h.pos
+	h.mu.Unlock()
+	n, err = r.readFrom(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
-			n, err = r2.Read(p)
+			n, err = r2.readFrom(p, off)
 		}
 	}
 	if n > 0 {
+		h.mu.Lock()
+		h.pos = off + int64(n)
+		h.mu.Unlock()
 		h.reportFirstRead()
 	}
 	return n, err
