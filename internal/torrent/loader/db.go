@@ -19,6 +19,7 @@ var _ LoaderAdder = &DB{}
 const (
 	routeRootKey = "/route"
 	linkRootKey  = "/link"
+	infoRootKey  = "/info"
 )
 
 type DB struct {
@@ -218,6 +219,39 @@ func (l *DB) ListLinks() (map[string]string, error) {
 	}
 
 	return out, nil
+}
+
+func (l *DB) SaveInfo(hash string, info []byte) error {
+	err := l.db.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte(path.Join(infoRootKey, hash)), info)
+	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
+}
+
+func (l *DB) LoadInfo(hash string) ([]byte, bool) {
+	var info []byte
+	err := l.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(path.Join(infoRootKey, hash)))
+		if err != nil {
+			return err
+		}
+		info, err = item.ValueCopy(nil)
+		return err
+	})
+	return info, err == nil
+}
+
+func (l *DB) ForgetInfo(hash string) error {
+	err := l.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte(path.Join(infoRootKey, hash)))
+	})
+	if err != nil {
+		return err
+	}
+	return l.db.Sync()
 }
 
 func (l *DB) Close() error {

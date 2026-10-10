@@ -139,3 +139,31 @@ func TestDB_ListMagnetsSkipsMalformedKeys(t *testing.T) {
 	require.NoError(err)
 	require.Equal(map[string][]string{"good": {m1}}, magnets)
 }
+
+func TestDB_Info(t *testing.T) {
+	dir := t.TempDir()
+	db, err := NewDB(dir)
+	require.NoError(t, err)
+
+	const h = "c9e15763f722f23e98a29decdfae341b98d53056"
+	_, ok := db.LoadInfo(h)
+	require.False(t, ok)
+	require.NoError(t, db.SaveInfo(h, []byte("d4:name4:filme")))
+	require.NoError(t, db.AddMagnet("route1", m1))
+	require.NoError(t, db.Close())
+
+	db, err = NewDB(dir)
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	info, ok := db.LoadInfo(h)
+	require.True(t, ok, "kept across a restart")
+	require.Equal(t, []byte("d4:name4:filme"), info)
+	l, err := db.ListMagnets()
+	require.NoError(t, err)
+	require.Equal(t, map[string][]string{"route1": {m1}}, l, "info isn't listed as a magnet")
+
+	require.NoError(t, db.ForgetInfo(h))
+	_, ok = db.LoadInfo(h)
+	require.False(t, ok)
+	require.NoError(t, db.ForgetInfo(h), "forgetting twice is fine")
+}

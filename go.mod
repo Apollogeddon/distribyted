@@ -37,6 +37,7 @@ require (
 )
 
 require (
+	github.com/anacrolix/chansync v0.7.0
 	github.com/anacrolix/generics v0.2.0
 	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/winfsp/cgofuse v1.6.0
@@ -45,7 +46,6 @@ require (
 require (
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/anacrolix/btree v0.0.0-20251201064447-d86c3fa41bd8 // indirect
-	github.com/anacrolix/chansync v0.7.0 // indirect
 	github.com/anacrolix/envpprof v1.5.0 // indirect
 	github.com/anacrolix/go-libutp v1.3.2 // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
