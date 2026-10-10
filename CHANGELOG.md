@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.31.0](https://github.com/Apollogeddon/distribyted/compare/v0.30.0...v0.31.0) (2026-10-10)
+
+
+### Features
+
+* **docker:** Publish the image for linux/arm64 in place of linux/386 ([8e2b246](https://github.com/Apollogeddon/distribyted/commit/8e2b24649dc3ecd80a21f7ec742199234b75e25d))
+* **docker:** Publish the image for linux/arm64 in place of linux/386, and drop CodeQL and Trivy ([554e016](https://github.com/Apollogeddon/distribyted/commit/554e01648532b24923fc478152519ba5e897cffc))
+
 ## [0.30.0](https://github.com/Apollogeddon/distribyted/compare/v0.29.0...v0.30.0) (2026-10-10)
 
 
