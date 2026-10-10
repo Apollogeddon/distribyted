@@ -99,10 +99,9 @@ func coldRead(tb testing.TB, app *TestApp, s *Swarm) swarmRead {
 
 func newSwarmApp(tb testing.TB, s *Swarm, mod func(*config.TorrentGlobal)) *TestApp {
 	tb.Helper()
-	app, err := NewTestAppSwarm(mod)
+	app, err := NewTestAppSwarm(s, "", mod)
 	require.NoError(tb, err)
 	tb.Cleanup(app.Close)
-	app.Client.AddDialer(s.Dialer)
 	return app
 }
 
@@ -209,6 +208,89 @@ func BenchmarkSwarm_ReadAfterIdle(b *testing.B) {
 			b.ReportMetric(float64(failed)/n, "failed")
 			b.ReportMetric(float64(active)/n, "active-before")
 			b.ReportMetric(float64(seeders)/n, "seeders-before")
+			b.ReportMetric(0, "ns/op")
+		})
+	}
+}
+
+// restart adds the Swarm's magnet to an app kept in dir, reads its start so some of it is
+// cached, and closes the app, leaving dir for a second app to start from.
+func restart(tb testing.TB, s *Swarm, dir string) {
+	tb.Helper()
+	app, err := NewTestAppSwarm(s, dir, nil)
+	require.NoError(tb, err)
+	r := coldRead(tb, app, s)
+	app.Close()
+	require.False(tb, r.failed, "the read before the restart")
+}
+
+// waitForSwarmFile waits for the Swarm's file to be listed, as it is once the torrent's
+// metadata is known, and returns how long that took.
+func waitForSwarmFile(app *TestApp, s *Swarm, timeout time.Duration) (time.Duration, bool) {
+	start := time.Now()
+	for time.Since(start) < timeout {
+		if f, err := app.FS.Open("/swarm/" + s.Magnet.DisplayName); err == nil {
+			_ = f.Close()
+			return time.Since(start), true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return time.Since(start), false
+}
+
+// TestSwarm_RestartWithoutPeers: a torrent added before a restart lists its files after
+// it with every peer gone, since its metadata was saved rather than asked of a peer.
+func TestSwarm_RestartWithoutPeers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping swarm test in short mode")
+	}
+	s := newSwarm(t, SwarmSpec{Seeders: []PeerProfile{fastPeer}})
+	dir := t.TempDir()
+	restart(t, s, dir)
+	s.Close()
+
+	app, err := NewTestAppSwarm(s, dir, nil)
+	require.NoError(t, err)
+	t.Cleanup(app.Close)
+	_, ok := waitForSwarmFile(app, s, 10*time.Second)
+	require.True(t, ok, "the file is listed with no peers to send the metadata")
+	f, err := app.FS.Open("/swarm/" + s.Magnet.DisplayName)
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+	require.Equal(t, int64(len(s.Content)), f.Size())
+}
+
+// BenchmarkSwarm_Restart measures a restart: the torrent was added and its start read
+// before, and the second app, on the same database and cache, loads it from the database
+// as every start does. metadata-s is how long until its file is listed; resume-s how long
+// a read of a part that wasn't cached took after that.
+func BenchmarkSwarm_Restart(b *testing.B) {
+	for _, sc := range swarmScenarios {
+		b.Run(sc.name, func(b *testing.B) {
+			var meta, resume time.Duration
+			var failed int
+			for range b.N {
+				s := newSwarm(b, sc.spec)
+				dir := b.TempDir()
+				restart(b, s, dir)
+
+				app, err := NewTestAppSwarm(s, dir, nil)
+				require.NoError(b, err)
+				took, ok := waitForSwarmFile(app, s, 2*time.Minute)
+				meta += took
+				if ok {
+					took, ok = readFrom(b, app, s, 8<<20)
+					resume += took
+				}
+				if !ok {
+					failed++
+				}
+				app.Close()
+			}
+			n := float64(b.N)
+			b.ReportMetric(meta.Seconds()/n, "metadata-s")
+			b.ReportMetric(resume.Seconds()/n, "resume-s")
+			b.ReportMetric(float64(failed)/n, "failed")
 			b.ReportMetric(0, "ns/op")
 		})
 	}

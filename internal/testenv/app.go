@@ -136,23 +136,41 @@ func NewTestAppProductionStorage() (*TestApp, error) {
 	return newTestApp("", nil, false, false, true, false, nil)
 }
 
-// NewTestAppSwarm is NewTestAppNoDefaultDialer with the torrent settings a production
-// config gets by default (see config.AddDefaults and the config template) rather than the
-// test-friendly ones, since a Swarm measures how those behave against many peers: no
-// seeding, and 25 connections per torrent. mod, if not nil, changes them further, e.g. to
-// compare a different connection limit. Peers are found through the Swarm's tracker, so
-// add a SwarmDialer with app.Client.AddDialer before adding the torrent.
-func NewTestAppSwarm(mod func(*config.TorrentGlobal)) (*TestApp, error) {
-	return newTestApp("", nil, true, true, false, false, nil, func(t *config.TorrentGlobal) {
-		t.Seed = false
-		t.MaxConnsPerTorrent = 25
-		if mod != nil {
-			mod(t)
-		}
-	})
+// testAppOption changes a test app's torrent settings, or its torrent client before the
+// app loads its saved torrents.
+type testAppOption struct {
+	torrent func(*config.TorrentGlobal)
+	client  func(*atorrent.Client)
 }
 
-func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDialer bool, resourcePieces bool, responsiveReads bool, httpDialContext func(ctx context.Context, network, addr string) (net.Conn, error), mods ...func(*config.TorrentGlobal)) (*TestApp, error) {
+// NewTestAppSwarm is NewTestAppNoDefaultDialer for a Swarm: it reaches the Swarm's peers
+// through the Swarm's dialer, added before the app loads any torrent it has saved, and has
+// the torrent settings a production config gets by default (see config.AddDefaults and the
+// config template) rather than the test-friendly ones: no seeding, and 25 connections per
+// torrent. mod, if not nil, changes them further, e.g. to compare a connection limit.
+//
+// dir "" keeps everything in memory. Otherwise the app keeps its torrent database, data
+// and peer ID in dir and leaves it on Close, so a second app on the same dir is the first
+// restarted.
+func NewTestAppSwarm(s *Swarm, dir string, mod func(*config.TorrentGlobal)) (*TestApp, error) {
+	o := testAppOption{
+		torrent: func(t *config.TorrentGlobal) {
+			t.Seed = false
+			t.MaxConnsPerTorrent = 25
+			if mod != nil {
+				mod(t)
+			}
+		},
+		client: func(c *atorrent.Client) { c.AddDialer(s.Dialer) },
+	}
+	app, err := newTestApp(dir, nil, dir == "", true, false, false, nil, o)
+	if app != nil {
+		app.KeepTempDir = dir != ""
+	}
+	return app, err
+}
+
+func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDialer bool, resourcePieces bool, responsiveReads bool, httpDialContext func(ctx context.Context, network, addr string) (net.Conn, error), opts ...testAppOption) (*TestApp, error) {
 	actualTempDir := tempDir
 	if actualTempDir == "" {
 		var err error
@@ -192,8 +210,10 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		},
 	}
 
-	for _, m := range mods {
-		m(conf.Torrent)
+	for _, o := range opts {
+		if o.torrent != nil {
+			o.torrent(conf.Torrent)
+		}
 	}
 
 	var st storage.ClientImpl
@@ -278,6 +298,12 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 	c, err := dtorrent.NewClient(st, fis, conf.Torrent, id, clientOpts...)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, o := range opts {
+		if o.client != nil {
+			o.client(c)
+		}
 	}
 
 	ss := dtorrent.NewStats()

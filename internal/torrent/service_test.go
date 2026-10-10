@@ -1,6 +1,8 @@
 package torrent
 
 import (
+	"errors"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -32,6 +34,41 @@ type MockLoaderAdder struct {
 	mu           sync.Mutex
 	Links        map[string]string
 	AddedMagnets map[string]string
+	Infos        map[string][]byte
+}
+
+func (m *MockLoaderAdder) SaveInfo(hash string, info []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Infos == nil {
+		m.Infos = make(map[string][]byte)
+	}
+	m.Infos[hash] = info
+	return nil
+}
+
+func (m *MockLoaderAdder) LoadInfo(hash string) ([]byte, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	info, ok := m.Infos[hash]
+	return info, ok
+}
+
+func (m *MockLoaderAdder) SavedHashes() ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var hashes []string
+	for h := range m.Infos {
+		hashes = append(hashes, h)
+	}
+	return hashes, nil
+}
+
+func (m *MockLoaderAdder) ForgetInfo(hash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.Infos, hash)
+	return nil
 }
 
 func (m *MockLoaderAdder) AddMagnet(r, magnet string) error {
@@ -551,4 +588,115 @@ func TestService_AddTorrentMetaInfo(t *testing.T) {
 	require.Contains(t, db.AddedMagnets["tv"], "xt=urn:btih:"+hash.HexString())
 
 	require.Error(t, svc.AddTorrentMetaInfo("../links", mi))
+}
+
+// infoTorrent is a mockTorrent whose info dictionary is known, as a torrent.Torrent's is.
+type infoTorrent struct {
+	*mockTorrent
+	infoBytes []byte
+}
+
+func (t infoTorrent) Metainfo() metainfo.MetaInfo {
+	return metainfo.MetaInfo{InfoBytes: t.infoBytes}
+}
+
+// TestService_SavedInfo: a torrent's info is saved once it has it, the next add of its
+// magnet starts from it, saved info that doesn't match is dropped for the magnet as it
+// is, and removing the torrent from its last route forgets it.
+func TestService_SavedInfo(t *testing.T) {
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	magnet := "magnet:?xt=urn:btih:" + hash.HexString()
+	gotInfo := make(chan struct{})
+	close(gotInfo)
+	tor := infoTorrent{
+		mockTorrent: &mockTorrent{hash: hash, name: "film", gotInfo: gotInfo, info: &metainfo.Info{Name: "film"}},
+		infoBytes:   []byte("d4:name4:filme"),
+	}
+
+	var plain, withInfo [][]byte
+	var mismatch bool
+	c := &mockTorrentClient{
+		addMagnetFunc: func(string) (fs.Torrent, error) {
+			plain = append(plain, nil)
+			return tor, nil
+		},
+		addMagnetWithInfoFunc: func(_ string, info []byte) (fs.Torrent, error) {
+			if mismatch {
+				return nil, errors.New("info doesn't match")
+			}
+			withInfo = append(withInfo, info)
+			return tor, nil
+		},
+		torrentFunc: func(metainfo.Hash) (fs.Torrent, bool) { return tor, true },
+	}
+	db := &MockLoaderAdder{}
+
+	svc := NewService(nil, db, NewStats(), c, 1, 1, false, false, nil)
+	require.NoError(t, svc.AddMagnet("films", magnet))
+	require.Len(t, plain, 1, "nothing saved yet: the magnet as it is")
+	saved, ok := db.LoadInfo(hash.HexString())
+	require.True(t, ok)
+	require.Equal(t, tor.infoBytes, saved)
+
+	// as on the next start
+	svc = NewService(nil, db, NewStats(), c, 1, 1, false, false, nil)
+	require.NoError(t, svc.AddMagnet("films", magnet))
+	require.Equal(t, [][]byte{tor.infoBytes}, withInfo, "started from the saved info")
+	require.Len(t, plain, 1)
+
+	mismatch = true
+	svc = NewService(nil, db, NewStats(), c, 1, 1, false, false, nil)
+	require.NoError(t, svc.AddMagnet("films", magnet))
+	require.Len(t, plain, 2, "saved info that doesn't match: the magnet as it is")
+	// and its own info saved again once it has it
+	_, ok = db.LoadInfo(hash.HexString())
+	require.True(t, ok)
+
+	require.NoError(t, svc.RemoveFromHash("films", hash.HexString()))
+	_, ok = db.LoadInfo(hash.HexString())
+	require.False(t, ok, "forgotten with the torrent")
+}
+
+// TestService_Load_ForgetsUnloadedInfo: on loading, the info saved for a torrent no
+// longer in the configuration, a watched folder or the database is forgotten, unless a
+// .torrent file couldn't be read, so which torrents are loaded isn't certain.
+func TestService_Load_ForgetsUnloadedInfo(t *testing.T) {
+	const kept, inDB, gone = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4", "c9e15763f722f23e98a29decdfae341b98d53056", "0123456789abcdef0123456789abcdef01234567"
+	gotInfo := make(chan struct{})
+	close(gotInfo)
+	c := &mockTorrentClient{
+		addMagnetFunc: func(m string) (fs.Torrent, error) {
+			spec, err := metainfo.ParseMagnetUri(m)
+			require.NoError(t, err)
+			return &mockTorrent{hash: spec.InfoHash, gotInfo: gotInfo}, nil
+		},
+	}
+	newDB := func() *MockLoaderAdder {
+		db := &MockLoaderAdder{MockLoader: MockLoader{Magnets: map[string][]string{"films": {"magnet:?xt=urn:btih:" + inDB}}}}
+		for _, h := range []string{kept, inDB, gone} {
+			require.NoError(t, db.SaveInfo(h, []byte("d4:name4:filme")))
+		}
+		return db
+	}
+	config := &MockLoader{Magnets: map[string][]string{"films": {"magnet:?xt=urn:btih:" + kept}}}
+
+	db := newDB()
+	svc := NewService([]loader.Loader{config}, db, NewStats(), c, 1, 1, true, false, nil)
+	_, err := svc.Load()
+	require.NoError(t, err)
+	svc.loadWg.Wait()
+	saved, err := db.SavedHashes()
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{kept, inDB}, saved)
+
+	db = newDB()
+	folder := &MockLoader{TorrentPaths: map[string][]string{"films": {filepath.Join(t.TempDir(), "unreadable.torrent")}}}
+	c.addTorrentFromFileFunc = func(string) (fs.Torrent, error) { return nil, errors.New("unreadable") }
+	svc = NewService([]loader.Loader{config, folder}, db, NewStats(), c, 1, 1, true, false, nil)
+	_, err = svc.Load()
+	require.NoError(t, err)
+	svc.loadWg.Wait()
+	saved, err = db.SavedHashes()
+	require.NoError(t, err)
+	require.Len(t, saved, 3, "nothing forgotten while a .torrent file can't be read")
 }
