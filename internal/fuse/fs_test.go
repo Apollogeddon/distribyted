@@ -143,11 +143,12 @@ func TestFS_Unit(t *testing.T) {
 
 func TestErrno(t *testing.T) {
 	for err, want := range map[error]int{
-		nil:              0,
-		os.ErrNotExist:   -fuse.ENOENT,
-		os.ErrExist:      -fuse.EEXIST,
-		os.ErrPermission: -fuse.EPERM,
-		fs.ErrNotEmpty:   -fuse.ENOTEMPTY,
+		nil:                                      0,
+		os.ErrNotExist:                           -fuse.ENOENT,
+		os.ErrExist:                              -fuse.EEXIST,
+		os.ErrPermission:                         -fuse.EPERM,
+		fs.ErrNotEmpty:                           -fuse.ENOTEMPTY,
+		fmt.Errorf("x: %w", fs.ErrEntryTooLarge): -fuse.EFBIG,
 		fmt.Errorf("wrapped: %w", fs.ErrNotEmpty): -fuse.ENOTEMPTY,
 		errors.New("anything else"):               -fuse.EIO,
 	} {

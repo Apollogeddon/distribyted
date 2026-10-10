@@ -36,6 +36,11 @@ torrent:
   # global_cache_size: -1 #No limit
   global_cache_size: 2048
 
+  # Largest file inside a .zip, .rar or .7z, in MB, that distribyted will read. Each one is
+  # extracted to a temporary file as it is read, so this bounds the disk a single archive
+  # entry can use. -1 means no limit.
+  # archive_extract_limit: 4096
+
   # Folder where distribyted metadata will be stored.
   metadata_folder: ./distribyted-data/metadata
 

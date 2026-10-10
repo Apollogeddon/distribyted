@@ -8,6 +8,7 @@ import (
 	"hash/crc32"
 	"io"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/internal/iio"
@@ -295,4 +296,102 @@ func TestArchive_RetriesAfterATimeout(t *testing.T) {
 	entries, err := a.ReadDir("/")
 	require.NoError(err, "a timeout must not leave the archive broken")
 	require.Contains(entries, "inside.txt")
+}
+
+// countingSource is an archive entry's decompressed stream that counts how often it is
+// opened and closed, and can run on past the entry's size.
+type countingSource struct {
+	data          []byte
+	opens, closes int
+	mu            sync.Mutex
+}
+
+func (c *countingSource) open() (io.Reader, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.opens++
+	return &closeCounter{Reader: bytes.NewReader(c.data), c: c}, nil
+}
+
+type closeCounter struct {
+	io.Reader
+	c *countingSource
+}
+
+func (r *closeCounter) Close() error {
+	r.c.mu.Lock()
+	defer r.c.mu.Unlock()
+	r.c.closes++
+	return nil
+}
+
+// TestArchiveFile_HandlesShareOneCopy: every reader of an entry reads the same extracted
+// copy, each from its own position, and the copy goes when the last of them closes.
+func TestArchiveFile_HandlesShareOneCopy(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	src := &countingSource{data: []byte("0123456789")}
+	af := NewArchiveFile(src.open, 10)
+	a, b := af.NewHandle(), af.NewHandle()
+
+	buf := make([]byte, 4)
+	n, err := a.Read(buf)
+	require.NoError(err)
+	require.Equal("0123", string(buf[:n]))
+	n, err = b.Read(buf)
+	require.NoError(err)
+	require.Equal("0123", string(buf[:n]), "each handle reads from its own position")
+	n, err = a.Read(buf)
+	require.NoError(err)
+	require.Equal("4567", string(buf[:n]))
+	require.Equal(1, src.opens, "one extraction for both handles")
+
+	require.NoError(a.Close())
+	require.Equal(0, src.closes, "still in use by b")
+	_, err = b.ReadAt(buf, 6)
+	require.NoError(err)
+	require.NoError(b.Close())
+	require.Equal(1, src.closes)
+	require.NoError(b.Close(), "closing twice is harmless")
+	require.Equal(1, src.closes)
+
+	// a later reader extracts again
+	c := af.NewHandle()
+	_, err = c.ReadAt(buf, 0)
+	require.NoError(err)
+	require.Equal(2, src.opens)
+	require.NoError(c.Close())
+}
+
+func TestArchiveFile_ExtractLimit(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	src := &countingSource{data: []byte("0123456789")}
+	af := NewArchiveFile(src.open, 10)
+	af.limit = 4
+	_, err := af.NewHandle().ReadAt(make([]byte, 2), 0)
+	require.ErrorIs(err, ErrEntryTooLarge)
+	require.Zero(src.opens, "nothing is extracted")
+}
+
+// TestArchiveFile_StopsAtDeclaredSize: an entry whose data runs on past the size its header
+// claims is cut at that size, so the claimed size bounds what is written to disk.
+func TestArchiveFile_StopsAtDeclaredSize(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	src := &countingSource{data: bytes.Repeat([]byte("x"), 1<<20)}
+	af := NewArchiveFile(src.open, 8)
+	h := af.NewHandle()
+	defer func() { _ = h.Close() }()
+
+	buf := make([]byte, 16)
+	n, err := h.ReadAt(buf, 4)
+	require.Equal(4, n)
+	require.ErrorIs(err, io.EOF)
+	n, err = h.ReadAt(buf, 8)
+	require.Zero(n)
+	require.ErrorIs(err, io.EOF)
 }
