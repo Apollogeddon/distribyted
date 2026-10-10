@@ -162,9 +162,16 @@ func TestDB_Info(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, map[string][]string{"route1": {m1}}, l, "info isn't listed as a magnet")
 
+	saved, err := db.SavedHashes()
+	require.NoError(t, err)
+	require.Equal(t, []string{h}, saved)
+
 	require.NoError(t, db.ForgetInfo(h))
 	_, ok = db.LoadInfo(h)
 	require.False(t, ok)
+	saved, err = db.SavedHashes()
+	require.NoError(t, err)
+	require.Empty(t, saved)
 	require.NoError(t, db.ForgetInfo(h), "forgetting twice is fine")
 }
 
@@ -185,6 +192,10 @@ func TestDB_Peers(t *testing.T) {
 	l, err := db.ListMagnets()
 	require.NoError(t, err)
 	require.Empty(t, l, "peers aren't listed as magnets")
+
+	saved, err := db.SavedHashes()
+	require.NoError(t, err)
+	require.Equal(t, []string{h}, saved, "peers alone count as saved")
 
 	require.NoError(t, db.ForgetPeers(h))
 	require.Empty(t, db.LoadPeers(h))

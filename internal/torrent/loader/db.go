@@ -2,6 +2,7 @@ package loader
 
 import (
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -291,6 +292,27 @@ func (l *DB) ForgetPeers(hash string) error {
 		return err
 	}
 	return l.db.Sync()
+}
+
+func (l *DB) SavedHashes() ([]string, error) {
+	var hashes []string
+	err := l.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for _, root := range []string{infoRootKey, peersRootKey} {
+			prefix := []byte(root + "/")
+			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+				h := string(it.Item().Key()[len(prefix):])
+				if !slices.Contains(hashes, h) {
+					hashes = append(hashes, h)
+				}
+			}
+		}
+		return nil
+	})
+	return hashes, err
 }
 
 func (l *DB) Close() error {

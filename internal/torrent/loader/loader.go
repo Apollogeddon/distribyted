@@ -27,4 +27,8 @@ type LoaderAdder interface {
 	SavePeers(hash string, addrs []string) error
 	LoadPeers(hash string) []string
 	ForgetPeers(hash string) error
+
+	// SavedHashes lists the torrents something is saved for, so that what's kept for a
+	// torrent no longer loaded from anywhere can be forgotten.
+	SavedHashes() ([]string, error)
 }
