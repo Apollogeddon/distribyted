@@ -2,7 +2,7 @@ version: '3'
 vars:
   TASK: go tool -modfile=.forgego/task/go.mod task
   GOVULNCHECK: go tool -modfile=.forgego/govulncheck/go.mod govulncheck
-  FORGEGO: go run github.com/apollogeddon/forgego/cmd/forgego@v1.2.0
+  FORGEGO: go run github.com/apollogeddon/forgego/cmd/forgego@v1.4.0
   LEFTHOOK: go tool -modfile=.forgego/lefthook/go.mod lefthook
   GOLANGCI_LINT: go tool -modfile=.forgego/golangci-lint/go.mod golangci-lint
   VERSION:
