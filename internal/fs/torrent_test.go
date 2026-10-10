@@ -646,14 +646,18 @@ func TestReadAtWrapper_CloseDuringNormalRead(t *testing.T) {
 // partial read, so a call can take longer in total than one timeout window
 // provided it never goes a full window without making progress.
 func TestReadAtWrapper_ProgressExtendsDeadline(t *testing.T) {
-	trickle := &trickleTorrentReader{delay: 60 * time.Millisecond, remain: 5}
-	timeout := 100 * time.Millisecond // > each 60ms gap, < the ~300ms total
+	// Each gap must sit well inside the deadline and the whole read well past it. A 60ms
+	// gap against 100ms left too little room for a busy CI runner's timer slop (macOS
+	// failed it); 50ms against 250ms leaves 200ms, and the 500ms read still takes twice
+	// the deadline, so it only passes if progress extends it.
+	trickle := &trickleTorrentReader{delay: 50 * time.Millisecond, remain: 10}
+	timeout := 250 * time.Millisecond
 
 	r := newReadAtWrapper(trickle, timeout, &readStats{}, zerolog.Nop())
 
-	n, err := r.ReadAt(make([]byte, 5), 0)
+	n, err := r.ReadAt(make([]byte, 10), 0)
 	require.NoError(t, err)
-	require.Equal(t, 5, n)
+	require.Equal(t, 10, n)
 }
 
 // TestTorrentFileHandle_RecoversAfterAbandonedRead is goal 3's regression
