@@ -1,4 +1,4 @@
-FROM techknowlogick/xgo:go-1.26.3
+FROM techknowlogick/xgo:go-1.27.1
 
 # add 32-bit and 64-bit architectures and install 7zip
 RUN \
