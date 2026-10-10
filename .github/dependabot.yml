@@ -58,9 +58,9 @@ updates:
     commit-message:
       prefix: "docs(deps)"
 
-  # 3. Docker (Root)
+  # 3. Docker (the image)
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/build"
     schedule:
       interval: "weekly"
     labels:
@@ -73,7 +73,7 @@ updates:
 
   # 4. Docker (Tools)
   - package-ecosystem: "docker"
-    directory: "/tools"
+    directory: "/build/tools"
     schedule:
       interval: "weekly"
     labels:
