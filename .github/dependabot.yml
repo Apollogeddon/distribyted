@@ -17,6 +17,9 @@ updates:
           - "major"
           - "minor"
           - "patch"
+    # CI deliberately tracks forgego's reusable workflows at @main.
+    ignore:
+      - dependency-name: "apollogeddon/forgego"
 
   # 2. Go Modules
   # /tools/templ pins the templ generator; the runtime in / must match it
