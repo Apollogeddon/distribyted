@@ -15,13 +15,14 @@ type mockTorrent struct {
 	stats          torrent.TorrentStats
 	statsFunc      func() torrent.TorrentStats
 	info           *metainfo.Info
+	drops          int
 }
 
 func (m *mockTorrent) InfoHash() metainfo.Hash                { return m.hash }
 func (m *mockTorrent) Info() *metainfo.Info                   { return m.info }
 func (m *mockTorrent) GotInfo() <-chan struct{}               { return m.gotInfo }
 func (m *mockTorrent) Name() string                           { return m.name }
-func (m *mockTorrent) Drop()                                  {}
+func (m *mockTorrent) Drop()                                  { m.drops++ }
 func (m *mockTorrent) PieceStateRuns() torrent.PieceStateRuns { return m.pieceStateRuns }
 func (m *mockTorrent) Stats() torrent.TorrentStats {
 	if m.statsFunc != nil {
@@ -35,6 +36,7 @@ type mockTorrentClient struct {
 	TorrentClient
 	addMagnetFunc          func(string) (fs.Torrent, error)
 	addTorrentFromFileFunc func(string) (fs.Torrent, error)
+	addTorrentFunc         func(*metainfo.MetaInfo) (fs.Torrent, error)
 	torrentFunc            func(metainfo.Hash) (fs.Torrent, bool)
 	closeFunc              func()
 }
@@ -42,6 +44,13 @@ type mockTorrentClient struct {
 func (m *mockTorrentClient) AddMagnet(s string) (fs.Torrent, error) {
 	if m.addMagnetFunc != nil {
 		return m.addMagnetFunc(s)
+	}
+	return nil, nil
+}
+
+func (m *mockTorrentClient) AddTorrent(mi *metainfo.MetaInfo) (fs.Torrent, error) {
+	if m.addTorrentFunc != nil {
+		return m.addTorrentFunc(mi)
 	}
 	return nil, nil
 }

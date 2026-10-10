@@ -41,9 +41,6 @@ func TestStats(t *testing.T) {
 	s.AddRoute("test-route")
 	s.Add("test-route", mockT)
 
-	// Force gap to be passed so we don't return previous (zero) measurements
-	s.gTime = time.Now().Add(-5 * time.Second)
-
 	t.Run("Get Stats", func(t *testing.T) {
 		ts, err := s.Stats(hash.String())
 		require.NoError(t, err)
@@ -166,7 +163,7 @@ func TestStats_PieceStatus(t *testing.T) {
 			pieceStateRuns: c.psr,
 		}
 		s.Add("route", mockT)
-		s.gTime = time.Now().Add(-5 * time.Second) // Force update
+		backdateSamples(s, 5*time.Second) // Force update
 		ts, _ := s.Stats(hash.String())
 		require.Equal(t, c.expect, ts.PieceChunks[0].Status)
 	}
@@ -192,16 +189,13 @@ func TestStats_Measurements(t *testing.T) {
 
 	s.Add("route", mockT)
 
-	// Force gap to be passed for first measurement
-	s.gTime = time.Now().Add(-5 * time.Second)
-
 	// First measurement
 	ts1, _ := s.Stats(hash.String())
 	require.Equal(t, int64(100), ts1.DownloadedBytes)
 	require.Equal(t, int64(50), ts1.UploadedBytes)
 
 	// Force gap to be passed
-	s.gTime = time.Now().Add(-5 * time.Second)
+	backdateSamples(s, 5*time.Second)
 
 	// Second measurement with more data
 	mockT.statsFunc = func() torrent.TorrentStats {
@@ -215,9 +209,76 @@ func TestStats_Measurements(t *testing.T) {
 	require.Equal(t, int64(50), ts2.DownloadedBytes)
 	require.Equal(t, int64(30), ts2.UploadedBytes)
 
-	// Test returnPreviousMeasurements
-	s.gTime = time.Now() // set to now so gap is NOT passed
+	// read again within the gap: the same sample, not a new one
 	ts3, _ := s.Stats(hash.String())
 	require.Equal(t, int64(50), ts3.DownloadedBytes)
 	require.Equal(t, int64(30), ts3.UploadedBytes)
+}
+
+// backdateSamples moves every torrent's latest sample into the past, so the next read
+// takes a new one instead of returning the cached sample.
+func backdateSamples(s *Stats, by time.Duration) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	for _, p := range s.previousStats {
+		if !p.time.IsZero() {
+			p.time = p.time.Add(-by)
+		}
+	}
+}
+
+func TestStats_RatesAreConsistent(t *testing.T) {
+	s := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	read := int64(0)
+	mockT := &mockTorrent{hash: hash, statsFunc: func() torrent.TorrentStats {
+		st := torrent.TorrentStats{TorrentGauges: torrent.TorrentGauges{TotalPeers: 3, ConnectedSeeders: 1}}
+		st.BytesReadData.Add(read)
+		return st
+	}}
+	s.Add("route", mockT)
+
+	// the first sample is measured from when the torrent was added, not from the zero
+	// time, which made every speed round to nothing
+	ts, err := s.Stats(hash.String())
+	require.NoError(t, err)
+	require.Less(t, ts.TimePassed, 5.0)
+
+	read = 10_000
+	backdateSamples(s, 2*time.Second)
+	ts, err = s.Stats(hash.String())
+	require.NoError(t, err)
+	require.InDelta(t, 5_000, float64(ts.DownloadedBytes)/ts.TimePassed, 100)
+
+	// reading again within the gap returns the same sample: same rate, and the peers and
+	// seeders it measured rather than zeros
+	again, err := s.Stats(hash.String())
+	require.NoError(t, err)
+	require.InDelta(t, 5_000, float64(again.DownloadedBytes)/again.TimePassed, 100)
+	require.Equal(t, 3, again.Peers)
+	require.Equal(t, 1, again.Seeders)
+
+	// several clients polling the global figure don't inflate it
+	for range 5 {
+		gs := s.GlobalStats()
+		require.InDelta(t, 5_000, float64(gs.DownloadedBytes)/gs.TimePassed, 100)
+	}
+}
+
+func TestStats_DelKeepsOtherRoutes(t *testing.T) {
+	s := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	mockT := &mockTorrent{hash: hash}
+	s.Add("a", mockT)
+	s.Add("b", mockT)
+
+	s.Del("a", hash.String())
+	require.Empty(t, s.GetTorrentsInRoute("a"))
+	require.Contains(t, s.GetTorrentsInRoute("b"), hash.String())
+	_, err := s.Stats(hash.String())
+	require.NoError(t, err, "the torrent is still in route b")
+
+	s.Del("b", hash.String())
+	_, err = s.Stats(hash.String())
+	require.ErrorIs(t, err, ErrTorrentNotFound)
 }

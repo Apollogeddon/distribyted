@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/stretchr/testify/require"
 
@@ -421,6 +422,8 @@ func TestService_addTorrent_TimeoutError(t *testing.T) {
 	err := svc.addMagnet("test", "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "timeout")
+	// the failed torrent doesn't stay in the client fetching metadata forever
+	require.Equal(t, 1, mockT.drops)
 }
 
 func TestService_logSwarmHealth_NoPanic(t *testing.T) {
@@ -494,4 +497,58 @@ func TestService_ConcurrentMagnetAdds(t *testing.T) {
 
 	// Should have 2 routes in the DB
 	require.Len(t, db.AddedMagnets, 2)
+}
+
+func TestService_RemoveFromHash_KeepsOtherRoutes(t *testing.T) {
+	stats := NewStats()
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	mockT := &mockTorrent{hash: hash, name: "test", gotInfo: make(chan struct{})}
+	close(mockT.gotInfo)
+	mockC := &mockTorrentClient{
+		torrentFunc:   func(metainfo.Hash) (fs.Torrent, bool) { return mockT, true },
+		addMagnetFunc: func(string) (fs.Torrent, error) { return mockT, nil },
+	}
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false, nil)
+	removed := 0
+	svc.OnTorrentRemoved(func(string) { removed++ })
+
+	const magnet = "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
+	require.NoError(t, svc.AddMagnet("movies", magnet))
+	require.NoError(t, svc.AddMagnet("tv", magnet))
+
+	// removing it from one route leaves it running and listed in the other
+	require.NoError(t, svc.RemoveFromHash("movies", hash.HexString()))
+	require.Equal(t, 0, mockT.drops)
+	require.Equal(t, 0, removed)
+	require.Equal(t, []string{"tv"}, stats.GetRoutesFromHash(hash.HexString()))
+	_, err := stats.Stats(hash.HexString())
+	require.NoError(t, err)
+
+	// removing it from the last route drops it
+	require.NoError(t, svc.RemoveFromHash("tv", hash.HexString()))
+	require.Equal(t, 1, mockT.drops)
+	require.Equal(t, 1, removed)
+}
+
+func TestService_AddTorrentMetaInfo(t *testing.T) {
+	info := metainfo.Info{Name: "movie.mkv", PieceLength: 16384, Length: 1, Pieces: make([]byte, 20)}
+	infoBytes, err := bencode.Marshal(info)
+	require.NoError(t, err)
+	mi := &metainfo.MetaInfo{InfoBytes: infoBytes}
+	hash := mi.HashInfoBytes()
+
+	mockT := &mockTorrent{hash: hash, name: "movie.mkv", gotInfo: make(chan struct{}), info: &info}
+	close(mockT.gotInfo)
+	mockC := &mockTorrentClient{addTorrentFunc: func(got *metainfo.MetaInfo) (fs.Torrent, error) {
+		require.Equal(t, hash, got.HashInfoBytes())
+		return mockT, nil
+	}}
+	db := &MockLoaderAdder{}
+	svc := NewService(nil, db, NewStats(), mockC, 1, 1, true, false, nil)
+
+	require.NoError(t, svc.AddTorrentMetaInfo("tv", mi))
+	// persisted as the magnet the file describes, so it is added again on restart
+	require.Contains(t, db.AddedMagnets["tv"], "xt=urn:btih:"+hash.HexString())
+
+	require.Error(t, svc.AddTorrentMetaInfo("../links", mi))
 }

@@ -19,9 +19,12 @@ import (
 var _ Filesystem = &TorrentFS{}
 
 type TorrentFS struct {
-	mu              sync.Mutex
-	s               *storage
-	ts              map[string]Torrent
+	mu sync.Mutex
+	s  *storage
+	ts map[string]Torrent
+	// waiting holds a channel per torrent still waiting for its metadata, closed when
+	// the torrent is removed so the goroutine waiting for it can stop
+	waiting         map[string]chan struct{}
 	readTimeout     int
 	responsiveReads bool
 	log             zerolog.Logger
@@ -44,6 +47,7 @@ func NewTorrent(readTimeout int, responsiveReads bool) *TorrentFS {
 	return &TorrentFS{
 		s:               newStorage(GetSupportedFactories()),
 		ts:              make(map[string]Torrent),
+		waiting:         make(map[string]chan struct{}),
 		readTimeout:     readTimeout,
 		responsiveReads: responsiveReads,
 		log:             dlog.Logger("torrent-fs"),
@@ -61,13 +65,25 @@ func (fs *TorrentFS) AddTorrent(t Torrent) {
 		return
 	}
 
+	if _, ok := fs.waiting[ih]; ok {
+		return // already waiting for this torrent's metadata
+	}
+	removed := make(chan struct{})
+	fs.waiting[ih] = removed
 	go func() {
-		<-t.GotInfo()
+		// a torrent removed before its metadata arrives never sends it
+		select {
+		case <-t.GotInfo():
+		case <-removed:
+			return
+		}
 		fs.mu.Lock()
 		defer fs.mu.Unlock()
-		if _, ok := fs.ts[ih]; !ok {
-			return // removed while waiting for metadata
+		// RemoveTorrent may have run while this waited for the lock
+		if fs.waiting[ih] != removed {
+			return
 		}
+		delete(fs.waiting, ih)
 		fs.addFiles(t)
 	}()
 }
@@ -99,6 +115,10 @@ func (fs *TorrentFS) RemoveTorrent(h string) {
 
 	fs.mu.Lock()
 	delete(fs.ts, h)
+	if removed, ok := fs.waiting[h]; ok {
+		close(removed)
+		delete(fs.waiting, h)
+	}
 	fs.mu.Unlock()
 
 	fs.s.RemoveByHash(h)

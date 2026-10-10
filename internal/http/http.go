@@ -55,11 +55,12 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	ac := newAuthConfig(conf.HTTPGlobal)
 	st := newSessionStore(sessionTTL)
+	ll := newLoginLimiter()
 	browserAuth := browserAuthMiddleware(ac, st)
 	qbitAuth := qbitAuthMiddleware(ac, st)
 
 	r.GET("/login", loginPageHandler)
-	r.POST("/login", loginSubmitHandler(ac, st))
+	r.POST("/login", loginSubmitHandler(ac, st, ll))
 	r.POST("/logout", logoutHandler(st))
 
 	if conf.HTTPGlobal.HTTPFS {
@@ -125,7 +126,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	qbitPublic := r.Group("/api/v2")
 	{
-		qbitPublic.Any("/auth/login", qBitLoginHandler(ac, st))
+		qbitPublic.Any("/auth/login", qBitLoginHandler(ac, st, ll))
 		// endpoints that change state accept POST only, as in qBittorrent itself, so the
 		// cross-origin check below covers them
 		qbitPublic.POST("/auth/logout", qBitLogoutHandler(st))
@@ -141,14 +142,14 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		qbit.Any("/transfer/speedLimitsMode", qBitTransferSpeedLimitsModeHandler)
 		qbit.POST("/transfer/toggleSpeedLimitsMode", qBitTorrentsMockHandler)
 		qbit.Any("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
-		qbit.Any("/torrents/categories", qBitTorrentsCategoriesHandler(cs, ch, ss, fusePath))
+		qbit.Any("/torrents/categories", qBitTorrentsCategoriesHandler(cs, conf.Routes, ss, fusePath))
 		qbit.POST("/torrents/createCategory", qBitTorrentsCreateCategoryHandler(cs))
 		qbit.POST("/torrents/removeCategories", qBitTorrentsRemoveCategoriesHandler(cs))
 		qbit.POST("/torrents/setCategory", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/addTags", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/pause", qBitTorrentsMockHandler)
 		qbit.POST("/torrents/resume", qBitTorrentsMockHandler)
-		qbit.Any("/sync/maindata", qBitSyncMaindataHandler(ss, cs, ch, fusePath))
+		qbit.Any("/sync/maindata", qBitSyncMaindataHandler(ss, cs, conf.Routes, fusePath))
 		qbit.POST("/torrents/add", qBitTorrentsAddHandler(s))
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}

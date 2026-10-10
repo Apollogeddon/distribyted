@@ -47,9 +47,9 @@ func setupStatsWithTorrents(n int) *Stats {
 // runs for every torrent, as torrent count grows. This backs /api/routes,
 // polled every 2s by the dashboard (routes.js) for as long as the tab stays
 // open, so its cost scales with how many torrents exist, not with anything
-// the user is actively doing. gTime is backdated before every iteration so
-// each one takes the real computation path rather than Stats' own 2s
-// previous-measurement cache (which would otherwise make every iteration
+// the user is actively doing. The samples are backdated before every iteration
+// so each one takes the real computation path rather than Stats' own 2s
+// sample cache (which would otherwise make every iteration
 // after the first artificially free in a tight benchmark loop).
 func BenchmarkStats_RoutesStats(b *testing.B) {
 	for _, n := range []int{1, 10, 100, 1000} {
@@ -58,7 +58,7 @@ func BenchmarkStats_RoutesStats(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				s.gTime = time.Now().Add(-5 * time.Second)
+				backdateSamples(s, 5*time.Second)
 				_ = s.RoutesStats()
 			}
 		})
@@ -74,7 +74,7 @@ func BenchmarkStats_GlobalStats(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				s.gTime = time.Now().Add(-5 * time.Second)
+				backdateSamples(s, 5*time.Second)
 				_ = s.GlobalStats()
 			}
 		})
