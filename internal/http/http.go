@@ -9,7 +9,6 @@ import (
 	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-	"github.com/shurcooL/httpfs/html/vfstemplate"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
@@ -46,12 +45,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		c.FileFromFS(c.Request.URL.Path, http.FS(web.Assets))
 	})
 
-	t, err := vfstemplate.ParseGlob(http.FS(web.Templates), nil, "/templates/*")
-	if err != nil {
-		return nil, fmt.Errorf("error parsing html: %w", err)
-	}
-
-	r.SetHTMLTemplate(t)
+	history := &speedHistory{}
 
 	ac := newAuthConfig(conf.HTTPGlobal)
 	st := newSessionStore(sessionTTL)
@@ -93,12 +87,28 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	pages := r.Group("", browserAuth)
 	{
-		pages.Any("/", indexHandler)
-		pages.GET("/routes", routesHandler(ss))
-		pages.GET("/logs", logsHandler)
-		pages.GET("/servers", serversFoldersHandler())
-		pages.GET("/links", linksPageHandler)
-		pages.GET("/files", filesPageHandler(conf))
+		pages.Any("/", dashboardHandler(fc, ss, history))
+		pages.GET("/dashboard/stats", dashboardStatsHandler(fc, ss, history))
+		pages.GET("/routes", routesHandler(conf, ss))
+		pages.GET("/routes/table", routesTableHandler(conf, ss))
+		pages.POST("/routes/torrents", routesAddHandler(conf, ss, s))
+		pages.DELETE("/routes/:route/torrents/:hash", routesDeleteHandler(s))
+		pages.GET("/logs", logsHandler(logPath))
+		pages.GET("/logs/list", logsListHandler(logPath))
+		pages.GET("/servers", serversHandler(tss))
+		pages.GET("/servers/list", serversListHandler(tss))
+		pages.GET("/links", linksPageHandler(s, ss))
+		pages.GET("/links/list", linksListHandler(s, ss))
+		pages.GET("/links/form", linksFormHandler)
+		pages.POST("/links", linksAddHandler(lfs))
+		pages.DELETE("/links/entry", linksDeleteHandler(lfs, s))
+		pages.GET("/files", filesPageHandler(lfs, conf))
+		pages.GET("/files/list", filesListHandler(lfs, conf))
+		pages.GET("/files/folder", filesFolderFormHandler)
+		pages.POST("/files/folder", filesFolderHandler(lfs))
+		pages.GET("/files/rename", filesRenameFormHandler)
+		pages.POST("/files/rename", filesRenameHandler(lfs))
+		pages.DELETE("/files/entry", filesDeleteHandler(lfs))
 		pages.GET("/version/api", qBitWebapiVersionHandler)
 	}
 

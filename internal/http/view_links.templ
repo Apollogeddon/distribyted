@@ -1,0 +1,91 @@
+package http
+
+templ linksView(p linksPage) {
+	@page("Links", "links") {
+		@pageHeader("Links", "A link shows a file at a second path, such as a film filed the way your library names it.") {
+			<button type="button" class="btn btn-primary" data-open-dialog="add-link">
+				@icon("plus")
+				Add link
+			</button>
+		}
+		@linksList(p)
+		<dialog id="add-link" aria-labelledby="add-link-title">
+			@dialogHead("add-link-title", "Add a link")
+			@linkFormView(p.Form)
+		</dialog>
+	}
+}
+
+templ linksList(p linksPage) {
+	<section id="links" class="stack" aria-label="Links" hx-get="/links/list" hx-trigger="every 5s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], links-changed from:body" hx-swap="morph:outerHTML" hx-ext="morph">
+		if p.Error != "" {
+			<div class="alert alert-danger" role="alert">
+				@icon("triangle-alert")
+				<span>Couldn't list the links: { p.Error }</span>
+			</div>
+		}
+		if len(p.Links) > 0 {
+			<div class="card">
+				<ul class="list">
+					for _, l := range p.Links {
+						<li class="link" id={ l.ID }>
+							<div>
+								<p class="link-target">
+									@icon("link")
+									{ l.NewPath }
+								</p>
+								<p class="link-source">
+									if l.IsDir {
+										A folder made here
+									} else {
+										<span>shows <a href={ templ.SafeURL(l.SourceHref) }>{ l.OldPath }</a></span>
+									}
+									if l.Route != "" {
+										<span class="badge badge-accent" title="Route">{ l.Route }</span>
+									}
+								</p>
+							</div>
+							<button type="button" class="btn-icon danger" hx-delete={ l.DeleteURL } hx-swap="none" hx-confirm={ l.DeleteQuestion } data-confirm-title="Delete link" data-confirm-label="Delete" title="Delete">
+								<span class="sr-only">Delete { l.NewPath }</span>
+								@icon("trash-2")
+							</button>
+						</li>
+					}
+				</ul>
+			</div>
+		} else if p.Error == "" {
+			@emptyState("link") {
+				No links yet. Use <strong>Add link</strong>, or the link button next to a file on the <a href="/files">Files</a> page.
+			}
+		}
+	</section>
+}
+
+templ linkFormView(f linkForm) {
+	<form hx-post="/links" hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]" novalidate>
+		if f.InDialog {
+			@dialogHead("file-dialog-title", "Link this file")
+			<input type="hidden" name="in_dialog" value="true"/>
+		}
+		<div class="field">
+			<label for="link-source">File</label>
+			<input type="text" id="link-source" name="source" value={ f.Source } class="input mono" placeholder="/movies/Some Film/film.mkv" autocomplete="off" spellcheck="false" required autofocus?={ !f.InDialog }/>
+		</div>
+		<div class="field">
+			<label for="link-target">Also show it at</label>
+			<input type="text" id="link-target" name="target" value={ f.Target } class="input mono" placeholder="/library/Some Film (2024)/film.mkv" autocomplete="off" spellcheck="false" required autofocus?={ f.InDialog }
+				if f.Error != "" {
+					aria-invalid="true"
+					aria-describedby="link-target-hint link-error"
+				} else {
+					aria-describedby="link-target-hint"
+				}/>
+			<p class="hint" id="link-target-hint">A path from the top of the mount. Folders on the way are made for you.</p>
+			@fieldError("link-error", f.Error)
+		</div>
+		<div class="actions">
+			<button type="button" class="btn btn-secondary" data-close-dialog>Cancel</button>
+			<button type="submit" class="btn btn-primary"><span class="spinner" aria-hidden="true"></span> Link</button>
+		</div>
+	</form>
+}

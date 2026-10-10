@@ -252,6 +252,18 @@ func browserAuthMiddleware(ac authConfig, st *sessionStore) gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		// htmx follows a redirect and would swap the login page into the part of the page
+		// it was refreshing, so it is told to load the login page instead, returning to the
+		// page it was on
+		if c.GetHeader("HX-Request") == "true" {
+			next := "/"
+			if u, err := url.Parse(c.GetHeader("HX-Current-URL")); err == nil {
+				next = safeNext(u.RequestURI())
+			}
+			c.Header("HX-Redirect", "/login?next="+url.QueryEscape(next))
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 		next := url.QueryEscape(c.Request.URL.RequestURI())
 		c.Redirect(http.StatusFound, "/login?next="+next)
 		c.Abort()
@@ -259,11 +271,7 @@ func browserAuthMiddleware(ac authConfig, st *sessionStore) gin.HandlerFunc {
 }
 
 func loginPageHandler(c *gin.Context) {
-	c.HTML(http.StatusOK, "login.html", gin.H{
-		"Next":    safeNext(c.Query("next")),
-		"Error":   c.Query("error") == "1",
-		"TooMany": c.Query("error") == "2",
-	})
+	render(c, http.StatusOK, loginPage(safeNext(c.Query("next")), c.Query("error") == "1", c.Query("error") == "2"))
 }
 
 func loginSubmitHandler(ac authConfig, st *sessionStore, ll *loginLimiter) gin.HandlerFunc {
