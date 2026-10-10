@@ -44,9 +44,9 @@ updates:
       - dependency-name: "github.com/anacrolix/missinggo/v2"
         versions: [">2.10.0"]
 
-  # 3. Docker (Root)
+  # 3. Docker (the image)
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/build"
     schedule:
       interval: "weekly"
     labels:
@@ -59,7 +59,7 @@ updates:
 
   # 4. Docker (Tools)
   - package-ecosystem: "docker"
-    directory: "/tools"
+    directory: "/build/tools"
     schedule:
       interval: "weekly"
     labels:

@@ -3,10 +3,13 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main ]
-    tags: [ '*' ]
   pull_request:
   schedule:
     - cron: '26 14 * * 1' # Weekly scan
+
+# read-only unless a job asks for more; the build runs the pull request's own code
+permissions:
+  contents: read
 
 jobs:
   # forgego's checks: Gitleaks, OSV-Scanner, govulncheck, forgego sync-check, go mod tidy,
@@ -16,6 +19,9 @@ jobs:
     uses: apollogeddon/forgego/.github/workflows/quality.yml@main
     with:
       system_packages: fuse libfuse-dev pkg-config
+    permissions:
+      contents: read
+      pull-requests: read # Gitleaks lists a pull request's commits
 
   codeql:
     name: CodeQL
@@ -33,6 +39,9 @@ jobs:
   release:
     name: Release
     needs: [build, codeql]
+    # release-please opens release pull requests and publishes releases from main only; on
+    # pull requests and the weekly scan it has nothing to do
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/release-please.yaml
     permissions:
       contents: write
