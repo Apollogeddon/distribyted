@@ -70,6 +70,23 @@ updates:
       prefix: "docs(deps)"
 
   # 3. Docker (the image)
+  # forgego's pin: proposed daily and without the cooldown, as we publish it. Only forgego
+  # itself, which a tool line makes an indirect require; it brings its own dependencies.
+  - package-ecosystem: "gomod"
+    directories:
+      - "/.forgego/forgego"
+      - "/docs/.forgego/forgego"
+    schedule:
+      interval: "daily"
+    groups:
+      forgego:
+        patterns: ["*"]
+    allow:
+      - dependency-name: "github.com/apollogeddon/forgego"
+        dependency-type: "all"
+    commit-message:
+      prefix: "chore(deps)"
+
   - package-ecosystem: "docker"
     directory: "/build"
     schedule:
