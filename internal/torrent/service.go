@@ -243,17 +243,26 @@ func (s *Service) SetAddTimeout(t int) {
 func (s *Service) Load() (map[string]fs.Filesystem, error) {
 	// Load from config
 	s.log.Info().Msg("adding torrents from configuration")
+	// every torrent loaded, by hash, to forget what's saved for any other
+	loaded := make(map[string]bool)
+	allKnown := true
 	for _, loader := range s.loaders {
-		if err := s.load(loader); err != nil {
+		known, err := s.load(loader, loaded)
+		if err != nil {
 			return nil, err
 		}
+		allKnown = allKnown && known
 	}
 
 	// Load from DB
 	s.log.Info().Msg("adding torrents from database")
-	if err := s.load(s.db); err != nil {
+	known, err := s.load(s.db, loaded)
+	if err != nil {
 		s.log.Error().Err(err).Msg("error loading from database")
 		return nil, err
+	}
+	if allKnown && known {
+		s.forgetUnloaded(loaded)
 	}
 
 	links, err := s.db.ListLinks()
@@ -289,16 +298,25 @@ func (s *Service) Load() (map[string]fs.Filesystem, error) {
 	return snapshot, nil
 }
 
-func (s *Service) load(l loader.Loader) error {
+// load adds every torrent l lists, in the background, recording each one's hash in
+// loaded. It reports whether it could read every hash, which a .torrent file that can't
+// be read prevents.
+func (s *Service) load(l loader.Loader, loaded map[string]bool) (bool, error) {
+	known := true
 	list, err := l.ListMagnets()
 	if err != nil {
-		return err
+		return false, err
 	}
 	s.log.Debug().Int("routes", len(list)).Msg("found magnets in loader")
 	for r, ms := range list {
 		s.log.Debug().Str("route", r).Int("magnets", len(ms)).Msg("loading magnets for route")
 		s.addRoute(r)
 		for _, m := range ms {
+			if spec, err := metainfo.ParseMagnetUri(m); err == nil {
+				loaded[spec.InfoHash.HexString()] = true
+			} else {
+				known = false
+			}
 			// Run in background to avoid blocking Load()
 			s.loadWg.Add(1)
 			go func(r, m string) {
@@ -312,11 +330,16 @@ func (s *Service) load(l loader.Loader) error {
 
 	list, err = l.ListTorrentPaths()
 	if err != nil {
-		return err
+		return false, err
 	}
 	for r, ms := range list {
 		s.addRoute(r)
 		for _, p := range ms {
+			if mi, err := metainfo.LoadFromFile(p); err == nil {
+				loaded[mi.HashInfoBytes().HexString()] = true
+			} else {
+				known = false
+			}
 			s.loadWg.Add(1)
 			go func(r, p string) {
 				defer s.loadWg.Done()
@@ -327,7 +350,7 @@ func (s *Service) load(l loader.Loader) error {
 		}
 	}
 
-	return nil
+	return known, nil
 }
 
 func (s *Service) AddMagnet(r, m string) error {
@@ -469,6 +492,26 @@ func (s *Service) addMagnetToClient(m string) (fs.Torrent, error) {
 		s.log.Warn().Err(err).Str(dlog.KeyHash, hash).Msg("forgetting the saved torrent info")
 	}
 	return s.c.AddMagnet(m)
+}
+
+// forgetUnloaded forgets the info saved for torrents not among loaded: those since taken
+// out of the configuration file or a watched folder, which nothing removes from the
+// database, or saved as they were being removed.
+func (s *Service) forgetUnloaded(loaded map[string]bool) {
+	saved, err := s.db.SavedHashes()
+	if err != nil {
+		s.log.Warn().Err(err).Msg("listing saved torrent info")
+		return
+	}
+	for _, h := range saved {
+		if loaded[h] {
+			continue
+		}
+		s.log.Info().Str(dlog.KeyHash, h).Msg("forgetting the saved info of a torrent no longer loaded")
+		if err := s.db.ForgetInfo(h); err != nil {
+			s.log.Warn().Err(err).Str(dlog.KeyHash, h).Msg("forgetting the saved torrent info")
+		}
+	}
 }
 
 // saveInfoWhenGot saves t's info dictionary once it arrives, for a torrent whose add went

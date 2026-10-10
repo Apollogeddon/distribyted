@@ -21,4 +21,7 @@ type LoaderAdder interface {
 	SaveInfo(hash string, info []byte) error
 	LoadInfo(hash string) ([]byte, bool)
 	ForgetInfo(hash string) error
+	// SavedHashes lists the torrents something is saved for, so that what's kept for a
+	// torrent no longer loaded from anywhere can be forgotten.
+	SavedHashes() ([]string, error)
 }

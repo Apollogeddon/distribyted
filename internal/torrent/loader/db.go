@@ -254,6 +254,22 @@ func (l *DB) ForgetInfo(hash string) error {
 	return l.db.Sync()
 }
 
+func (l *DB) SavedHashes() ([]string, error) {
+	var hashes []string
+	err := l.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		prefix := []byte(infoRootKey + "/")
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			hashes = append(hashes, string(it.Item().Key()[len(prefix):]))
+		}
+		return nil
+	})
+	return hashes, err
+}
+
 func (l *DB) Close() error {
 	l.closeOnce.Do(func() {
 		if l.close != nil {
