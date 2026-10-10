@@ -93,7 +93,8 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	pages := r.Group("", browserAuth)
 	{
-		pages.Any("/", indexHandler)
+		pages.Any("/", dashboardHandler(fc, ss))
+		pages.GET("/dashboard/stats", dashboardStatsHandler(fc, ss))
 		pages.GET("/routes", routesHandler(conf, ss))
 		pages.GET("/routes/table", routesTableHandler(conf, ss))
 		pages.POST("/routes/torrents", routesAddHandler(conf, ss, s))

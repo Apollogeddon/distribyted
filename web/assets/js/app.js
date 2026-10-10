@@ -29,10 +29,80 @@
         });
     };
 
+    // toasts: a message in the corner, read out by screen readers, gone after a few seconds
     function toast(level, message) {
-        if (!D.message) return;
-        (D.message[level] || D.message.info).call(D.message, message);
+        var region = document.getElementById("toasts");
+        if (!region) return;
+        var t = document.createElement("div");
+        t.className = "toast-msg toast-" + (level || "info");
+        if (level === "error") t.setAttribute("role", "alert");
+        var icon = document.createElement("i");
+        icon.className = "mdi " + (level === "error" ? "mdi-alert-circle-outline" : "mdi-check-circle-outline");
+        icon.setAttribute("aria-hidden", "true");
+        var text = document.createElement("span");
+        text.textContent = message;
+        var close = document.createElement("button");
+        close.type = "button";
+        close.className = "btn-icon";
+        close.setAttribute("aria-label", "Dismiss");
+        close.innerHTML = '<i class="mdi mdi-close" aria-hidden="true"></i>';
+        close.addEventListener("click", function () { t.remove(); });
+        t.append(icon, text, close);
+        region.appendChild(t);
+        setTimeout(function () { t.remove(); }, level === "error" ? 8000 : 4000);
     }
+    D.toast = toast;
+
+    // the sidebar: a drawer on phones, which the toggler opens and the close button, the
+    // overlay or Escape closes; on wider screens the toggler narrows it to icons
+    var body = document.body;
+    var toggler = document.getElementById("sidebar-toggler");
+    var phone = window.matchMedia("(max-width: 767.98px)");
+    var overlay = null;
+    function drawer(open) {
+        body.classList.toggle("sidebar-mobile-in", open);
+        body.classList.toggle("sidebar-mobile-out", !open);
+        if (toggler) toggler.setAttribute("aria-expanded", String(open));
+        if (open && !overlay) {
+            overlay = document.createElement("div");
+            overlay.className = "mobile-sticky-body-overlay";
+            overlay.addEventListener("click", function () { drawer(false); });
+            body.prepend(overlay);
+        } else if (!open && overlay) {
+            overlay.remove();
+            overlay = null;
+        }
+        body.style.overflow = open ? "hidden" : "";
+        if (open) {
+            var first = document.querySelector("#sidebar a, #sidebar button");
+            if (first) first.focus();
+        } else if (toggler && document.activeElement && document.activeElement.closest("#sidebar")) {
+            toggler.focus();
+        }
+    }
+    if (toggler) {
+        toggler.addEventListener("click", function (e) {
+            e.preventDefault();
+            if (phone.matches) {
+                drawer(!body.classList.contains("sidebar-mobile-in"));
+                return;
+            }
+            var narrow = !body.classList.contains("sidebar-minified");
+            body.classList.toggle("sidebar-minified", narrow);
+            body.classList.toggle("sidebar-minified-out", !narrow);
+            toggler.setAttribute("aria-expanded", String(!narrow));
+        });
+        if (!phone.matches) toggler.setAttribute("aria-expanded", "true");
+    }
+    document.addEventListener("click", function (e) {
+        if (e.target.closest("[data-close-sidebar]")) drawer(false);
+    });
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && body.classList.contains("sidebar-mobile-in")) drawer(false);
+    });
+    phone.addEventListener("change", function () {
+        if (!phone.matches) drawer(false);
+    });
 
     var offline = {
         show: function () {

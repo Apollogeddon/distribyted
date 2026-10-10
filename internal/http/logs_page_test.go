@@ -79,3 +79,21 @@ func TestServersPage(t *testing.T) {
 	require.Contains(t, w.Body.String(), "No folders are shared")
 	require.NotContains(t, w.Body.String(), "<input type=\"folder\"", "the folder isn't an input with nothing to save it")
 }
+
+func TestDashboard(t *testing.T) {
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", routesConf(), "", nil)
+	require.NoError(t, err)
+
+	w := get(r, "/")
+	require.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	require.Contains(t, body, `data-down="0" data-up="0"`)
+	require.Contains(t, body, "Not in use", "no cache configured")
+	for _, gone := range []string{"jquery", "handlebars", "toastr", "bootstrap.bundle", "common.js"} {
+		require.NotContains(t, body, gone)
+	}
+
+	w = get(r, "/dashboard/stats")
+	require.Equal(t, http.StatusOK, w.Code)
+	require.True(t, strings.HasPrefix(strings.TrimSpace(w.Body.String()), `<section id="stats"`))
+}
