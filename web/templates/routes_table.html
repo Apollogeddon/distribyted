@@ -1,0 +1,59 @@
+{{define "routes-table"}}
+<section id="routes" class="routes" aria-label="Routes"
+    hx-get="/routes/table"
+    hx-trigger="every 2s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], routes-changed from:body"
+    hx-swap="morph:outerHTML" hx-ext="morph">
+    {{range .Routes}}
+    <article class="card route-card">
+        <header class="route-card-header">
+            <h2><i class="mdi mdi-folder-outline" aria-hidden="true"></i> {{.Name}}</h2>
+            <span class="route-count">{{len .Torrents}} torrent{{if ne (len .Torrents) 1}}s{{end}}</span>
+        </header>
+        {{if .Torrents}}
+        <ul class="torrent-list">
+            {{range .Torrents}}
+            <li class="torrent" id="{{.ID}}">
+                <div class="torrent-main">
+                    <p class="torrent-name">{{.Name}}</p>
+                    {{if .Pieces}}
+                    <div class="piece-bar" role="img" aria-label="{{.Progress}}">
+                        {{- range .Pieces}}<span class="{{.Class}}" style="width: {{.Width}}" title="{{.Label}}"></span>{{end -}}
+                    </div>
+                    <p class="torrent-meta">{{.Progress}} · {{.PieceSize}} pieces</p>
+                    {{else}}
+                    <div class="piece-bar piece-bar-pending" aria-hidden="true"></div>
+                    {{end}}
+                    <p class="torrent-health health-{{.Health.Level}}">
+                        {{- if eq .Health.Level "ok"}}<i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
+                        {{- else if eq .Health.Level "wait"}}<i class="mdi mdi-progress-clock" aria-hidden="true"></i>
+                        {{- else}}<i class="mdi mdi-alert-outline" aria-hidden="true"></i>{{end}}
+                        <strong>{{.Health.Label}}</strong>{{with .Health.Reason}} <span>{{.}}</span>{{end}}
+                    </p>
+                </div>
+                <dl class="torrent-stats">
+                    <div><dt><i class="mdi mdi-arrow-down" aria-hidden="true"></i> Down</dt><dd>{{.Down}}</dd></div>
+                    <div><dt><i class="mdi mdi-arrow-up" aria-hidden="true"></i> Up</dt><dd>{{.Up}}</dd></div>
+                    <div><dt><i class="mdi mdi-account-multiple-outline" aria-hidden="true"></i> Peers</dt><dd>{{.Peers}} <span class="text-muted">({{.Seeders}} seeding)</span></dd></div>
+                </dl>
+                <button type="button" class="btn-icon btn-icon-danger"
+                    hx-delete="{{.DeleteURL}}" hx-swap="none"
+                    data-confirm-title="Delete torrent" data-confirm-label="Delete"
+                    hx-confirm="Delete “{{.Name}}” from {{.Route}}? Its files disappear from every mount, and links to them stop working."
+                    aria-label="Delete {{.Name}}" title="Delete">
+                    <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+                </button>
+            </li>
+            {{end}}
+        </ul>
+        {{else}}
+        <p class="route-empty">No torrents yet. Use <strong>Add magnet</strong> to add one.</p>
+        {{end}}
+    </article>
+    {{else}}
+    <div class="card empty-state">
+        <i class="mdi mdi-folder-multiple-outline" aria-hidden="true"></i>
+        <p>No routes yet. Add one to the <code>routes</code> section of the configuration file.</p>
+    </div>
+    {{end}}
+</section>
+{{end}}

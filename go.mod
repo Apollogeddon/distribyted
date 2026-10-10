@@ -39,6 +39,7 @@ require (
 require (
 	github.com/anacrolix/generics v0.2.0
 	github.com/dgraph-io/badger/v4 v4.9.6
+	github.com/dustin/go-humanize v1.0.1
 	github.com/winfsp/cgofuse v1.6.0
 )
 
@@ -70,7 +71,6 @@ require (
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/edsrzf/mmap-go v1.2.0 // indirect
 	github.com/felixge/fgprof v0.9.5 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
