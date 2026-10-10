@@ -38,14 +38,16 @@ h1, h2, h3, h4, h5, h6, .brand-name {
   border-bottom: 1px solid var(--glass-border);
 }
 
-.sidebar .nav.sidebar-inner > li > a {
+.sidebar .nav.sidebar-inner > li > a,
+.sidebar .nav.sidebar-inner > li > form > .sidenav-button {
   color: var(--text-muted) !important;
   transition: var(--transition);
   border-radius: 8px;
   margin: 4px 12px;
 }
 
-.sidebar .nav.sidebar-inner > li > a:hover {
+.sidebar .nav.sidebar-inner > li > a:hover,
+.sidebar .nav.sidebar-inner > li > form > .sidenav-button:hover {
   background: var(--glass-bg);
   color: #fff !important;
   transform: translateX(5px);
@@ -225,6 +227,9 @@ th, td {
   #log-filters .btn { padding-left: 0.5rem; padding-right: 0.5rem; }
 }
 .table-responsive {
+  /* the Sleek template sets display: table, which cancels overflow-x and lets the
+     cards clip the actions column off the right edge on phones */
+  display: block !important;
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -319,4 +324,29 @@ tbody.filter-debug tr:not([data-level="debug"]) {
 }
 tr[data-level="info"] > td {
   color: #bae6fd !important; /* Soft, readable sky blue for info entries */
+}
+
+/* the logout form's button looks like the other sidebar links, which the Sleek template
+   styles as .sidebar .sidebar-inner > li > a */
+.sidebar .sidebar-inner > li > form > .sidenav-button {
+  display: block;
+  width: calc(100% - 24px);
+  padding: 1.25rem 1.56rem;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sidebar .sidebar-inner > li > form > .sidenav-button i {
+  float: left;
+  width: 20px;
+  margin-right: 0.94rem;
+  font-size: 1.5rem;
+  line-height: 20px;
+  text-align: center;
 }

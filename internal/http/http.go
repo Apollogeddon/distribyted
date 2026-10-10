@@ -40,6 +40,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 	r.Use(gin.Recovery())
 	r.Use(gin.ErrorLogger())
 	r.Use(Logger())
+	r.Use(crossOriginProtection())
 
 	r.GET("/assets/*filepath", func(c *gin.Context) {
 		c.FileFromFS(c.Request.URL.Path, http.FS(web.Assets))
@@ -59,7 +60,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	r.GET("/login", loginPageHandler)
 	r.POST("/login", loginSubmitHandler(ac, st))
-	r.Any("/logout", logoutHandler(st))
+	r.POST("/logout", logoutHandler(st))
 
 	if conf.HTTPGlobal.HTTPFS {
 		log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d/fs", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting HTTPFS")
@@ -125,7 +126,9 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 	qbitPublic := r.Group("/api/v2")
 	{
 		qbitPublic.Any("/auth/login", qBitLoginHandler(ac, st))
-		qbitPublic.Any("/auth/logout", qBitLogoutHandler(st))
+		// endpoints that change state accept POST only, as in qBittorrent itself, so the
+		// cross-origin check below covers them
+		qbitPublic.POST("/auth/logout", qBitLogoutHandler(st))
 	}
 
 	qbit := r.Group("/api/v2", qbitAuth)
@@ -133,20 +136,20 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		qbit.Any("/app/webapiVersion", qBitWebapiVersionHandler)
 		qbit.Any("/app/version", qBitAppVersionHandler)
 		qbit.Any("/app/preferences", qBitAppPreferencesHandler(conf, fusePath))
-		qbit.Any("/app/setPreferences", qBitAppSetPreferencesHandler)
+		qbit.POST("/app/setPreferences", qBitAppSetPreferencesHandler)
 		qbit.Any("/transfer/info", qBitTransferInfoHandler(ss))
 		qbit.Any("/transfer/speedLimitsMode", qBitTransferSpeedLimitsModeHandler)
-		qbit.Any("/transfer/toggleSpeedLimitsMode", qBitTorrentsMockHandler)
+		qbit.POST("/transfer/toggleSpeedLimitsMode", qBitTorrentsMockHandler)
 		qbit.Any("/torrents/info", qBitTorrentsInfoHandler(ss, fusePath))
 		qbit.Any("/torrents/categories", qBitTorrentsCategoriesHandler(cs, ch, ss, fusePath))
-		qbit.Any("/torrents/createCategory", qBitTorrentsCreateCategoryHandler(cs))
-		qbit.Any("/torrents/removeCategories", qBitTorrentsRemoveCategoriesHandler(cs))
-		qbit.Any("/torrents/setCategory", qBitTorrentsMockHandler)
-		qbit.Any("/torrents/addTags", qBitTorrentsMockHandler)
-		qbit.Any("/torrents/pause", qBitTorrentsMockHandler)
-		qbit.Any("/torrents/resume", qBitTorrentsMockHandler)
+		qbit.POST("/torrents/createCategory", qBitTorrentsCreateCategoryHandler(cs))
+		qbit.POST("/torrents/removeCategories", qBitTorrentsRemoveCategoriesHandler(cs))
+		qbit.POST("/torrents/setCategory", qBitTorrentsMockHandler)
+		qbit.POST("/torrents/addTags", qBitTorrentsMockHandler)
+		qbit.POST("/torrents/pause", qBitTorrentsMockHandler)
+		qbit.POST("/torrents/resume", qBitTorrentsMockHandler)
 		qbit.Any("/sync/maindata", qBitSyncMaindataHandler(ss, cs, ch, fusePath))
-		qbit.Any("/torrents/add", qBitTorrentsAddHandler(s))
+		qbit.POST("/torrents/add", qBitTorrentsAddHandler(s))
 		qbit.POST("/torrents/delete", qBitTorrentsDeleteHandler(s))
 	}
 
@@ -176,5 +179,20 @@ func Logger() gin.HandlerFunc {
 		default:
 			l.Debug().Str(dlog.KeyPath, path).Int("status", s).Msg(msg)
 		}
+	}
+}
+
+// crossOriginProtection rejects state-changing requests a browser sends from another
+// origin, using Sec-Fetch-Site or Origin. Other sites on the same host count as other
+// origins, which SameSite=Lax cookies alone don't stop. Clients that send neither header,
+// such as Sonarr, Radarr and curl, are not browsers and pass.
+func crossOriginProtection() gin.HandlerFunc {
+	cop := http.NewCrossOriginProtection()
+	return func(c *gin.Context) {
+		if err := cop.Check(c.Request); err != nil {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "cross-origin request rejected"})
+			return
+		}
+		c.Next()
 	}
 }

@@ -204,6 +204,8 @@ Distribyted.message = {
 
     _toastr: function () {
         toastr.options = {
+            // messages include server errors that echo paths and torrent names
+            escapeHtml: true,
             closeButton: true,
             debug: false,
             newestOnTop: false,
@@ -365,4 +367,29 @@ $(document).ready(function () {
             window.isMinified = true;
         }
     }
+});
+// Buttons and links rendered from templates name an action and carry their
+// arguments in data-* attributes. Template values are never interpolated into
+// inline JavaScript, where HTML escaping gives no protection.
+Distribyted.actions = {
+    "files.open": function (d) { Distribyted.files.open(d.path); },
+    "files.rename": function (d) { Distribyted.files.promptRename(d.path); },
+    "files.delete": function (d) { Distribyted.files.confirmDelete(d.path, d.isDir === "true"); },
+    "routes.delete": function (d) { Distribyted.routes.confirmDelete(d.route, d.hash, d.name); },
+    "links.delete": function (d) { Distribyted.links.confirmDelete(d.path); },
+    "clipboard.copy": function (d, el) {
+        navigator.clipboard.writeText(d.text).then(function () {
+            el.textContent = "Copied!";
+            setTimeout(function () { el.textContent = "Copy"; }, 1500);
+        });
+    }
+};
+
+document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el) return;
+    var action = Distribyted.actions[el.dataset.action];
+    if (!action) return;
+    e.preventDefault();
+    action(el.dataset, el);
 });

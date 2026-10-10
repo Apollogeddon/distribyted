@@ -648,6 +648,7 @@ func TestApiFsDeleteHandler(t *testing.T) {
 			assert.Equal(t, "/library/movie.mkv", path)
 			return nil
 		},
+		isOwnedFunc: func(string) bool { return true },
 	}
 	conf := &config.Root{
 		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
@@ -663,13 +664,14 @@ func TestApiFsDeleteHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestApiFsDeleteHandler_RouteContentNotFound(t *testing.T) {
-	// Route-mounted content isn't in ContainerFs's own storage, so Remove
-	// returns os.ErrNotExist for it — the file browser must surface that as
-	// a 404, not a 500, since it's an expected outcome for non-owned entries.
+func TestApiFsDeleteHandler_RouteContentForbidden(t *testing.T) {
+	// A route and the torrents inside it belong to the route, not to the user's own
+	// folders and links, so the API must refuse to delete them, as it refuses to rename
+	// them. The UI hides the button, but the API is reachable directly.
 	mockLfs := &mockLinkFs{
 		removeFunc: func(path string) error {
-			return os.ErrNotExist
+			t.Errorf("Remove(%q) called for route content", path)
+			return nil
 		},
 	}
 	conf := &config.Root{
@@ -679,8 +681,29 @@ func TestApiFsDeleteHandler_RouteContentNotFound(t *testing.T) {
 	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
 	assert.NoError(t, err)
 
+	for _, p := range []string{"/multimedia", "/multimedia/Some.Torrent/movie.mkv"} {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodDelete, "/api/fs"+p, nil)
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code, p)
+	}
+}
+
+func TestApiFsDeleteHandler_NotFound(t *testing.T) {
+	mockLfs := &mockLinkFs{
+		removeFunc:  func(string) error { return os.ErrNotExist },
+		isOwnedFunc: func(string) bool { return true },
+	}
+	conf := &config.Root{
+		HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true},
+	}
+
+	r, err := NewHandler(nil, nil, nil, nil, nil, nil, "", conf, "", mockLfs)
+	assert.NoError(t, err)
+
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodDelete, "/api/fs/downloads/movie.mkv", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/api/fs/library/gone.mkv", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
