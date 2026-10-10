@@ -49,7 +49,7 @@ func TestFilesPage(t *testing.T) {
 	body := w.Body.String()
 	require.Contains(t, body, `<span aria-current="page">Films &amp; Series</span>`)
 	require.Contains(t, body, `href="/fs/library/Films%20&amp;%20Series/film.mkv"`, "download link")
-	require.Contains(t, body, `hx-get="/files/folder?path=%2Flibrary%2FFilms&#43;%26&#43;Series"`, "the folder path is escaped in the URL")
+	require.Contains(t, body, `hx-get="/files/folder?path=%2Flibrary%2FFilms+%26+Series"`, "the folder path is escaped in the URL")
 
 	w = get(r, "/files?path=/gone")
 	require.Equal(t, http.StatusNotFound, w.Code)
@@ -131,7 +131,7 @@ func TestLinksPage(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	body := w.Body.String()
 	require.Contains(t, body, "/films/film.mkv")
-	require.Contains(t, body, `href="/files?path=%2Flibrary%2FFilms&#43;%26&#43;Series"`, "the source links to its folder")
+	require.Contains(t, body, `href="/files?path=%2Flibrary%2FFilms+%26+Series"`, "the source links to its folder")
 
 	for name, form := range map[string]url.Values{
 		"relative":     {"source": {"library/x"}, "target": {"/y"}},
@@ -141,7 +141,7 @@ func TestLinksPage(t *testing.T) {
 		w = httptest.NewRecorder()
 		r.ServeHTTP(w, postForm("/links", form))
 		require.Equal(t, http.StatusUnprocessableEntity, w.Code, name)
-		require.Contains(t, w.Body.String(), "field-error", name)
+		require.Contains(t, w.Body.String(), `class="error" id="link-error" role="alert"`, name)
 	}
 
 	w = httptest.NewRecorder()

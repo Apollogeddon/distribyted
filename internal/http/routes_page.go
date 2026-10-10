@@ -199,14 +199,14 @@ func plural(n int) string {
 
 var routesHandler = func(conf *config.Root, ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "routes.html", newRoutesPage(conf, ss))
+		render(c, http.StatusOK, routesView(newRoutesPage(conf, ss)))
 	}
 }
 
 // routesTableHandler renders just the routes, which the page polls.
 var routesTableHandler = func(conf *config.Root, ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "routes-table", newRoutesPage(conf, ss))
+		render(c, http.StatusOK, routesTable(newRoutesPage(conf, ss)))
 	}
 }
 
@@ -229,7 +229,7 @@ var routesAddHandler = func(conf *config.Root, ss *torrent.Stats, s torrentServi
 		}
 		fail := func(msg string) {
 			form.Error = msg
-			c.HTML(http.StatusUnprocessableEntity, "add-magnet-form", form)
+			render(c, http.StatusUnprocessableEntity, magnetFormView(form))
 		}
 
 		switch {
@@ -250,7 +250,7 @@ var routesAddHandler = func(conf *config.Root, ss *torrent.Stats, s torrentServi
 			"close-dialog":   "add-magnet",
 			"toast":          toast{Level: "success", Message: "Magnet added to " + form.Route + "."},
 		})
-		c.HTML(http.StatusOK, "add-magnet-form", addMagnetForm{Names: form.Names, Route: form.Route})
+		render(c, http.StatusOK, magnetFormView(addMagnetForm{Names: form.Names, Route: form.Route}))
 	}
 }
 
@@ -302,4 +302,9 @@ func jsonString(v any) (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+// countOf is "1 torrent", "3 torrents".
+func countOf(n int, word string) string {
+	return fmt.Sprintf("%d %s%s", n, word, plural(n))
 }

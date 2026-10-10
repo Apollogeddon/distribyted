@@ -271,11 +271,7 @@ func browserAuthMiddleware(ac authConfig, st *sessionStore) gin.HandlerFunc {
 }
 
 func loginPageHandler(c *gin.Context) {
-	c.HTML(http.StatusOK, "login.html", gin.H{
-		"Next":    safeNext(c.Query("next")),
-		"Error":   c.Query("error") == "1",
-		"TooMany": c.Query("error") == "2",
-	})
+	render(c, http.StatusOK, loginPage(safeNext(c.Query("next")), c.Query("error") == "1", c.Query("error") == "2"))
 }
 
 func loginSubmitHandler(ac authConfig, st *sessionStore, ll *loginLimiter) gin.HandlerFunc {

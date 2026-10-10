@@ -162,12 +162,12 @@ func contains(list []string, s string) bool {
 
 var logsHandler = func(logPath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "logs.html", newLogsPage(logPath, c.Query("level")))
+		render(c, http.StatusOK, logsView(newLogsPage(logPath, c.Query("level"))))
 	}
 }
 
 var logsListHandler = func(logPath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "logs-list", newLogsPage(logPath, c.Query("level")))
+		render(c, http.StatusOK, logsList(newLogsPage(logPath, c.Query("level"))))
 	}
 }

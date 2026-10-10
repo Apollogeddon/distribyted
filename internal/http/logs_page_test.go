@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -34,7 +35,7 @@ func TestLogsPage(t *testing.T) {
 	body := w.Body.String()
 	// newest first
 	require.Less(t, strings.Index(body, ">failed"), strings.Index(body, "torrent added"))
-	require.Contains(t, body, `<span class="level-badge level-warn">warn</span>`)
+	require.Contains(t, body, `<span class="level level-warn">warn</span>`)
 	require.Contains(t, body, "<dt>route</dt><dd>films</dd>")
 	require.Contains(t, body, "<dt>count</dt><dd>3</dd>")
 	require.Contains(t, body, "&lt;b&gt;x&lt;/b&gt;", "log values are text")
@@ -87,13 +88,44 @@ func TestDashboard(t *testing.T) {
 	w := get(r, "/")
 	require.Equal(t, http.StatusOK, w.Code)
 	body := w.Body.String()
-	require.Contains(t, body, `data-down="0" data-up="0"`)
+	require.Contains(t, body, `<svg viewBox="0 0 300 100"`, "the chart is drawn on the server")
 	require.Contains(t, body, "Not in use", "no cache configured")
-	for _, gone := range []string{"jquery", "handlebars", "toastr", "bootstrap.bundle", "common.js"} {
+	for _, gone := range []string{"jquery", "handlebars", "toastr", "bootstrap", "common.js", "Chart.min.js", "sleek", "materialdesignicons"} {
 		require.NotContains(t, body, gone)
 	}
 
 	w = get(r, "/dashboard/stats")
 	require.Equal(t, http.StatusOK, w.Code)
-	require.True(t, strings.HasPrefix(strings.TrimSpace(w.Body.String()), `<section id="stats"`))
+	require.True(t, strings.HasPrefix(strings.TrimSpace(w.Body.String()), `<div id="stats"`))
+}
+
+// TestSpeedChart: the chart keeps one point per refresh, drops the history after a gap
+// nobody watched, and scales to a round figure.
+func TestSpeedChart(t *testing.T) {
+	h := &speedHistory{}
+	now := time.Now()
+	for i := range 3 {
+		h.add(speedSample{at: now.Add(time.Duration(i) * historyInterval), down: int64(i) * 1000})
+	}
+	got := h.add(speedSample{at: now.Add(2*historyInterval + 100*time.Millisecond), down: 3000})
+	require.Len(t, got, 3, "a refresh sooner than the interval replaces the last point")
+	require.Equal(t, int64(3000), got[2].down)
+
+	got = h.add(speedSample{at: now.Add(time.Hour)})
+	require.Len(t, got, 1, "an hour without anyone watching starts the line again")
+
+	for i := range historyLen + 5 {
+		got = h.add(speedSample{at: now.Add(2*time.Hour + time.Duration(i)*historyInterval)})
+	}
+	require.Len(t, got, historyLen)
+
+	cv := newChartView([]speedSample{{down: 0}, {down: 1500 << 10, up: 300 << 10}})
+	require.Equal(t, "2.0 MiB/s", cv.Ticks[0].Label)
+	require.Equal(t, "1.0 MiB/s", cv.Ticks[1].Label)
+	require.NotEmpty(t, cv.DownLine)
+	require.Contains(t, cv.Label, "1.5 MiB/s down")
+
+	require.Empty(t, newChartView(nil).DownLine, "one point isn't a line")
+	require.Equal(t, int64(1024), niceRate(0))
+	require.Equal(t, int64(5<<20), niceRate(3<<20))
 }

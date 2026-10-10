@@ -9,7 +9,6 @@ import (
 	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-	"github.com/shurcooL/httpfs/html/vfstemplate"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
@@ -46,12 +45,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		c.FileFromFS(c.Request.URL.Path, http.FS(web.Assets))
 	})
 
-	t, err := vfstemplate.ParseGlob(http.FS(web.Templates), nil, "/templates/*")
-	if err != nil {
-		return nil, fmt.Errorf("error parsing html: %w", err)
-	}
-
-	r.SetHTMLTemplate(t)
+	history := &speedHistory{}
 
 	ac := newAuthConfig(conf.HTTPGlobal)
 	st := newSessionStore(sessionTTL)
@@ -93,8 +87,8 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	pages := r.Group("", browserAuth)
 	{
-		pages.Any("/", dashboardHandler(fc, ss))
-		pages.GET("/dashboard/stats", dashboardStatsHandler(fc, ss))
+		pages.Any("/", dashboardHandler(fc, ss, history))
+		pages.GET("/dashboard/stats", dashboardStatsHandler(fc, ss, history))
 		pages.GET("/routes", routesHandler(conf, ss))
 		pages.GET("/routes/table", routesTableHandler(conf, ss))
 		pages.POST("/routes/torrents", routesAddHandler(conf, ss, s))

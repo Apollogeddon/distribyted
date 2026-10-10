@@ -109,7 +109,7 @@ func newFilesPage(cfs containerFS, conf *config.Root, p string) (filesPage, int)
 var filesPageHandler = func(cfs containerFS, conf *config.Root) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		page, status := newFilesPage(cfs, conf, c.Query("path"))
-		c.HTML(status, "files.html", page)
+		render(c, status, filesView(page))
 	}
 }
 
@@ -117,7 +117,7 @@ var filesListHandler = func(cfs containerFS, conf *config.Root) gin.HandlerFunc 
 	return func(c *gin.Context) {
 		// a folder that's gone still renders, as a message, so the page can say so
 		page, _ := newFilesPage(cfs, conf, c.Query("path"))
-		c.HTML(http.StatusOK, "files-view", page)
+		render(c, http.StatusOK, filesList(page))
 	}
 }
 
@@ -133,7 +133,7 @@ func showNameForm(c *gin.Context, status int, f nameForm) {
 	if status == http.StatusOK {
 		triggerAfterSwap(c, map[string]any{"open-dialog": "file-dialog"})
 	}
-	c.HTML(status, "name-form", f)
+	render(c, status, nameFormView(f))
 }
 
 var filesFolderFormHandler = func(c *gin.Context) {
