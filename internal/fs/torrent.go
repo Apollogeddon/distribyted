@@ -262,7 +262,7 @@ const (
 // retry loop has been entered: reader.go's readAt retries a failed read up
 // to 3 times, and — when the torrent's storage reports a capacity (true for
 // every torrent in this deployment; see cmd/distribyted/main.go's capFunc,
-// added for exactly this reason per docs/benchmarking.md) — recurses back
+// added for exactly this reason per docs/content/docs/benchmarking.md) — recurses back
 // into itself with no delay and no retry cap if all 3 fail (its own
 // comment: "this might cause us to get stuck if we retry for any error").
 // Worse, once a caller-supplied context is cancelled, every later
@@ -680,7 +680,7 @@ func (h *torrentFileHandle) reportFirstRead() {
 // statistically significant time-to-first-byte regression (+67% cable,
 // +27% DSL) — the per-call function invocation this requires runs under the
 // client-wide lock on every Read/Seek, unlike a plain static field read.
-// See docs/benchmarking.md.
+// See docs/content/docs/benchmarking.md.
 const readahead = 4 * 1024 * 1024 // 4MB
 
 // responsive (torrentFile.responsive, set from config.TorrentGlobal.ResponsiveReads)
@@ -689,7 +689,7 @@ const readahead = 4 * 1024 * 1024 // 4MB
 // returning. Responsive mode returns as soon as the covering chunks have
 // arrived, skipping that wait — faster, especially with large piece
 // lengths, but the returned bytes have not yet been confirmed to match the
-// torrent's hash. Off by default for that reason; see docs/benchmarking.md
+// torrent's hash. Off by default for that reason; see docs/content/docs/benchmarking.md
 // for the measured latency trade-off.
 
 func (h *torrentFileHandle) load() reader {

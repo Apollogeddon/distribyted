@@ -1,0 +1,5 @@
+/* Show each web interface screenshot in the theme the site is in. */
+html.dark .screenshot-light,
+html:not(.dark) .screenshot-dark {
+  display: none;
+}

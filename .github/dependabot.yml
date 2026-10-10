@@ -44,6 +44,20 @@ updates:
       - dependency-name: "github.com/anacrolix/missinggo/v2"
         versions: [">2.10.0"]
 
+  # The documentation site is its own module: its go.mod holds the Hextra theme
+  - package-ecosystem: "gomod"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    groups:
+      docs:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "docs(deps)"
+
   # 3. Docker (the image)
   - package-ecosystem: "docker"
     directory: "/build"

@@ -1,0 +1,22 @@
+version: '3'
+vars:
+  TASK: go tool -modfile=.forgego/task/go.mod task
+  FORGEGO: go run github.com/apollogeddon/forgego/cmd/forgego@v1.0.6
+  HUGO: go tool -modfile=.forgego/hugo/go.mod hugo
+tasks:
+  sync:
+    desc: Refresh the files forgego manages in .forgego/ and .golangci.yml
+    cmds:
+      - '{{.FORGEGO}} sync'
+  sync-check:
+    desc: Fail if a file forgego manages is out of date
+    cmds:
+      - '{{.FORGEGO}} sync --check'
+  dev:
+    desc: Serve the site with live reload
+    cmds:
+      - '{{.HUGO}} server'
+  build:
+    desc: Build the site into public/
+    cmds:
+      - '{{.HUGO}} --gc --minify'

@@ -6,7 +6,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/Apollogeddon/distribyted">
-    <img src="docs/images/distribyted_icon.png" alt="Logo" width="100">
+    <img src="docs/static/images/logo.svg" alt="Logo" width="96">
   </a>
 
   <h3 align="center">distribyted</h3>
@@ -21,7 +21,7 @@
     ·
     <a href="https://github.com/Apollogeddon/distribyted/issues">Request Feature</a>
     ·
-    <a href="./docs/workflows.md">System Workflows</a>
+    <a href="https://apollogeddon.github.io/distribyted/docs/">Documentation</a>
   </p>
 </p>
 
@@ -34,7 +34,24 @@
 - **Gaming:** Access large ROM collections or game backups directly from the filesystem.
 - **Content Sharing:** Use the **Server** feature to instantly share a local folder with anyone via a magnet link.
 
-![Distribyted Screen Shot][product-screenshot]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/dashboard-dark.png">
+  <img alt="The distribyted dashboard: download and upload speed, cache use and a speed chart" src="docs/static/images/screenshots/dashboard-light.png">
+</picture>
+
+<details>
+<summary>More of the web interface</summary>
+
+<table>
+<tr><th>Routes</th><th>Files</th></tr>
+<tr><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/routes-dark.png"><img alt="Routes: torrents grouped into folders, with health, pieces and peers" src="docs/static/images/screenshots/routes-light.png"></picture></td><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/files-dark.png"><img alt="Files: browsing the mounted folders, with download, link, rename and delete" src="docs/static/images/screenshots/files-light.png"></picture></td></tr>
+<tr><th>Links</th><th>Logs</th></tr>
+<tr><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/links-dark.png"><img alt="Links: a file shown at a second path" src="docs/static/images/screenshots/links-light.png"></picture></td><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/logs-dark.png"><img alt="Logs: newest first, filtered by level" src="docs/static/images/screenshots/logs-light.png"></picture></td></tr>
+<tr><th>Servers</th><th>On a phone</th></tr>
+<tr><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/servers-dark.png"><img alt="Servers: a local folder shared as a torrent with its magnet link" src="docs/static/images/screenshots/servers-light.png"></picture></td><td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/static/images/screenshots/mobile-dark.png"><img alt="The Routes page and the menu on a phone" src="docs/static/images/screenshots/mobile-light.png"></picture></td></tr>
+</table>
+
+</details>
 
 ## ✨ Core Features
 
@@ -91,17 +108,17 @@ Add `distribyted` as a **qBitTorrent** download client:
 
 ## 📚 Documentation
 
-Detailed technical guides are available in the [docs](./docs/) folder:
+The full guides are on the [documentation site](https://apollogeddon.github.io/distribyted/docs/) (source in [`docs/`](./docs/)):
 
-- **[Workflows](./docs/workflows.md)**: Visual guides on system interactions and data flow.
-- **[Configuration](./docs/configuration.md)**: Detailed YAML configuration guide.
-- **[Integration](./docs/integration.md)**: Setup with Radarr, Sonarr, and Plex.
-- **[Architecture](./docs/architecture.md)**: Learn how the internal VFS and Torrent engine work.
-- **[Development](./docs/development.md)**: Guide for building from source and contributing.
+- **[Workflows](https://apollogeddon.github.io/distribyted/docs/workflows/)**: Visual guides on system interactions and data flow.
+- **[Configuration](https://apollogeddon.github.io/distribyted/docs/configuration/)**: Detailed YAML configuration guide.
+- **[Integration](https://apollogeddon.github.io/distribyted/docs/integration/)**: Setup with Radarr, Sonarr, and Plex.
+- **[Architecture](https://apollogeddon.github.io/distribyted/docs/architecture/)**: Learn how the internal VFS and Torrent engine work.
+- **[Development](https://apollogeddon.github.io/distribyted/docs/development/)**: Guide for building from source and contributing.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please check the [Development Guide](./docs/development.md) to get started.
+Contributions are welcome! Please check the [Development Guide](https://apollogeddon.github.io/distribyted/docs/development/) to get started.
 
 ## 🍴 About this fork
 
@@ -124,6 +141,5 @@ Third-party code and assets bundled in `web/assets` keep their own licenses, giv
 [releases-url]: https://github.com/Apollogeddon/distribyted/releases
 [license-shield]: https://img.shields.io/github/license/Apollogeddon/distribyted.svg?style=flat-square
 [license-url]: https://github.com/Apollogeddon/distribyted/blob/main/LICENSE
-[product-screenshot]: docs/images/distribyted.gif
 [coveralls-shield]: https://img.shields.io/coveralls/github/Apollogeddon/distribyted?style=flat-square
 [coveralls-url]: https://coveralls.io/github/Apollogeddon/distribyted
