@@ -1,7 +1,7 @@
 version: '3'
 vars:
   TASK: go tool -modfile=.forgego/task/go.mod task
-  FORGEGO: go run github.com/apollogeddon/forgego/cmd/forgego@v1.0.6
+  FORGEGO: go tool -modfile=.forgego/forgego/go.mod forgego
   HUGO: go tool -modfile=.forgego/hugo/go.mod hugo
 tasks:
   sync:
