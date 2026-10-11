@@ -16,8 +16,8 @@ import (
 	"github.com/Apollogeddon/distribyted/web"
 )
 
-func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS) error {
-	r, err := NewHandler(fc, ss, s, ch, tss, fs, logPath, conf, fusePath, lfs)
+func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) error {
+	r, err := NewHandler(fc, ss, s, ch, tss, fs, logPath, conf, fusePath, lfs, opts...)
 	if err != nil {
 		return err
 	}
@@ -31,12 +31,19 @@ func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.
 	return nil
 }
 
-func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS) (*gin.Engine, error) {
+func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) (*gin.Engine, error) {
+	var o handlerOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.RedirectFixedPath = true
 	r.RedirectTrailingSlash = true
 	r.Use(gin.Recovery())
+	// before the request logger, which only applies to the routes added after it
+	registerHealth(r, o.ready)
 	r.Use(gin.ErrorLogger())
 	r.Use(Logger())
 	r.Use(crossOriginProtection())
