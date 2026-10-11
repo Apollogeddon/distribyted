@@ -49,6 +49,32 @@ Media servers often perform "Deep Analysis" or "Thumbnail Generation" which invo
 
 ---
 
+## Health Checks (Docker, Kubernetes)
+
+The HTTP server answers two endpoints for health checks, without logging in and whatever `http.disable_auth` says. They return only `ok` or `not ready` as plain text, and nothing about torrents, routes or paths, and aren't written to the log.
+
+| Endpoint | Answers `200 ok` when | Otherwise |
+| :--- | :--- | :--- |
+| `GET /healthz` | The process is up and the HTTP server is serving. | No answer |
+| `GET /readyz` | The torrent client has started, the configured routes have loaded and, when `fuse` is configured, the FUSE filesystem is mounted. | `503 not ready` |
+
+The HTTP server starts only once the torrent client has started and the routes have loaded, so until then neither endpoint answers. Loading many torrents can take minutes, so give a liveness check a long enough start period (or a Kubernetes startup probe) not to restart distribyted while it loads. `/readyz` turns `503` again if the FUSE filesystem is unmounted.
+
+The binary checks itself, so an image needs no `curl`: `distribyted healthcheck` exits `0` when `/healthz` answers `200`, and `distribyted healthcheck --ready` checks `/readyz`. It finds the server the way distribyted does, from `--http-port` (`DISTRIBYTED_HTTP_PORT`), else the `http` section of the configuration file (`--config`, `DISTRIBYTED_CONFIG`), which it reads but never creates, else port `4444`, and it calls `127.0.0.1` when `http.ip` is `0.0.0.0`. The container image runs `distribyted healthcheck` as its `HEALTHCHECK`, every 30 seconds after a 5-minute start period. It doesn't see the container's command-line arguments, so set a configuration path or port through `DISTRIBYTED_CONFIG` or `DISTRIBYTED_HTTP_PORT` rather than `--config` or `--http-port`.
+
+A Kubernetes pod can use the endpoints directly:
+
+```yaml
+livenessProbe:
+  httpGet: { path: /healthz, port: 4444 }
+startupProbe:
+  httpGet: { path: /healthz, port: 4444 }
+  periodSeconds: 10
+  failureThreshold: 60
+readinessProbe:
+  httpGet: { path: /readyz, port: 4444 }
+```
+
 ## End-to-End Workflow Example
 
 1. **Prowlarr** finds a 4K movie and sends the magnet link to **Radarr**.
