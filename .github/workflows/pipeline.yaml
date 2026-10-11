@@ -48,15 +48,17 @@ jobs:
       pull-requests: write # release and Dependabot pull requests; Gitleaks lists a pull request's commits
 
   # forgego's docker workflow, with QEMU as build/Dockerfile compiles cgofuse in each target
-  # platform's own image
+  # platform's own image. Every run builds the image, so a broken Dockerfile fails the checks;
+  # only a release pushes it. Runs that don't push build linux/amd64 alone, as emulating arm64
+  # takes far longer.
   docker:
     name: Docker Build & Push
     needs: [service]
-    if: needs.service.outputs.new_release_published == 'true'
     uses: apollogeddon/forgego/.github/workflows/docker.yml@main
     with:
-      push: true
+      push: ${{ needs.service.outputs.new_release_published == 'true' }}
       version: ${{ needs.service.outputs.tag_name }}
+      platforms: ${{ needs.service.outputs.new_release_published == 'true' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
       dockerfile: build/Dockerfile
       qemu: true
       build_args: BUILD=${{ github.sha }}

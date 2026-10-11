@@ -7,7 +7,7 @@ This guide is intended for developers who want to contribute to Distribyted or b
 
 ## Prerequisites
 
-- **Go**: Version 1.26 or higher (see the `go` directive in `go.mod`).
+- **Go**: Version 1.27 or higher (see the `go` directive in `go.mod`).
 - **FUSE Support**:
     - **Linux**: `libfuse-dev` installed.
     - **Windows**: [WinFsp](https://github.com/winfsp/winfsp) installed.
