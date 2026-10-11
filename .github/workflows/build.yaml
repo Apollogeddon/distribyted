@@ -11,19 +11,17 @@ on:
         default: ''
 
 jobs:
+  # Linux is tested and built for pull requests and main by forgego's testing workflow in the
+  # pipeline; it's built here only for a release, beside the platforms that workflow can't build.
   build:
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        job_name: ['linux_amd64', 'mac', 'windows_amd64']
-
+        job_name: ${{ fromJSON(inputs.release_tag == '' && '["mac", "windows_amd64"]' || '["linux_amd64", "mac", "windows_amd64"]') }}
+        # linux_amd64 has no entry, as an entry for a platform left out of job_name would add it back;
+        # it takes the ubuntu-latest and linux defaults below
         include:
-          - job_name: linux_amd64
-            os: ubuntu-latest
-            go_os: linux
-            go_arch: amd64
-
           - job_name: mac
             os: macos-latest
             go_os: darwin
@@ -33,9 +31,9 @@ jobs:
             os: windows-latest
             go_os: windows
             go_arch: amd64
-          
+
     name: ${{ matrix.job_name }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -51,14 +49,13 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      # only a release builds Linux here, so it needs only what cgofuse compiles against
       - name: Install Libraries on Linux
         shell: bash
         run: |
-          sudo modprobe fuse
-          sudo chmod 666 /dev/fuse
-          sudo chown root:$USER /etc/fuse.conf
-          sudo apt-get install fuse libfuse-dev rpm pkg-config
-        if: startsWith(matrix.job_name, 'linux')
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fuse libfuse-dev pkg-config
+        if: matrix.job_name == 'linux_amd64'
 
       - name: Install Libraries on macOS
         shell: bash
@@ -159,27 +156,19 @@ jobs:
           printf "\n\nSystem environment:\n\n"
           env
 
+      # forgego's testing workflow runs the full suite on Linux
       - name: Run unit tests (short, race)
         shell: bash
         env:
           GOFLAGS: -race
         run: |
           go tool -modfile=.forgego/task/go.mod task test:short
-        # linux runs the full suite below, which includes these
-        if: inputs.release_tag == '' && matrix.job_name != 'linux_amd64'
-
-      - name: Run integration tests (race)
-        shell: bash
-        env:
-          GOFLAGS: -race
-        run: |
-          go tool -modfile=.forgego/task/go.mod task test
-        if: matrix.job_name == 'linux_amd64' && inputs.release_tag == ''
+        if: inputs.release_tag == ''
 
       - name: Build
         shell: bash
         run: |
-          CGO_ENABLED=1 GOOS=${{ matrix.go_os }} GOARCH=${{ matrix.go_arch }} go tool -modfile=.forgego/task/go.mod task build
+          CGO_ENABLED=1 GOOS=${{ matrix.go_os || 'linux' }} GOARCH=${{ matrix.go_arch || 'amd64' }} go tool -modfile=.forgego/task/go.mod task build
       
       # the release build runs in the same workflow run, where these names are already taken
       - name: Upload artifacts
