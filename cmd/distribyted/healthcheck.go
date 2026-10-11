@@ -15,11 +15,7 @@ import (
 	"github.com/Apollogeddon/distribyted/internal/config"
 )
 
-const (
-	healthcheckTimeout = 5 * time.Second
-	// the port of the configuration distribyted writes when there's none
-	defaultHTTPPort = 4444
-)
+const healthcheckTimeout = 5 * time.Second
 
 // healthcheck asks the web server of a distribyted running on this host whether it's healthy, or
 // ready, so a container image needs no curl. It finds the server as distribyted does: the port
@@ -58,9 +54,6 @@ func healthcheckURL(configPath string, port int, ready bool) (string, error) {
 	}
 	if port == 0 {
 		port = conf.HTTPGlobal.Port
-	}
-	if port == 0 {
-		port = defaultHTTPPort
 	}
 
 	// a server listening on every address is reached on loopback

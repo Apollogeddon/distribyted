@@ -15,17 +15,25 @@ const (
 	serverFolder   = "./distribyted-data/served-folders/server"
 )
 
+const (
+	// DefaultIP is where the web interface and WebDAV listen when the configuration names no ip.
+	DefaultIP         = "0.0.0.0"
+	DefaultHTTPPort   = 4444
+	DefaultWebDAVPort = 36911
+)
+
 func DefaultConfig() *Root {
 	return &Root{
 		HTTPGlobal: &HTTPGlobal{
-			Port:   4444,
-			IP:     "0.0.0.0",
+			Port:   DefaultHTTPPort,
+			IP:     DefaultIP,
 			HTTPFS: true,
 			User:   "admin",
 			Pass:   "admin",
 		},
 		WebDAV: &WebDAVGlobal{
-			Port: 36911,
+			Port: DefaultWebDAVPort,
+			IP:   DefaultIP,
 			User: "admin",
 			Pass: "admin",
 		},
