@@ -282,11 +282,11 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 			}
 		}
 		log.Info().Msg("closing items database...")
-		_ = sl.fis.Close() //nolint:errcheck // best-effort on shutdown
+		_ = sl.fis.Close() // best-effort on shutdown
 		log.Info().Msg("saving the torrents' good peers...")
 		ts.RecordPeers()
 		log.Info().Msg("closing magnet database...")
-		_ = dbl.Close() //nolint:errcheck // best-effort on shutdown
+		_ = dbl.Close() // best-effort on shutdown
 		log.Info().Msg("closing torrent client...")
 		c.Close()
 		tm.Close()
@@ -317,7 +317,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	for np, op := range links {
 		if op == "" {
-			_ = cfs.Mkdir(np) //nolint:errcheck // link dir may already exist
+			_ = cfs.Mkdir(np) // link dir may already exist
 		} else {
 			linkRetryWg.Add(1)
 			go func(op, np string) {
@@ -427,6 +427,6 @@ func forceUnmount(mnt string) {
 		return
 	}
 	// Try both fusermount and umount — errors are expected and irrelevant here
-	_ = exec.Command("fusermount", "-uz", mnt).Run() //nolint:errcheck,gosec // G204: intentional force-unmount
-	_ = exec.Command("umount", "-l", mnt).Run()      //nolint:errcheck,gosec // G204: intentional force-unmount
+	_ = exec.Command("fusermount", "-uz", mnt).Run()
+	_ = exec.Command("umount", "-l", mnt).Run()
 }

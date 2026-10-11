@@ -90,3 +90,12 @@ func TestNewWebDAVServerWithListener(t *testing.T) {
 
 	_ = l.Close()
 }
+
+// A slow client can't hold a connection open by never finishing its headers, while a long
+// download isn't cut off.
+func TestNewServer_Timeouts(t *testing.T) {
+	srv := newServer(fs.NewMemory(), "user", "pass")
+	assert.Equal(t, readHeaderTimeout, srv.ReadHeaderTimeout)
+	assert.Zero(t, srv.ReadTimeout)
+	assert.Zero(t, srv.WriteTimeout)
+}

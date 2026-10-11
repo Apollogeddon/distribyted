@@ -30,7 +30,7 @@ func newFS(fs fs.Filesystem, l zerolog.Logger) *WebDAV {
 
 func (wd *WebDAV) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
 	p := "/" + name
-	// TODO handle flag and permissions
+	// flag and perm are ignored: files are read-only here, and a write fails in webDAVFile.Write
 	f, err := wd.lookupFile(p)
 	if err != nil {
 		return nil, err

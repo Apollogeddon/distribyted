@@ -25,7 +25,7 @@ import (
 // torrent.Client.AddDialer can add afterward. Variadic so every existing
 // call site compiles unchanged.
 func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal, id [20]byte, opts ...func(*torrent.ClientConfig)) (*torrent.Client, error) {
-	// TODO download and upload limits
+	// No download or upload rate limit is configurable yet; the client runs unlimited.
 	torrentCfg := torrent.NewDefaultClientConfig()
 	torrentCfg.Seed = cfg.Seed
 	torrentCfg.PeerID = string(id[:])

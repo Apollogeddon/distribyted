@@ -48,7 +48,8 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 		s.host = fuse.NewFileSystemHost(NewFS(cfs))
 	}
 
-	// TODO improve error handling here
+	// Mount blocks until the filesystem is unmounted, so it runs on its own and a failure can
+	// only be logged: cgofuse reports none until then, and gives no reason.
 	go func() {
 		var config []string
 
@@ -78,7 +79,7 @@ func (s *Handler) Unmount() {
 
 	ok := s.host.Unmount()
 	if !ok {
-		// TODO try to force unmount if possible
+		// on Linux, the next start lazily unmounts what was left behind (forceUnmount)
 		log.Error().Str(dlog.KeyPath, s.path).Msg("unmount failed")
 	}
 }

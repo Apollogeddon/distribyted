@@ -2,7 +2,6 @@ package testenv
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -11,6 +10,7 @@ import (
 	"github.com/anacrolix/generics"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
+	"github.com/rs/zerolog/log"
 )
 
 type MapClientImpl struct {
@@ -161,7 +161,7 @@ func (lp *limitPiece) WriteAt(p []byte, off int64) (n int, err error) {
 	defer lp.ls.mu.Unlock()
 
 	if lp.ls.written+int64(len(p)) > lp.ls.limitBytes {
-		fmt.Printf("limitStorage hit limit! written=%d, len=%d, limit=%d\n", lp.ls.written, len(p), lp.ls.limitBytes) //nolint:forbidigo
+		log.Warn().Int64("written", lp.ls.written).Int("len", len(p)).Int64("limit", lp.ls.limitBytes).Msg("limitStorage hit its limit")
 		return 0, syscall.ENOSPC
 	}
 

@@ -299,7 +299,7 @@ func (s *Server) popEvents() uint64 {
 }
 
 func (s *Server) trackers() []string {
-	// TODO load trackers from URL too
+	// only the configured list: trackers can't be loaded from a URL yet
 	return s.cfg.Trackers
 }
 

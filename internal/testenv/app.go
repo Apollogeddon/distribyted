@@ -22,6 +22,7 @@ import (
 	"github.com/anacrolix/missinggo/v2/filecache"
 	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
+	"github.com/rs/zerolog/log"
 )
 
 // noopBEP44Store is a bep44.Store that does nothing.
@@ -429,7 +430,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 
 	go func() {
 		if err := webdav.NewWebDAVServerWithListener(webDavListener, cfs, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
-			fmt.Printf("WebDAV error: %v\n", err) //nolint:forbidigo
+			log.Warn().Err(err).Msg("WebDAV server stopped")
 		}
 	}()
 

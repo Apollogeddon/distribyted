@@ -1,7 +1,9 @@
 package torrent
 
 import (
+	"errors"
 	"io"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
@@ -58,4 +60,55 @@ func TestHTTPFS_OpenNotFound(t *testing.T) {
 
 	_, err := hfs.Open("/notfound.txt")
 	assert.Error(t, err)
+}
+
+// countingFS counts ReadDir calls and can fail them.
+type countingFS struct {
+	*fs.Memory
+	readDirs atomic.Int32
+	err      error
+}
+
+func (c *countingFS) ReadDir(path string) (map[string]fs.File, error) {
+	c.readDirs.Add(1)
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.Memory.ReadDir(path)
+}
+
+func TestHTTPFS_ListsFolderOnFirstReaddir(t *testing.T) {
+	mfs := &countingFS{Memory: fs.NewMemory()}
+	require.NoError(t, mfs.Storage.Add(fs.NewMemoryFile([]byte("data")), "/dir/a.txt"))
+	hfs := NewHTTPFS(mfs)
+
+	f, err := hfs.Open("/dir/a.txt")
+	require.NoError(t, err)
+	_ = f.Close()
+	assert.Zero(t, mfs.readDirs.Load(), "serving a file lists nothing")
+
+	d, err := hfs.Open("/dir")
+	require.NoError(t, err)
+	defer func() { _ = d.Close() }()
+	assert.Zero(t, mfs.readDirs.Load(), "opening a folder lists nothing yet")
+
+	files, err := d.Readdir(1)
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	_, err = d.Readdir(1)
+	require.Equal(t, io.EOF, err)
+	assert.Equal(t, int32(1), mfs.readDirs.Load(), "a folder is listed once")
+}
+
+func TestHTTPFS_ReaddirError(t *testing.T) {
+	boom := errors.New("boom")
+	mfs := &countingFS{Memory: fs.NewMemory(), err: boom}
+	hfs := NewHTTPFS(mfs)
+
+	d, err := hfs.Open("/")
+	require.NoError(t, err)
+	defer func() { _ = d.Close() }()
+
+	_, err = d.Readdir(0)
+	require.ErrorIs(t, err, boom)
 }

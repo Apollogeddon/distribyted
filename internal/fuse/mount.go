@@ -305,7 +305,7 @@ func (fs *FS) Readdir(path string,
 	fill(".", nil, 0)
 	fill("..", nil, 0)
 
-	// TODO improve this function to make use of fh index if possible
+	// listed afresh on each call: Opendir's handle is the folder itself, which keeps no listing
 	paths, err := fs.fh.ListDir(path)
 	if err != nil {
 		fs.log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading directory")
