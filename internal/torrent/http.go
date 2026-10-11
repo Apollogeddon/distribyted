@@ -29,14 +29,10 @@ func (fs *HTTPFS) Open(name string) (http.File, error) {
 
 	fi := dfs.NewFileInfo(name, f.Size(), f.IsDir())
 
-	// TODO make this lazy
-	fis, err := fs.filesToFileInfo(name)
-	if err != nil {
-		_ = f.Close()
-		return nil, err
-	}
-
-	return newHTTPFile(f, fis, fi), nil
+	// a folder is listed on its first Readdir, so serving a file never lists anything
+	return newHTTPFile(f, func() ([]os.FileInfo, error) {
+		return fs.filesToFileInfo(name)
+	}, fi), nil
 }
 
 func (fs *HTTPFS) filesToFileInfo(path string) ([]fs.FileInfo, error) {
@@ -59,17 +55,19 @@ type httpFile struct {
 	iio.ReaderSeeker
 
 	mu sync.Mutex
-	// dirPos is protected by mu.
+	// dirPos, dirContent and listed are protected by mu.
 	dirPos     int
 	dirContent []os.FileInfo
+	listed     bool
+	list       func() ([]fs.FileInfo, error)
 
 	fi fs.FileInfo
 }
 
-func newHTTPFile(f dfs.File, fis []fs.FileInfo, fi fs.FileInfo) *httpFile {
+func newHTTPFile(f dfs.File, list func() ([]fs.FileInfo, error), fi fs.FileInfo) *httpFile {
 	return &httpFile{
-		dirContent: fis,
-		fi:         fi,
+		list: list,
+		fi:   fi,
 
 		ReaderSeeker: iio.NewSeekerWrapper(f, f.Size()),
 	}
@@ -81,6 +79,15 @@ func (f *httpFile) Readdir(count int) ([]fs.FileInfo, error) {
 
 	if !f.fi.IsDir() {
 		return nil, os.ErrInvalid
+	}
+
+	if !f.listed {
+		fis, err := f.list()
+		if err != nil {
+			return nil, err
+		}
+		f.dirContent = fis
+		f.listed = true
 	}
 
 	old := f.dirPos
