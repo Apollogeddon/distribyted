@@ -12,26 +12,32 @@ permissions:
   contents: read
 
 jobs:
-  # forgego's checks: Gitleaks, OSV-Scanner, govulncheck, forgego sync-check, go mod tidy,
-  # golangci-lint fmt and run. cgofuse needs the FUSE headers to compile.
-  quality:
-    name: Quality
-    uses: apollogeddon/forgego/.github/workflows/quality.yml@main
+  # forgego's testing workflow: its checks (Gitleaks, OSV-Scanner, govulncheck, forgego sync-check,
+  # go mod tidy, golangci-lint fmt and run), the full test suite with the race detector and the
+  # build on Linux, then on main its patch job, which commits `task sync` after a Dependabot bump
+  # of forgego and upgrades the modules govulncheck finds vulnerable. cgofuse needs the FUSE
+  # headers to compile.
+  testing:
+    name: Testing
+    uses: apollogeddon/forgego/.github/workflows/testing.yml@main
     with:
       apt_packages: fuse libfuse-dev pkg-config
+      artifact_name: build-linux_amd64
+      artifact_path: bin
     permissions:
-      contents: read
+      contents: write # the patch job pushes to main
       pull-requests: read # Gitleaks lists a pull request's commits
 
+  # macOS and Windows, which forgego's workflows don't build: cgofuse needs macFUSE and WinFsp
   build:
     name: Build & Test
     uses: ./.github/workflows/build.yaml
 
-  # forgego's auto-merge: once the checks, the build and its tests pass, merges a Dependabot pull request
-  # (any update but a GitHub Actions one, which waits for a person)
+  # forgego's auto-merge: once the checks, the builds and their tests pass, merges a Dependabot pull
+  # request (any update but a GitHub Actions one, which waits for a person)
   auto-merge:
     name: Auto-merge
-    needs: [quality, build]
+    needs: [testing, build]
     if: github.event_name == 'pull_request'
     uses: apollogeddon/forgego/.github/workflows/merge.yml@main
     permissions:
@@ -40,7 +46,7 @@ jobs:
 
   release:
     name: Release
-    needs: [quality, build]
+    needs: [testing, build]
     # forgego's release-please: opens release pull requests and publishes releases from main
     # only; on pull requests and the weekly scan it has nothing to do
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -49,6 +55,8 @@ jobs:
       contents: write
       pull-requests: write
 
+  # GoReleaser in forgego's service workflow cross-compiles on Linux, which cgofuse's macOS and
+  # Windows builds can't, so the release's binaries are built on each platform here
   release-binaries:
     name: Release binaries
     needs: [release]
@@ -59,6 +67,8 @@ jobs:
     permissions:
       contents: write
 
+  # forgego's docker workflow builds a Dockerfile at the root and cross-compiles without QEMU,
+  # where build/Dockerfile compiles cgofuse in each target platform's own image
   docker:
     name: Docker Build & Push
     needs: [build, release]
