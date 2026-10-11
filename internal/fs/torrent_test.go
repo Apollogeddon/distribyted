@@ -23,7 +23,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testMagnet = "magnet:?xt=urn:btih:a88fda5954e89178c372716a6a78b8180ed4dad3&dn=The+WIRED+CD+-+Rip.+Sample.+Mash.+Share&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fwired-cd.torrent"
+const testMagnet = "magnet:?xt=urn:btih:a88fda5954e89178c372716a6a78b8180ed4dad3&dn=The+WIRED+CD+-+Rip.+Sample.+Mash.+Share&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fwired-cd.torrent"
+
+// swarmTimeout bounds the wait for a real swarm's metadata, which a quiet swarm would otherwise hold until go test's
+// own timeout with no reason given.
+const swarmTimeout = 3 * time.Minute
+
+func waitForInfo(t *testing.T, to *torrent.Torrent) {
+	t.Helper()
+	select {
+	case <-to.GotInfo():
+	case <-time.After(swarmTimeout):
+		t.Fatalf("no metadata from the swarm within %s", swarmTimeout)
+	}
+}
 
 var Cli *torrent.Client
 
@@ -59,7 +72,7 @@ func TestTorrentFilesystem(t *testing.T) {
 	to, err := Cli.AddMagnet(testMagnet)
 	require.NoError(err)
 
-	<-to.GotInfo()
+	waitForInfo(t, to)
 
 	tfs := NewTorrent(600, false)
 	tfs.AddTorrent(TorrentWrapper{to})
@@ -136,7 +149,7 @@ func TestReadAtTorrent(t *testing.T) {
 	to, err := Cli.AddMagnet(testMagnet)
 	require.NoError(err)
 
-	<-to.GotInfo()
+	waitForInfo(t, to)
 	torrFile := to.Files()[0]
 
 	tf := torrentFile{
@@ -171,7 +184,7 @@ func TestReadAtWrapper(t *testing.T) {
 	to, err := Cli.AddMagnet(testMagnet)
 	require.NoError(err)
 
-	<-to.GotInfo()
+	waitForInfo(t, to)
 	torrFile := to.Files()[0]
 
 	r := newReadAtWrapper(torrFile.NewReader(), 10*time.Second, &readStats{}, zerolog.Nop())
