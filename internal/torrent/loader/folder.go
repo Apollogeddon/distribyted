@@ -38,7 +38,7 @@ func (f *Folder) ListMagnets() (map[string][]string, error) {
 				return nil
 			}
 			if path.Ext(p) == ".magnet" {
-				content, err := os.ReadFile(p) //nolint:gosec // G122: Walk-provided path, symlink risk acceptable
+				content, err := os.ReadFile(p) //nolint:gosec // G122: the user's own torrent folder, where following a symlink is wanted
 				if err != nil {
 					return err
 				}

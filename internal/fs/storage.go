@@ -60,7 +60,7 @@ func newStorage(factories map[string]FsFactory) *storage {
 		log:         dlog.Logger("fs-storage"),
 	}
 
-	_ = s.Add(&Dir{}, separator) //nolint:errcheck // root "/" always succeeds
+	_ = s.Add(&Dir{}, separator) // root "/" always succeeds
 	return s
 }
 
@@ -72,7 +72,7 @@ func (s *storage) Clear() {
 	s.children = make(map[string]map[string]File)
 	s.filesystems = make(map[string]Filesystem)
 
-	_ = s.addLocked(&Dir{}, "/") //nolint:errcheck // root "/" always succeeds
+	_ = s.addLocked(&Dir{}, "/") // root "/" always succeeds
 }
 
 func (s *storage) Has(path string) bool {
@@ -243,7 +243,7 @@ func (s *storage) removeLocked(p string, removed *[]string) error {
 		if len(s.children[base]) == 0 && base != separator {
 			// Don't prune if it's a mountpoint
 			if _, isMount := s.filesystems[base]; !isMount {
-				_ = s.removeLocked(base, removed) //nolint:errcheck // best-effort empty-dir pruning
+				_ = s.removeLocked(base, removed) // best-effort empty-dir pruning
 			}
 		}
 	}
