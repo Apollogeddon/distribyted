@@ -117,6 +117,10 @@ Add `distribyted` as a **qBitTorrent** download client:
 - `POST /torrents/add` (Adds magnets to routes)
 - `POST /torrents/delete` (Surgical removal)
 
+### Health checks
+
+`GET /healthz` (the HTTP server is up) and `GET /readyz` (torrents and routes loaded, and the FUSE filesystem mounted when configured) answer `200 ok` without a login, and say nothing else. `distribyted healthcheck` checks them from inside the container, which the image uses as its `HEALTHCHECK`. See [Integration](https://apollogeddon.github.io/distribyted/docs/integration/#health-checks-docker-kubernetes).
+
 ## Documentation
 
 The full guides are on the [documentation site](https://apollogeddon.github.io/distribyted/docs/) (source in [`docs/`](./docs/)):

@@ -60,7 +60,7 @@ func main() {
 			},
 			&cli.IntFlag{
 				Name:    portFlag,
-				Value:   4444,
+				Value:   defaultHTTPPort,
 				EnvVars: []string{"DISTRIBYTED_HTTP_PORT"},
 				Usage:   "HTTP port for web interface.",
 			},
@@ -98,6 +98,26 @@ func main() {
 			}
 
 			return err
+		},
+
+		Commands: []*cli.Command{
+			{
+				Name:  "healthcheck",
+				Usage: "Exit 0 if a running distribyted's web server answers /healthz (or /readyz with --ready), for container health checks.",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "ready",
+						Usage: "Check /readyz, which also waits for the FUSE mount, in place of /healthz.",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					var port int
+					if c.IsSet(portFlag) {
+						port = c.Int(portFlag)
+					}
+					return healthcheck(c.String(configFlag), port, c.Bool("ready"))
+				},
+			},
 		},
 
 		HideHelpCommand: true,
@@ -386,7 +406,11 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	httpfs := torrent.NewHTTPFS(cfs)
 	logFilename := filepath.Join(conf.Log.Path, dlog.FileName)
 
-	err = http.New(sl.fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath, cfs)
+	// the HTTP server starts once the torrent client is up and the routes have loaded, so what's
+	// left to wait for is the FUSE mount, when there is one
+	ready := func() bool { return mh == nil || mh.Mounted() }
+
+	err = http.New(sl.fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath, cfs, http.WithReadiness(ready))
 	if err != nil {
 		log.Error().Err(err).Msg("error initializing HTTP server")
 	}

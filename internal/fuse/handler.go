@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/rs/zerolog/log"
@@ -21,7 +22,8 @@ type Handler struct {
 	fuseAllowOther bool
 	path           string
 
-	host FileSystemHost
+	host    FileSystemHost
+	mounted atomic.Bool
 }
 
 func NewHandler(fuseAllowOther bool, path string) *Handler {
@@ -45,7 +47,7 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 	}
 
 	if s.host == nil {
-		s.host = fuse.NewFileSystemHost(NewFS(cfs))
+		s.host = fuse.NewFileSystemHost(&mountTracker{FileSystemInterface: NewFS(cfs), mounted: &s.mounted})
 	}
 
 	// Mount blocks until the filesystem is unmounted, so it runs on its own and a failure can
@@ -61,7 +63,9 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 		config = append(config, "-o", "attr_timeout=60")
 		config = append(config, "-o", "entry_timeout=60")
 
-		if ok := s.host.Mount(s.path, config); !ok {
+		ok := s.host.Mount(s.path, config)
+		s.mounted.Store(false)
+		if !ok {
 			log.Error().Str(dlog.KeyPath, s.path).Msg("error trying to mount filesystem")
 		}
 		log.Info().Str(dlog.KeyPath, s.path).Msg("FUSE mount goroutine exited")
@@ -70,6 +74,30 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 	log.Info().Str(dlog.KeyPath, s.path).Msg("starting FUSE mount")
 
 	return nil
+}
+
+// Mounted reports whether the filesystem is mounted: the kernel has initialised it and it hasn't
+// been unmounted since.
+func (s *Handler) Mounted() bool {
+	return s.mounted.Load()
+}
+
+// mountTracker records when cgofuse initialises and destroys the filesystem, which it does once
+// the mount is up and when it comes down.
+type mountTracker struct {
+	fuse.FileSystemInterface
+	mounted *atomic.Bool
+}
+
+func (m *mountTracker) Init() {
+	m.FileSystemInterface.Init()
+	m.mounted.Store(true)
+	log.Info().Msg("FUSE filesystem mounted")
+}
+
+func (m *mountTracker) Destroy() {
+	m.mounted.Store(false)
+	m.FileSystemInterface.Destroy()
 }
 
 func (s *Handler) Unmount() {

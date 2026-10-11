@@ -49,4 +49,9 @@ RUN mkdir -p /distribyted-data && chown distribyted:distribyted /distribyted-dat
 USER distribyted
 ENV DISTRIBYTED_FUSE_ALLOW_OTHER=true
 
+# the binary checks its own HTTP server, so the image needs no curl; loading many torrents can
+# take minutes before the server starts
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5m --retries=3 \
+    CMD [ "/bin/distribyted", "healthcheck" ]
+
 ENTRYPOINT [ "/bin/distribyted" ]

@@ -26,7 +26,7 @@ Distribyted exposes the VFS through multiple protocols:
 - **HTTP/httpfs**: A basic web-based file browser for quick access and verification.
 
 ### 4. Authentication
-The HTTP server (`internal/http`) protects everything except `/login` and static assets (`/assets/*`) behind a qBittorrent-style session cookie (`SID`):
+The HTTP server (`internal/http`) protects everything except `/login`, static assets (`/assets/*`) and the `/healthz` and `/readyz` health checks, which return only a status (see [Integration](../integration/#health-checks-docker-kubernetes)), behind a qBittorrent-style session cookie (`SID`):
 - **Browser clients** (Web UI, HTTPFS) hit a real login page at `/login`; on success a session cookie is set and the browser is redirected back to the page it originally requested.
 - **API clients** (Radarr/Sonarr/Prowlarr via the qBittorrent-compatible API, or direct callers of the native `/api/*` routes) authenticate the same way real qBittorrent does: `POST /api/v2/auth/login` with `username`/`password` form fields, which sets the `SID` cookie for subsequent requests. Missing or invalid sessions get `403` on the qBittorrent-compat API (matching real qBittorrent, so *arr clients re-authenticate automatically) or a redirect to `/login` on browser-facing routes.
 - Credentials are configured via `http.user`/`http.pass` and compared in constant time (`internal/auth.CredentialsMatch`). **The server fails closed**: if those aren't set and `http.disable_auth: true` isn't explicitly set either, startup is refused (`internal/config.Validate`) rather than silently running unauthenticated.

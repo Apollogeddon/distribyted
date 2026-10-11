@@ -77,3 +77,30 @@ func TestHandler_Unmount_Nil(t *testing.T) {
 	h := &Handler{}
 	h.Unmount() // Should not panic
 }
+
+func TestHandler_MountedFollowsInitAndDestroy(t *testing.T) {
+	h := NewHandler(false, t.TempDir())
+	assert.False(t, h.Mounted())
+
+	cfs, err := fs.NewContainerFs(nil)
+	require.NoError(t, err)
+	tr := &mountTracker{FileSystemInterface: NewFS(cfs), mounted: &h.mounted}
+
+	tr.Init()
+	assert.True(t, h.Mounted())
+	tr.Destroy()
+	assert.False(t, h.Mounted())
+}
+
+func TestHandler_NotMountedAfterMountReturns(t *testing.T) {
+	h := NewHandler(false, t.TempDir())
+	h.host = &mockHost{}
+	h.mounted.Store(true)
+
+	cfs, err := fs.NewContainerFs(nil)
+	require.NoError(t, err)
+	require.NoError(t, h.Mount(cfs))
+
+	// the mock's Mount returns at once, as a failed or finished mount does
+	assert.Eventually(t, func() bool { return !h.Mounted() }, time.Second, 10*time.Millisecond)
+}
