@@ -20,7 +20,7 @@ jobs:
   # requests (but GitHub Actions updates), release-please, and on a release the binaries.
   service:
     name: Service
-    uses: apollogeddon/forgego/.github/workflows/service.yml@feat/multi-os
+    uses: apollogeddon/forgego/.github/workflows/service.yml@main
     with:
       # cgofuse compiles against the FUSE headers on Linux, and the setup script installs macFUSE
       # on macOS and WinFsp on Windows
@@ -53,7 +53,7 @@ jobs:
     name: Docker Build & Push
     needs: [service]
     if: needs.service.outputs.new_release_published == 'true'
-    uses: apollogeddon/forgego/.github/workflows/docker.yml@feat/multi-os
+    uses: apollogeddon/forgego/.github/workflows/docker.yml@main
     with:
       push: true
       version: ${{ needs.service.outputs.tag_name }}
