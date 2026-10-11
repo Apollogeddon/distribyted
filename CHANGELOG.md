@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.32.0](https://github.com/Apollogeddon/distribyted/compare/v0.31.0...v0.32.0) (2026-10-11)
+
+
+### Features
+
+* /healthz and /readyz health checks, and a Docker HEALTHCHECK ([#139](https://github.com/Apollogeddon/distribyted/issues/139)) ([eab38cd](https://github.com/Apollogeddon/distribyted/commit/eab38cd4c917da58156b3019d5bd3f479580b6a8))
+
+
+### Bug Fixes
+
+* **config:** Drop long-dead trackers from the default magnets and served trackers ([6e92e6e](https://github.com/Apollogeddon/distribyted/commit/6e92e6ebc02eb59f00306490bdb025d6c4633ef4))
+* **config:** Drop long-dead trackers, and give up on the swarm's metadata after three minutes ([91aaa0c](https://github.com/Apollogeddon/distribyted/commit/91aaa0ca467f076853791c96e1ae4c5cfb55ba32))
+* **deps:** Upgrade modules with known vulnerabilities via govulncheck ([6fb57dd](https://github.com/Apollogeddon/distribyted/commit/6fb57ddafe0adbda6380164c730474cfe5b8a7fc))
+* **docker:** Build the image on Go 1.27, which go.mod requires ([decddbe](https://github.com/Apollogeddon/distribyted/commit/decddbe047e5567b74e6a1f183977b7fb0fecbc3))
+* **log:** Keep the values the torrent client logs ([c4ffb13](https://github.com/Apollogeddon/distribyted/commit/c4ffb131420544187b21ca7ca10477e053f33361))
+* **webdav:** Limit how long a client may take to send its request headers ([a0e4b0b](https://github.com/Apollogeddon/distribyted/commit/a0e4b0b5a1f690d31c4669eeadcc5f3a2a93a809))
+
+
+### Performance Improvements
+
+* **torrent:** List an HTTPFS folder on its first Readdir, not on every open ([3227ff6](https://github.com/Apollogeddon/distribyted/commit/3227ff6428d5cf4f89fffb1a7741140353ccfbba))
+
 ## [0.31.0](https://github.com/Apollogeddon/distribyted/compare/v0.30.0...v0.31.0) (2026-10-10)
 
 
