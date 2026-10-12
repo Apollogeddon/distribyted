@@ -60,7 +60,7 @@ All packages below live under `internal/`, except the entry point:
 - `internal/fuse/`: FUSE handler using `cgofuse`.
 - `internal/webdav/`: WebDAV server implementation.
 - `internal/http/`: Web dashboard and API handlers, including session-based authentication (`auth.go`) and the login page.
-- `internal/auth/`: Shared constant-time credential comparison, used by both the HTTP and WebDAV servers.
+- `internal/auth/`: Shared constant-time credential comparison and failed-login limit, used by both the HTTP and WebDAV servers.
 - `internal/config/`: Configuration parsing, defaults, and startup validation.
 
 ## Contribution Workflow
