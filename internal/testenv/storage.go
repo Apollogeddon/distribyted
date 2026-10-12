@@ -200,10 +200,14 @@ func (l *limitStorage) Written() int64 {
 type flakyStorage struct {
 	storage.ClientImpl
 	failing atomic.Bool
+	reads   atomic.Int64
 }
 
 func (fs *flakyStorage) Fail() { fs.failing.Store(true) }
 func (fs *flakyStorage) Heal() { fs.failing.Store(false) }
+
+// Reads counts the pieces' ReadAt calls.
+func (fs *flakyStorage) Reads() int64 { return fs.reads.Load() }
 
 func (fs *flakyStorage) OpenTorrent(ctx context.Context, info *metainfo.Info, infoHash metainfo.Hash) (storage.TorrentImpl, error) {
 	tImpl, err := fs.ClientImpl.OpenTorrent(ctx, info, infoHash)
@@ -253,6 +257,7 @@ type flakyPiece struct {
 }
 
 func (fp *flakyPiece) ReadAt(p []byte, off int64) (int, error) {
+	fp.fs.reads.Add(1)
 	if fp.fs.failing.Load() {
 		return 0, syscall.EIO
 	}

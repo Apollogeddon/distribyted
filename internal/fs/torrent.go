@@ -283,6 +283,12 @@ const (
 // select, abandoning (not killing — Go cannot kill a goroutine) a read
 // that doesn't finish in time.
 //
+// Neither part stops a piece that storage says is complete while every read of it fails:
+// that retries without ever parking. torrent.GuardReads, around the storage, slows those
+// reads and then marks the piece incomplete, so the read parks waiting for a download. A read
+// still parked when its torrent is closed or dropped retries the same way: that needs a
+// patched anacrolix/torrent.
+//
 // Once abandoned, the wrapper is permanently dead: the abandoned goroutine
 // still owns the underlying torrent.Reader and the scratch buffer it was
 // reading into (reusing either while that goroutine might still be inside

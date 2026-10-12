@@ -39,6 +39,8 @@ const (
 var (
 	linkRetryInterval = 2 * time.Second
 	itemStoreTTL      = 2 * time.Hour
+	// how long a cached piece may keep failing reads before it's downloaded again
+	readGiveUpAfter = time.Minute
 )
 
 var (
@@ -167,7 +169,8 @@ func initStorageLayer(conf *config.Root) (storageLayer, error) {
 		}
 		return 0, false
 	}
-	st := storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc})
+	// the capacity makes anacrolix/torrent retry a failed read without limit (GuardReads)
+	st := torrent.GuardReads(storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc}), readGiveUpAfter)
 	// cache is not working with windows
 	if runtime.GOOS == "windows" {
 		st = storage.NewFileWithCompletion(cf, pc)
@@ -291,25 +294,31 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		close(done)
 		linkRetryWg.Wait()
 
-		if mh != nil {
-			log.Info().Msg("unmounting fuse filesystem...")
-			mh.Unmount()
-		}
-		log.Info().Msg("closing servers...")
-		for _, s := range servers {
-			if err := s.Close(); err != nil {
-				log.Warn().Err(err).Msg("problem closing server")
-			}
-		}
-		log.Info().Msg("closing items database...")
-		_ = sl.fis.Close() // best-effort on shutdown
-		log.Info().Msg("saving the torrents' good peers...")
-		ts.RecordPeers()
-		log.Info().Msg("closing magnet database...")
-		_ = dbl.Close() // best-effort on shutdown
-		log.Info().Msg("closing torrent client...")
-		c.Close()
-		tm.Close()
+		shutdownPlan{
+			unmount: func() {
+				if mh != nil {
+					log.Info().Msg("unmounting fuse filesystem...")
+					mh.Unmount()
+				}
+			},
+			closeServers: func() {
+				for _, s := range servers {
+					if err := s.Close(); err != nil {
+						log.Warn().Err(err).Msg("problem closing server")
+					}
+				}
+			},
+			recordPeers: ts.RecordPeers,
+			closeClient: func() {
+				c.Close()
+				tm.Close()
+			},
+			stores: []namedCloser{
+				{"items database", sl.fis.Close},
+				{"magnet database", dbl.Close},
+				{"piece completion database", sl.pc.Close},
+			},
+		}.run()
 		log.Info().Msg("exiting")
 		os.Exit(0)
 	}()
@@ -415,6 +424,38 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		log.Error().Err(err).Msg("error initializing HTTP server")
 	}
 	return err
+}
+
+// shutdownPlan stops everything in an order where nothing is used once it's closed: peers are
+// saved while the client is still up, and the client, which reads and writes the stores, is
+// closed before them.
+type shutdownPlan struct {
+	unmount      func()
+	closeServers func()
+	recordPeers  func()
+	closeClient  func()
+	stores       []namedCloser
+}
+
+type namedCloser struct {
+	name  string
+	close func() error
+}
+
+func (p shutdownPlan) run() {
+	p.unmount()
+	log.Info().Msg("closing servers...")
+	p.closeServers()
+	log.Info().Msg("saving the torrents' good peers...")
+	p.recordPeers()
+	log.Info().Msg("closing torrent client...")
+	p.closeClient()
+	for _, s := range p.stores {
+		log.Info().Msgf("closing %s...", s.name)
+		if err := s.close(); err != nil {
+			log.Warn().Err(err).Msgf("problem closing %s", s.name)
+		}
+	}
 }
 
 const runtimeStatsInterval = 5 * time.Minute
