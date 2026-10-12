@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Apollogeddon/distribyted/internal/auth"
 	"github.com/Apollogeddon/distribyted/internal/config"
 	dtorrent "github.com/Apollogeddon/distribyted/internal/torrent"
 	"github.com/stretchr/testify/require"
@@ -377,35 +378,6 @@ func TestCrossOriginRequestsRejected(t *testing.T) {
 	require.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestLoginLimiter(t *testing.T) {
-	now := time.Unix(1_000_000, 0)
-	ll := newLoginLimiter()
-	ll.now = func() time.Time { return now }
-
-	for range freeLoginAttempts - 1 {
-		require.True(t, ll.allowed("1.2.3.4"))
-		ll.failed("1.2.3.4")
-	}
-	require.True(t, ll.allowed("1.2.3.4"))
-	ll.failed("1.2.3.4")
-
-	// past the free attempts the address waits, and longer after each further failure
-	require.False(t, ll.allowed("1.2.3.4"))
-	require.True(t, ll.allowed("5.6.7.8"), "other addresses are unaffected")
-	now = now.Add(time.Second)
-	require.True(t, ll.allowed("1.2.3.4"))
-	ll.failed("1.2.3.4")
-	now = now.Add(time.Second)
-	require.False(t, ll.allowed("1.2.3.4"))
-	now = now.Add(time.Second)
-	require.True(t, ll.allowed("1.2.3.4"))
-
-	// a successful login clears the record
-	ll.succeeded("1.2.3.4")
-	ll.failed("1.2.3.4")
-	require.True(t, ll.allowed("1.2.3.4"))
-}
-
 func TestLoginRateLimitedAndSessionCookie(t *testing.T) {
 	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, "", authedConf(), "", nil)
 	require.NoError(t, err)
@@ -422,7 +394,7 @@ func TestLoginRateLimitedAndSessionCookie(t *testing.T) {
 	require.Equal(t, "Ok.", w.Body.String())
 	require.NotContains(t, w.Header().Get("Set-Cookie"), "Max-Age")
 
-	for range freeLoginAttempts {
+	for range auth.FreeAttempts {
 		require.Equal(t, "Fails.", login("wrong").Body.String())
 	}
 	// the right password is refused too until the wait is over
