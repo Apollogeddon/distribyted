@@ -408,14 +408,16 @@ func TestIntegration_P2PStall(t *testing.T) {
 	// Drop seeder
 	seeder.Stop()
 
-	// Attempt to read the rest, it should eventually fail with an error (timeout/canceled)
+	// Attempt to read more, it should eventually fail with an error (timeout/canceled)
 	// Because of readTimeout=2, it should take at least 2 seconds
+	ra, ok := file.(io.ReaderAt)
+	require.True(t, ok)
 	errCh := make(chan error, 1)
 	go func() {
-		// Read a larger chunk to ensure we cross any internal buffer boundaries
-		// and actually trigger a network request that will stall.
+		// past the reader's 4MB readahead (internal/fs/torrent.go), which may all have arrived
+		// before the seeder stopped, so the read needs data no one can send
 		buf := make([]byte, 2*1024*1024)
-		_, err := io.ReadFull(file, buf)
+		_, err := ra.ReadAt(buf, 10*1024*1024)
 		errCh <- err
 	}()
 

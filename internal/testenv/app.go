@@ -292,7 +292,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 	}
 	id, _ := dtorrent.GetOrCreatePeerID(idPath)
 
-	var clientOpts []func(*atorrent.ClientConfig)
+	clientOpts := []func(*atorrent.ClientConfig){func(cc *atorrent.ClientConfig) { cc.KeepAliveTimeout = writerWakeInterval }}
 	if httpDialContext != nil {
 		clientOpts = append(clientOpts, func(cc *atorrent.ClientConfig) { cc.HTTPDialContext = httpDialContext })
 	}
