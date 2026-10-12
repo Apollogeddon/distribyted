@@ -12,11 +12,11 @@ Configures the web dashboard and management API.
 
 | Field | Description | Default |
 | :--- | :--- | :--- |
-| `port` | The port for the HTTP server. | `4444` |
+| `port` | The port for the HTTP server. The `--http-port` flag or `DISTRIBYTED_HTTP_PORT` overrides it. | `4444` |
 | `ip` | The IP address to bind to. | `0.0.0.0` |
 | `httpfs` | Enable/Disable the built-in HTTP file browser. | `true` |
-| `user` | Username for the web interface, native API and qBittorrent-compatible API. | `admin` |
-| `pass` | Password for the web interface, native API and qBittorrent-compatible API. | `admin` |
+| `user` | Username for the web interface, native API and qBittorrent-compatible API. Required unless `disable_auth` is `true`. | `admin` in the generated configuration |
+| `pass` | Password for the web interface, native API and qBittorrent-compatible API. Required unless `disable_auth` is `true`: an empty one is rejected at startup. | A random one, written to the generated configuration on first run |
 | `disable_auth` | Set to `true` to run the HTTP interface with no authentication at all. | `false` |
 | `pprof` | Expose `net/http/pprof` under `/debug/pprof`, behind the same session auth as the dashboard. Diagnostic tool — leave off unless actively investigating goroutine/memory growth (see `read_timeout` below). | `false` |
 
@@ -25,9 +25,10 @@ Configures the WebDAV server for remote filesystem access.
 
 | Field | Description | Default |
 | :--- | :--- | :--- |
-| `port` | The port for the WebDAV server. | `36911` |
-| `user` | Username for authentication. | `admin` |
-| `pass` | Password for authentication. | `admin` |
+| `port` | The port for the WebDAV server. The `--webdav-port` flag or `DISTRIBYTED_WEBDAV_PORT` overrides it. | `36911` |
+| `ip` | The IP address to bind to. Basic auth travels in plain HTTP, so use `127.0.0.1` unless other machines need WebDAV. | `0.0.0.0` |
+| `user` | Username for authentication. Required. | `admin` in the generated configuration |
+| `pass` | Password for authentication. Required: an empty one is rejected at startup. | A random one (the same as `http.pass`), written to the generated configuration on first run |
 
 ### `fuse`
 Configures the FUSE mount settings.
@@ -35,7 +36,7 @@ Configures the FUSE mount settings.
 | Field | Description | Default |
 | :--- | :--- | :--- |
 | `path` | Local directory where the filesystem will be mounted. | `./distribyted-data/mount` |
-| `allow_other` | Allow other users to access the mount point. | `false` |
+| `allow_other` | Allow other users to access the mount point. Needs `user_allow_other` in `/etc/fuse.conf`. The `--fuse-allow-other` flag or `DISTRIBYTED_FUSE_ALLOW_OTHER` turns it on too. | `false`, but `true` in the generated configuration |
 
 ### `torrent`
 Core settings for the BitTorrent engine.
@@ -47,10 +48,14 @@ Core settings for the BitTorrent engine.
 | `metadata_folder` | Path to store metadata, databases, and cache. The torrent database (`magnetdb`) keeps each torrent's magnet, its metadata (file list and piece hashes), so a restart lists its files without waiting for peers, and the addresses of up to 20 peers that sent it data, which it tries first when it next needs data. It sits outside the cache: `global_cache_size` doesn't count it and cache eviction never removes it. A torrent's metadata and peers are deleted when the torrent is removed, and on startup for any torrent no longer in the configuration, a watched folder or the database. | `./distribyted-data/metadata` |
 | `read_timeout` | Seconds a filesystem read may go without making forward progress before it's abandoned and fails. Resets on progress rather than being a total time budget, so a legitimately slow read on a thin swarm can still take longer than this in total — it only bounds *stalls*. Any read that blows this deadline is guaranteed to return within it rather than hang the mount, even if the underlying torrent library never would on its own (see `internal/fs/torrent.go`'s `readAtWrapper` doc comment). | `120` |
 | `add_timeout` | Timeout in seconds when adding a new torrent (metadata fetch). | `60` |
-| `continue_when_add_timeout` | If true, continues even if metadata fetch fails during startup. | `false` |
+| `continue_when_add_timeout` | If true, continues even if metadata fetch fails during startup. | `false`, but `true` in the generated configuration |
 | `disable_ipv6` | Disable IPv6 support in the torrent engine. | `false` |
 | `disable_tcp` | Disable TCP protocol. | `false` |
 | `disable_utp` | Disable uTP protocol. | `false` |
+| `disable_dht` | Disable the DHT, so peers are found only through trackers and peer exchange. | `false` |
+| `disable_upnp` | Don't ask the router to forward the listening port (UPnP and NAT-PMP). | `false` |
+| `listen_port` | Port the torrent engine listens on for peers, over TCP and uTP. `-1` picks a random free port. | `42069` |
+| `seed` | Keep uploading a torrent to other peers once it's complete, which `servers` need to share their folders. With it off, `servers` still make magnets, but their content isn't shared with the swarm. | `false` |
 | `ip` | Public IP to report to trackers/DHT. | (Auto-detected) |
 | `max_conns_per_torrent` | Maximum peer connections per torrent. Distribyted defaults to half of the underlying torrent library's own default (25 established / 12 half-open vs. the library's 50/25) — raise it on a fast connection if a torrent has many available peers. Not yet benchmarked against time-to-first-byte, only known to affect steady-state peer count. | `25` |
 | `responsive_reads` | Return reads as soon as their data has arrived, instead of waiting for the whole covering piece to finish downloading *and* pass hash verification. Substantially reduces time-to-first-byte, especially with large piece lengths (see `docs/benchmarking.md`) — but bytes may reach a reader before their integrity against the torrent's hash has been confirmed. | `false` |
@@ -106,3 +111,4 @@ servers:
 | `path` | Local folder to monitor and share. |
 | `trackers` | List of tracker URLs to announce to. |
 | `tracker_url` | Optional URL to fetch a dynamic list of trackers. |
+| `watcher_interval` | Seconds between checks of the folder for changes; a change makes a new magnet. | `5` |
