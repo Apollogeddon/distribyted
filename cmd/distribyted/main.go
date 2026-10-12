@@ -32,6 +32,8 @@ const (
 	fuseAllowOther = "fuse-allow-other"
 	portFlag       = "http-port"
 	webDAVPortFlag = "webdav-port"
+	ipFlag         = "http-ip"
+	webDAVIPFlag   = "webdav-ip"
 
 	linkRetryMaxIter = 300 // 10 minutes at 2s per attempt
 )
@@ -72,6 +74,16 @@ func main() {
 				EnvVars: []string{"DISTRIBYTED_WEBDAV_PORT"},
 				Usage:   "Port used for WebDAV interface.",
 			},
+			&cli.StringFlag{
+				Name:    ipFlag,
+				EnvVars: []string{"DISTRIBYTED_HTTP_IP"},
+				Usage:   "Address the web interface listens on, over the config's http.ip (default 127.0.0.1; 0.0.0.0 for every address).",
+			},
+			&cli.StringFlag{
+				Name:    webDAVIPFlag,
+				EnvVars: []string{"DISTRIBYTED_WEBDAV_IP"},
+				Usage:   "Address WebDAV listens on, over the config's webdav.ip (default 127.0.0.1; 0.0.0.0 for every address).",
+			},
 			&cli.BoolFlag{
 				Name:    fuseAllowOther,
 				Value:   false,
@@ -83,14 +95,14 @@ func main() {
 		Action: func(c *cli.Context) error {
 			// a port given on the command line or in the environment overrides the config
 			// file; 0 means use the config's (the flags' defaults match the config defaults)
-			var port, webDAVPort int
+			o := overrides{httpIP: c.String(ipFlag), webDAVIP: c.String(webDAVIPFlag), fuseAllowOther: c.Bool(fuseAllowOther)}
 			if c.IsSet(portFlag) {
-				port = c.Int(portFlag)
+				o.httpPort = c.Int(portFlag)
 			}
 			if c.IsSet(webDAVPortFlag) {
-				webDAVPort = c.Int(webDAVPortFlag)
+				o.webDAVPort = c.Int(webDAVPortFlag)
 			}
-			err := load(c.String(configFlag), port, webDAVPort, c.Bool(fuseAllowOther))
+			err := load(c.String(configFlag), o)
 
 			// stop program execution on errors to avoid flashing consoles
 			if err != nil && runtime.GOOS == "windows" {
@@ -117,7 +129,7 @@ func main() {
 					if c.IsSet(portFlag) {
 						port = c.Int(portFlag)
 					}
-					return healthcheck(c.String(configFlag), port, c.Bool("ready"))
+					return healthcheck(c.String(configFlag), c.String(ipFlag), port, c.Bool("ready"))
 				},
 			},
 		},
@@ -201,23 +213,44 @@ func startFUSEMount(mh *fuse.Handler, cfs *fs.ContainerFs, fusePath string) {
 	}()
 }
 
-func startWebDAVMount(conf *config.Root, cfs *fs.ContainerFs, webDAVPort int) {
+func startWebDAVMount(conf *config.Root, cfs *fs.ContainerFs) {
 	go func() {
 		if conf.WebDAV == nil {
 			log.Warn().Msg("webDAV configuration not found!")
 			return
 		}
-		port := webDAVPort
-		if port == 0 {
-			port = conf.WebDAV.Port
-		}
-		if err := webdav.NewWebDAVServer(cfs, conf.WebDAV.IP, port, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
+		if err := webdav.NewWebDAVServer(cfs, conf.WebDAV.IP, conf.WebDAV.Port, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
 			log.Error().Err(err).Msg("error starting webDAV")
 		}
 	}()
 }
 
-func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
+// overrides are the settings the command line or the environment give over the config file;
+// a zero value leaves the config's.
+type overrides struct {
+	httpPort, webDAVPort int
+	httpIP, webDAVIP     string
+	fuseAllowOther       bool
+}
+
+func (o overrides) apply(conf *config.Root) {
+	if o.httpPort != 0 {
+		conf.HTTPGlobal.Port = o.httpPort
+	}
+	if o.httpIP != "" {
+		conf.HTTPGlobal.IP = o.httpIP
+	}
+	if conf.WebDAV != nil {
+		if o.webDAVPort != 0 {
+			conf.WebDAV.Port = o.webDAVPort
+		}
+		if o.webDAVIP != "" {
+			conf.WebDAV.IP = o.webDAVIP
+		}
+	}
+}
+
+func load(configPath string, o overrides) error {
 	ch := config.NewHandler(configPath)
 
 	conf, err := ch.Get()
@@ -225,11 +258,9 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
 
+	o.apply(conf)
 	if err := config.Validate(conf); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
-	}
-	if port != 0 {
-		conf.HTTPGlobal.Port = port
 	}
 
 	dlog.Load(conf.Log)
@@ -277,7 +308,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 
 	var mh *fuse.Handler
 	if conf.Fuse != nil {
-		mh = fuse.NewHandler(fuseAllowOther || conf.Fuse.AllowOther, conf.Fuse.Path)
+		mh = fuse.NewHandler(o.fuseAllowOther || conf.Fuse.AllowOther, conf.Fuse.Path)
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -410,7 +441,7 @@ func load(configPath string, port, webDAVPort int, fuseAllowOther bool) error {
 	}
 
 	startFUSEMount(mh, cfs, fusePath)
-	startWebDAVMount(conf, cfs, webDAVPort)
+	startWebDAVMount(conf, cfs)
 
 	httpfs := torrent.NewHTTPFS(cfs)
 	logFilename := filepath.Join(conf.Log.Path, dlog.FileName)

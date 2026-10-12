@@ -48,6 +48,8 @@ RUN mkdir -p /distribyted-data && chown distribyted:distribyted /distribyted-dat
 
 USER distribyted
 ENV DISTRIBYTED_FUSE_ALLOW_OTHER=true
+# a container is reached through its published ports, so it listens on every address
+ENV DISTRIBYTED_HTTP_IP=0.0.0.0 DISTRIBYTED_WEBDAV_IP=0.0.0.0
 
 # the binary checks its own HTTP server, so the image needs no curl; loading many torrents can
 # take minutes before the server starts

@@ -16,8 +16,9 @@ const (
 )
 
 const (
-	// DefaultIP is where the web interface and WebDAV listen when the configuration names no ip.
-	DefaultIP         = "0.0.0.0"
+	// DefaultIP is where the web interface and WebDAV listen when the configuration names no
+	// ip: this machine only, as logins travel in plain HTTP
+	DefaultIP         = "127.0.0.1"
 	DefaultHTTPPort   = 4444
 	DefaultWebDAVPort = 36911
 )

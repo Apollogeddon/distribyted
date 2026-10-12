@@ -19,9 +19,10 @@ const healthcheckTimeout = 5 * time.Second
 
 // healthcheck asks the web server of a distribyted running on this host whether it's healthy, or
 // ready, so a container image needs no curl. It finds the server as distribyted does: the port
-// flag, else the configuration file, which it reads but never creates, else the defaults.
-func healthcheck(configPath string, port int, ready bool) error {
-	url, err := healthcheckURL(configPath, port, ready)
+// and address flags, else the configuration file, which it reads but never creates, else the
+// defaults.
+func healthcheck(configPath, ip string, port int, ready bool) error {
+	url, err := healthcheckURL(configPath, ip, port, ready)
 	if err != nil {
 		return cli.Exit(err.Error(), 1)
 	}
@@ -43,7 +44,7 @@ func healthcheck(configPath string, port int, ready bool) error {
 	return nil
 }
 
-func healthcheckURL(configPath string, port int, ready bool) (string, error) {
+func healthcheckURL(configPath, ip string, port int, ready bool) (string, error) {
 	conf := config.AddDefaults(&config.Root{})
 	if _, err := os.Stat(configPath); err == nil {
 		if conf, err = config.NewHandler(configPath).Get(); err != nil {
@@ -56,8 +57,11 @@ func healthcheckURL(configPath string, port int, ready bool) (string, error) {
 		port = conf.HTTPGlobal.Port
 	}
 
-	// a server listening on every address is reached on loopback
 	host := conf.HTTPGlobal.IP
+	if ip != "" {
+		host = ip
+	}
+	// a server listening on every address is reached on loopback
 	if ip := net.ParseIP(host); host == "" || (ip != nil && ip.IsUnspecified()) {
 		host = "127.0.0.1"
 	}

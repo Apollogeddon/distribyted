@@ -13,7 +13,7 @@ Configures the web dashboard and management API.
 | Field | Description | Default |
 | :--- | :--- | :--- |
 | `port` | The port for the HTTP server. The `--http-port` flag or `DISTRIBYTED_HTTP_PORT` overrides it. | `4444` |
-| `ip` | The IP address to bind to. | `0.0.0.0` |
+| `ip` | The IP address to bind to. `127.0.0.1` serves this machine only; `0.0.0.0` serves every address, so use it only on a network you trust or behind a proxy with TLS, as logins travel in plain HTTP. The `--http-ip` flag or `DISTRIBYTED_HTTP_IP` overrides it. | `127.0.0.1` (the container image sets `0.0.0.0`) |
 | `httpfs` | Enable/Disable the built-in HTTP file browser. | `true` |
 | `user` | Username for the web interface, native API and qBittorrent-compatible API. Required unless `disable_auth` is `true`. | `admin` in the generated configuration |
 | `pass` | Password for the web interface, native API and qBittorrent-compatible API. Required unless `disable_auth` is `true`: an empty one is rejected at startup. | A random one, written to the generated configuration on first run |
@@ -26,7 +26,7 @@ Configures the WebDAV server for remote filesystem access.
 | Field | Description | Default |
 | :--- | :--- | :--- |
 | `port` | The port for the WebDAV server. The `--webdav-port` flag or `DISTRIBYTED_WEBDAV_PORT` overrides it. | `36911` |
-| `ip` | The IP address to bind to. Basic auth travels in plain HTTP, so use `127.0.0.1` unless other machines need WebDAV. | `0.0.0.0` |
+| `ip` | The IP address to bind to. Basic auth travels in plain HTTP, so keep `127.0.0.1` unless other machines need WebDAV. The `--webdav-ip` flag or `DISTRIBYTED_WEBDAV_IP` overrides it. After 5 failed logins from one address, it waits before trying again, longer after each further failure. | `127.0.0.1` (the container image sets `0.0.0.0`) |
 | `user` | Username for authentication. Required. | `admin` in the generated configuration |
 | `pass` | Password for authentication. Required: an empty one is rejected at startup. | A random one (the same as `http.pass`), written to the generated configuration on first run |
 

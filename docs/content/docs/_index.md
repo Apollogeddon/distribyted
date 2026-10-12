@@ -44,4 +44,6 @@ first run (the same one for the web interface and WebDAV). Read it from `http.pa
 | WebDAV | `http://localhost:36911` |
 | Web interface | `http://localhost:4444` |
 
+Both listen on `127.0.0.1` only, unless `http.ip` and `webdav.ip` say otherwise (see [Configuration](configuration/)).
+
 To let Radarr or Sonarr add torrents, see [Integration](integration/).
