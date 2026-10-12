@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
+	atorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/stretchr/testify/require"
 )
@@ -45,4 +46,24 @@ func TestNewClient_InvalidIP(t *testing.T) {
 	var id [20]byte
 	_, err := NewClient(nil, nil, cfg, id)
 	require.Error(t, err)
+}
+
+func TestNewClient_PeerKeepAlive(t *testing.T) {
+	tempDir := t.TempDir()
+	fis, err := NewFileItemStore(tempDir, 1*time.Hour)
+	require.NoError(t, err)
+	defer func() { _ = fis.Close() }()
+
+	cfg := &config.TorrentGlobal{DisableIPv6: true, DisableUTP: true, DisableUPnP: true, DisableDHT: true, ListenPort: -1}
+	var id [20]byte
+	var keepAlive time.Duration
+	// the storage holds its bolt database open, and Windows can't remove TempDir until it's closed
+	st := storage.NewFile(tempDir)
+	defer func() { _ = st.Close() }()
+	// options run after NewClient's own settings, so this sees what it chose
+	client, err := NewClient(st, fis, cfg, id, func(cc *atorrent.ClientConfig) { keepAlive = cc.KeepAliveTimeout })
+	require.NoError(t, err)
+	defer client.Close()
+
+	require.Equal(t, 5*time.Second, keepAlive)
 }
