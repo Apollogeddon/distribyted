@@ -96,7 +96,7 @@ The application uses a YAML configuration file. See `examples/conf_example.yaml`
 ### 3. Accessing Files
 
 - **FUSE:** Mounted to `./distribyted-data/mount` (default).
-- **WebDAV:** `http://localhost:36911` (Default: admin/admin).
+- **WebDAV:** `http://localhost:36911` (user `admin`, with a random password written to the generated config on first run).
 - **Web UI:** `http://localhost:4444`
 
 ---

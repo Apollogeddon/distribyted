@@ -34,7 +34,7 @@ This runs `go generate` and writes the binary to `bin/`, named for the version a
 ```bash
 task start
 ```
-This runs the application using `examples/conf_example.yaml`, or the config path you pass after `--` (`task start -- my-config.yaml`). If that file doesn't exist yet, distribyted generates it automatically from the built-in template (`web/templates/config_template.yaml`) on first run, including default `admin`/`admin` credentials for both the HTTP and WebDAV servers — fine for local development, but change them (or set `http.disable_auth: true`) before exposing the server beyond localhost. See [Configuration](../configuration/) for details.
+This runs the application using `examples/conf_example.yaml`, or the config path you pass after `--` (`task start -- my-config.yaml`). If that file doesn't exist yet, distribyted generates it automatically from the built-in template (`web/templates/config_template.yaml`) on first run, with the user `admin` and a random password (read it from `http.pass` and `webdav.pass` in that file) for both the HTTP and WebDAV servers. See [Configuration](../configuration/) for details.
 
 ### 3. Running Tests
 

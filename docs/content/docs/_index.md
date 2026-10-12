@@ -32,8 +32,8 @@ If the file doesn't exist, distribyted writes one from its built-in template. Se
 [Configuration](configuration/) for every setting.
 
 {{< callout type="warning" >}}
-The generated configuration logs in with `admin`/`admin`. Change both passwords before
-the web interface or WebDAV can be reached from another machine.
+The generated configuration logs in as `admin`, with a random password written to the file on
+first run (the same one for the web interface and WebDAV). Read it from `http.pass` and `webdav.pass`.
 {{< /callout >}}
 
 ## Reach your files
