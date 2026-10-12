@@ -2,9 +2,12 @@ package http
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"path"
+	"strconv"
+	"time"
 
 	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/gin-gonic/gin"
@@ -16,19 +19,33 @@ import (
 	"github.com/Apollogeddon/distribyted/web"
 )
 
+// readHeaderTimeout bounds how long a client may take to send its request headers, as WebDAV's does.
+const readHeaderTimeout = 30 * time.Second
+
 func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) error {
 	r, err := NewHandler(fc, ss, s, ch, tss, fs, logPath, conf, fusePath, lfs, opts...)
 	if err != nil {
 		return err
 	}
 
-	log.Info().Str(dlog.KeyHost, fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)).Msg("starting webserver")
+	addr := net.JoinHostPort(conf.HTTPGlobal.IP, strconv.Itoa(conf.HTTPGlobal.Port))
+	log.Info().Str(dlog.KeyHost, addr).Msg("starting webserver")
 
-	if err := r.Run(fmt.Sprintf("%s:%d", conf.HTTPGlobal.IP, conf.HTTPGlobal.Port)); err != nil {
+	if err := newServer(addr, r).ListenAndServe(); err != nil {
 		return fmt.Errorf("error initializing server: %w", err)
 	}
 
 	return nil
+}
+
+// newServer serves h on addr. Like WebDAV's, it bounds only the request headers: a download over
+// /fs can rightly take hours.
+func newServer(addr string, h http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           h,
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
 }
 
 func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) (*gin.Engine, error) {

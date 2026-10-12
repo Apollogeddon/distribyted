@@ -38,6 +38,14 @@ func TestHealthcheckURL_FromConfig(t *testing.T) {
 	assert.Equal(t, "http://10.1.2.3:5555/readyz", url)
 }
 
+func TestHealthcheckURL_ConfigWithoutPort(t *testing.T) {
+	p := writeConfig(t, "http:\n  ip: 10.1.2.3\n  user: admin\n  pass: secret\n")
+
+	url, err := healthcheckURL(p, 0, false)
+	require.NoError(t, err)
+	assert.Equal(t, "http://10.1.2.3:4444/healthz", url)
+}
+
 func TestHealthcheckURL_PortFlagAndUnspecifiedIP(t *testing.T) {
 	p := writeConfig(t, "http:\n  ip: \"::\"\n  port: 5555\n")
 

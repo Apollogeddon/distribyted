@@ -60,13 +60,13 @@ func main() {
 			},
 			&cli.IntFlag{
 				Name:    portFlag,
-				Value:   defaultHTTPPort,
+				Value:   config.DefaultHTTPPort,
 				EnvVars: []string{"DISTRIBYTED_HTTP_PORT"},
 				Usage:   "HTTP port for web interface.",
 			},
 			&cli.IntFlag{
 				Name:    webDAVPortFlag,
-				Value:   36911,
+				Value:   config.DefaultWebDAVPort,
 				EnvVars: []string{"DISTRIBYTED_WEBDAV_PORT"},
 				Usage:   "Port used for WebDAV interface.",
 			},
@@ -208,7 +208,7 @@ func startWebDAVMount(conf *config.Root, cfs *fs.ContainerFs, webDAVPort int) {
 		if port == 0 {
 			port = conf.WebDAV.Port
 		}
-		if err := webdav.NewWebDAVServer(cfs, port, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
+		if err := webdav.NewWebDAVServer(cfs, conf.WebDAV.IP, port, conf.WebDAV.User, conf.WebDAV.Pass); err != nil {
 			log.Error().Err(err).Msg("error starting webDAV")
 		}
 	}()

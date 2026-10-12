@@ -1,9 +1,14 @@
 package testenv
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -12,9 +17,16 @@ import (
 	"github.com/anacrolix/torrent/storage"
 )
 
+// writerWakeInterval is the test clients' keepalive interval, which also bounds how long a peer
+// connection's writer sleeps. anacrolix/torrent v1.61.0's writer can miss the wake-up that tells it
+// to send new requests (it takes its wait channel after releasing the client lock) and then
+// sleeps until the next keepalive, a minute by default: longer than the tests' read timeouts.
+const writerWakeInterval = 100 * time.Millisecond
+
 type Seeder struct {
-	client *torrent.Client
-	tmpDir string
+	client  *torrent.Client
+	tmpDir  string
+	content *contentStorage
 }
 
 func NewSeeder() (*Seeder, error) {
@@ -26,10 +38,14 @@ func NewSeeder() (*Seeder, error) {
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.HeaderObfuscationPolicy.Preferred = false
 	cfg.HeaderObfuscationPolicy.RequirePreferred = true
-	cfg.DefaultStorage = storage.NewMMap(tmpDir)
+	// served from memory: anacrolix/torrent panics when a storage read for a peer request fails
+	// after its torrent closed, as an mmap's does when Stop closes the client mid-request
+	content := &contentStorage{}
+	cfg.DefaultStorage = content
 	cfg.NoUpload = false
 	cfg.Seed = true
 	cfg.ListenPort = 0 // random port
+	cfg.KeepAliveTimeout = writerWakeInterval
 	cfg.NoDHT = true
 	cfg.DisableIPv6 = true
 	cfg.DisableTCP = false
@@ -46,8 +62,9 @@ func NewSeeder() (*Seeder, error) {
 	}
 
 	return &Seeder{
-		client: client,
-		tmpDir: tmpDir,
+		client:  client,
+		tmpDir:  tmpDir,
+		content: content,
 	}, nil
 }
 
@@ -90,6 +107,7 @@ func (s *Seeder) AddFileWithPieceLength(name string, content []byte, announceURL
 	}
 
 	mi.InfoBytes, _ = bencode.Marshal(info)
+	s.content.add(mi.HashInfoBytes(), content)
 
 	t, err := s.client.AddTorrent(&mi)
 	if err != nil {
@@ -125,4 +143,52 @@ func (s *Seeder) MetaInfo(h metainfo.Hash) (metainfo.MetaInfo, bool) {
 		return metainfo.MetaInfo{}, false
 	}
 	return t.Metainfo(), true
+}
+
+// contentStorage is read-only storage holding each torrent's whole content in memory. Its reads
+// never fail, even after the client has closed the torrent.
+type contentStorage struct {
+	torrents sync.Map // metainfo.Hash to []byte
+}
+
+func (cs *contentStorage) add(ih metainfo.Hash, content []byte) {
+	cs.torrents.Store(ih, bytes.Clone(content))
+}
+
+func (cs *contentStorage) OpenTorrent(_ context.Context, _ *metainfo.Info, ih metainfo.Hash) (storage.TorrentImpl, error) {
+	v, ok := cs.torrents.Load(ih)
+	if !ok {
+		return storage.TorrentImpl{}, fmt.Errorf("seeder has no content for %s", ih)
+	}
+	content := v.([]byte) //nolint:forcetypeassert // only add stores here
+	return storage.TorrentImpl{
+		Piece: func(p metainfo.Piece) storage.PieceImpl {
+			return contentPiece(content[p.Offset() : p.Offset()+p.Length()])
+		},
+		Close: func() error { return nil },
+	}, nil
+}
+
+type contentPiece []byte
+
+func (cp contentPiece) ReadAt(b []byte, off int64) (int, error) {
+	if off >= int64(len(cp)) {
+		return 0, io.EOF
+	}
+	n := copy(b, cp[off:])
+	if n < len(b) {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+func (contentPiece) WriteAt([]byte, int64) (int, error) {
+	return 0, errors.New("seeder storage is read-only")
+}
+
+func (contentPiece) MarkComplete() error    { return nil }
+func (contentPiece) MarkNotComplete() error { return nil }
+
+func (contentPiece) Completion() storage.Completion {
+	return storage.Completion{Ok: true, Complete: true}
 }

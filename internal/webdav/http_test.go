@@ -4,7 +4,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +17,7 @@ func TestNewWebDAVServer(t *testing.T) {
 	mfs := fs.NewMemory()
 
 	// Calling with an invalid port to avoid blocking ListenAndServe
-	err := NewWebDAVServer(mfs, -1, "admin", "admin")
+	err := NewWebDAVServer(mfs, "127.0.0.1", -1, "admin", "admin")
 	require.Error(t, err)
 
 	handler := NewWebDAVHandler(mfs, "admin", "admin")
@@ -71,6 +73,29 @@ func TestNewWebDAVHandler_UnsetCredentialsFailClosed(t *testing.T) {
 	w3 := httptest.NewRecorder()
 	handler.ServeHTTP(w3, req3)
 	require.Equal(t, 401, w3.Code)
+}
+
+func TestNewWebDAVServer_BindsConfiguredAddress(t *testing.T) {
+	// take a free port, then hand it to the server
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	port := l.Addr().(*net.TCPAddr).Port
+	require.NoError(t, l.Close())
+
+	go func() { _ = NewWebDAVServer(fs.NewMemory(), "127.0.0.1", port, "user", "pass") }()
+
+	url := "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		resp, err := http.Get(url) //nolint:noctx // a test probe
+		if !assert.NoError(c, err) {
+			return
+		}
+		_ = resp.Body.Close()
+		assert.Equal(c, http.StatusUnauthorized, resp.StatusCode)
+	}, 5*time.Second, 20*time.Millisecond)
+
+	// an address the host doesn't have is refused rather than widened to every interface
+	require.Error(t, NewWebDAVServer(fs.NewMemory(), "192.0.2.1", port, "user", "pass"))
 }
 
 func TestNewWebDAVServerWithListener(t *testing.T) {

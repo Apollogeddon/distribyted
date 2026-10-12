@@ -48,6 +48,7 @@ type TorrentGlobal struct {
 
 type WebDAVGlobal struct {
 	Port int    `yaml:"port"`
+	IP   string `yaml:"ip"`
 	User string `yaml:"user"`
 	Pass string `yaml:"pass"`
 }
@@ -135,7 +136,21 @@ func AddDefaults(r *Root) *Root {
 	}
 
 	if r.HTTPGlobal.IP == "" {
-		r.HTTPGlobal.IP = "0.0.0.0"
+		r.HTTPGlobal.IP = DefaultIP
+	}
+
+	if r.HTTPGlobal.Port == 0 {
+		r.HTTPGlobal.Port = DefaultHTTPPort
+	}
+
+	// a missing webdav: section disables WebDAV, so it's only filled in when present
+	if r.WebDAV != nil {
+		if r.WebDAV.IP == "" {
+			r.WebDAV.IP = DefaultIP
+		}
+		if r.WebDAV.Port == 0 {
+			r.WebDAV.Port = DefaultWebDAVPort
+		}
 	}
 
 	if r.Log == nil {

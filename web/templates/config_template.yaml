@@ -26,6 +26,9 @@ http:
 # WebDAV specific configuration. Remove this to disable WebDAV.
 webdav:
   port: 36911
+
+  ip: "0.0.0.0"
+
   user: admin
   pass: admin
 

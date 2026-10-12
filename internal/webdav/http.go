@@ -1,9 +1,9 @@
 package webdav
 
 import (
-	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Apollogeddon/distribyted/internal/auth"
@@ -16,8 +16,8 @@ import (
 // no read or write timeout, as streaming a large file can rightly take hours.
 const readHeaderTimeout = 30 * time.Second
 
-func NewWebDAVServer(fs fs.Filesystem, port int, user, pass string) error {
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
+func NewWebDAVServer(fs fs.Filesystem, ip string, port int, user, pass string) error {
+	addr := net.JoinHostPort(ip, strconv.Itoa(port))
 	log.Info().Str(dlog.KeyHost, addr).Msg("starting webDAV server")
 	srv := newServer(fs, user, pass)
 	srv.Addr = addr
