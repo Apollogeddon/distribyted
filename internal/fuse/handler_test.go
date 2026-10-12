@@ -9,6 +9,7 @@ import (
 	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/winfsp/cgofuse/fuse"
 )
 
 type mockHost struct {
@@ -103,4 +104,32 @@ func TestHandler_NotMountedAfterMountReturns(t *testing.T) {
 
 	// the mock's Mount returns at once, as a failed or finished mount does
 	assert.Eventually(t, func() bool { return !h.Mounted() }, time.Second, 10*time.Millisecond)
+}
+
+func TestHandler_MountAfterUnmountIsRefused(t *testing.T) {
+	h := NewHandler(false, t.TempDir())
+	m := &mockHost{}
+	h.newHost = func(fuse.FileSystemInterface) FileSystemHost { return m }
+
+	h.Unmount()
+	cfs, err := fs.NewContainerFs(nil)
+	require.NoError(t, err)
+	require.ErrorIs(t, h.Mount(cfs), ErrUnmounted)
+	time.Sleep(50 * time.Millisecond)
+	assert.False(t, m.wasMountCalled(), "a signal before the mount starts must stop it")
+}
+
+// Mount runs in startFUSEMount's goroutine and Unmount in the signal handler's; the race
+// detector checks they share the host safely.
+func TestHandler_MountAndUnmountConcurrently(t *testing.T) {
+	h := NewHandler(false, t.TempDir())
+	h.newHost = func(fuse.FileSystemInterface) FileSystemHost { return &mockHost{} }
+	cfs, err := fs.NewContainerFs(nil)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); _ = h.Mount(cfs) }()
+	go func() { defer wg.Done(); h.Unmount() }()
+	wg.Wait()
 }

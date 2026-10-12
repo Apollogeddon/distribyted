@@ -1,9 +1,11 @@
 package fuse
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"sync/atomic"
 
 	"github.com/Apollogeddon/distribyted/internal/fs"
@@ -18,18 +20,29 @@ type FileSystemHost interface {
 	Unmount() bool
 }
 
+// ErrUnmounted is returned by Mount after Unmount: shutdown has begun.
+var ErrUnmounted = errors.New("fuse: handler already unmounted")
+
 type Handler struct {
 	fuseAllowOther bool
 	path           string
+	newHost        func(fuse.FileSystemInterface) FileSystemHost
 
-	host    FileSystemHost
-	mounted atomic.Bool
+	// mu guards host and unmounted: Mount runs in its own goroutine and Unmount in the
+	// signal handler's
+	mu        sync.Mutex
+	host      FileSystemHost
+	unmounted bool
+	mounted   atomic.Bool
 }
 
 func NewHandler(fuseAllowOther bool, path string) *Handler {
 	return &Handler{
 		fuseAllowOther: fuseAllowOther,
 		path:           path,
+		newHost: func(fs fuse.FileSystemInterface) FileSystemHost {
+			return fuse.NewFileSystemHost(fs)
+		},
 	}
 }
 
@@ -46,9 +59,16 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 		}
 	}
 
-	if s.host == nil {
-		s.host = fuse.NewFileSystemHost(&mountTracker{FileSystemInterface: NewFS(cfs), mounted: &s.mounted})
+	s.mu.Lock()
+	if s.unmounted {
+		s.mu.Unlock()
+		return ErrUnmounted
 	}
+	if s.host == nil {
+		s.host = s.newHost(&mountTracker{FileSystemInterface: NewFS(cfs), mounted: &s.mounted})
+	}
+	host := s.host
+	s.mu.Unlock()
 
 	// Mount blocks until the filesystem is unmounted, so it runs on its own and a failure can
 	// only be logged: cgofuse reports none until then, and gives no reason.
@@ -63,7 +83,7 @@ func (s *Handler) Mount(cfs *fs.ContainerFs) error {
 		config = append(config, "-o", "attr_timeout=60")
 		config = append(config, "-o", "entry_timeout=60")
 
-		ok := s.host.Mount(s.path, config)
+		ok := host.Mount(s.path, config)
 		s.mounted.Store(false)
 		if !ok {
 			log.Error().Str(dlog.KeyPath, s.path).Msg("error trying to mount filesystem")
@@ -100,12 +120,17 @@ func (m *mountTracker) Destroy() {
 	m.FileSystemInterface.Destroy()
 }
 
+// Unmount unmounts the filesystem, and stops a Mount that hasn't started yet from mounting it.
 func (s *Handler) Unmount() {
-	if s.host == nil {
+	s.mu.Lock()
+	s.unmounted = true
+	host := s.host
+	s.mu.Unlock()
+	if host == nil {
 		return
 	}
 
-	ok := s.host.Unmount()
+	ok := host.Unmount()
 	if !ok {
 		// on Linux, the next start lazily unmounts what was left behind (forceUnmount)
 		log.Error().Str(dlog.KeyPath, s.path).Msg("unmount failed")
