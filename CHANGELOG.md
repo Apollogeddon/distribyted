@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.2](https://github.com/Apollogeddon/distribyted/compare/v0.32.1...v0.32.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* **torrent:** Send peer keepalives every 5 s, so a missed request wake-up stalls a read 5 s, not a minute ([da9ba73](https://github.com/Apollogeddon/distribyted/commit/da9ba73b784f701c16f96fc34c4b89ad920decd2))
+* **torrent:** Send peer keepalives every 5 s, so a missed request wake-up stalls a read 5 s, not a minute ([406dc7b](https://github.com/Apollogeddon/distribyted/commit/406dc7b4e3048a09660d64b21a4f999a4582a985))
+
 ## [0.32.1](https://github.com/Apollogeddon/distribyted/compare/v0.32.0...v0.32.1) (2026-10-12)
 
 
