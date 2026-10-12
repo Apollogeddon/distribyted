@@ -16,6 +16,11 @@ import (
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 )
 
+// peerKeepAlive is how long a peer connection's writer sleeps when it has nothing to send. anacrolix/torrent's
+// writer can miss the signal to send piece requests and sleep until then, so this caps that stall (the library
+// default is a minute); a keepalive only goes out while pieces are wanted, so idle connections cost nothing.
+const peerKeepAlive = 5 * time.Second
+
 // NewClient builds the anacrolix/torrent client from distribyted's own
 // config. opts, if given, are applied to the underlying torrent.ClientConfig
 // after distribyted's own settings and before the client is constructed —
@@ -35,6 +40,7 @@ func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal
 	torrentCfg.DisableUTP = cfg.DisableUTP
 	torrentCfg.NoDefaultPortForwarding = cfg.DisableUPnP
 	torrentCfg.NoDHT = cfg.DisableDHT
+	torrentCfg.KeepAliveTimeout = peerKeepAlive
 	if cfg.MaxConnsPerTorrent > 0 {
 		torrentCfg.EstablishedConnsPerTorrent = cfg.MaxConnsPerTorrent
 		torrentCfg.HalfOpenConnsPerTorrent = max(1, cfg.MaxConnsPerTorrent/2)
