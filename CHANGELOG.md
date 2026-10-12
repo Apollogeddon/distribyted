@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.1](https://github.com/Apollogeddon/distribyted/compare/v0.32.0...v0.32.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **config:** Default the web and WebDAV ports, and make WebDAV's listen address configurable ([5a7a1c5](https://github.com/Apollogeddon/distribyted/commit/5a7a1c5c3468f68a4398c8f08a46cbc2ce834fee))
+* **http:** Limit how long a client may take to send its request headers ([bde7923](https://github.com/Apollogeddon/distribyted/commit/bde79230a83a938f0006511aedcba1f5df3595bf))
+
 ## [0.32.0](https://github.com/Apollogeddon/distribyted/compare/v0.31.0...v0.32.0) (2026-10-11)
 
 
