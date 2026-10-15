@@ -230,17 +230,27 @@ func (s *Server) makeMagnet() error {
 
 	ih := mi.HashInfoBytes()
 
-	to, _ := s.c.AddTorrentOpt(torrent.AddTorrentOpts{
-		InfoHash: ih,
-		Storage: storage.NewFileOpts(storage.NewFileClientOpts{
-			ClientBaseDir: s.cfg.Path,
-			FilePathMaker: func(opts storage.FilePathMakerOpts) string {
-				return filepath.Join(opts.File.Path...)
-			},
-			TorrentDirMaker: nil,
-			PieceCompletion: s.pc,
-		}),
-	})
+	add := func() *torrent.Torrent {
+		to, _ := s.c.AddTorrentOpt(torrent.AddTorrentOpts{
+			InfoHash: ih,
+			Storage: storage.NewFileOpts(storage.NewFileClientOpts{
+				ClientBaseDir: s.cfg.Path,
+				FilePathMaker: func(opts storage.FilePathMakerOpts) string {
+					return filepath.Join(opts.File.Path...)
+				},
+				TorrentDirMaker: nil,
+				PieceCompletion: s.pc,
+			}),
+		})
+		return to
+	}
+	to := add()
+	// the folder is back to contents whose torrent is waiting to be dropped: keep it, and add
+	// it again if it was dropped as it was added
+	keepTorrent(ih.HexString())
+	if isClosed(TorrentWrapper{to}) {
+		to = add()
+	}
 
 	tks := s.trackers()
 
