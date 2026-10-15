@@ -102,3 +102,24 @@ func warnDefaultCredentials(section string, enabled bool, user, pass string) {
 		log.Warn().Str("section", section).Msg("the login is still admin/admin; change " + section + ".pass in the configuration file")
 	}
 }
+
+// Exposed lists the sections (http, webdav) listening beyond this machine: their logins
+// travel in plain HTTP. Configurations written before 127.0.0.1 became the default name
+// 0.0.0.0, so an upgrade keeps them listening on every address.
+func Exposed(r *Root) []string {
+	var exposed []string
+	beyond := func(ip string) bool {
+		if ip == "" || ip == "localhost" {
+			return false
+		}
+		parsed := net.ParseIP(ip)
+		return parsed == nil || !parsed.IsLoopback()
+	}
+	if r.HTTPGlobal != nil && beyond(r.HTTPGlobal.IP) {
+		exposed = append(exposed, "http")
+	}
+	if r.WebDAV != nil && beyond(r.WebDAV.IP) {
+		exposed = append(exposed, "webdav")
+	}
+	return exposed
+}

@@ -104,3 +104,15 @@ func TestValidate_NumbersOutOfRange(t *testing.T) {
 	r.HTTPGlobal.IP = "::1"
 	require.NoError(t, Validate(r))
 }
+
+func TestExposed(t *testing.T) {
+	t.Parallel()
+
+	r := &Root{HTTPGlobal: &HTTPGlobal{IP: "127.0.0.1"}, WebDAV: &WebDAVGlobal{IP: "::1"}}
+	require.Empty(t, Exposed(r))
+	require.Empty(t, Exposed(&Root{HTTPGlobal: &HTTPGlobal{IP: "localhost"}}))
+
+	r = &Root{HTTPGlobal: &HTTPGlobal{IP: "0.0.0.0"}, WebDAV: &WebDAVGlobal{IP: "192.168.1.2"}}
+	require.Equal(t, []string{"http", "webdav"}, Exposed(r))
+	require.Equal(t, []string{"http"}, Exposed(&Root{HTTPGlobal: &HTTPGlobal{IP: "::"}}))
+}

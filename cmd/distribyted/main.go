@@ -264,6 +264,10 @@ func load(configPath string, o overrides) error {
 	}
 
 	dlog.Load(conf.Log)
+	for _, section := range config.Exposed(conf) {
+		log.Warn().Str("section", section).
+			Msg("listening beyond this machine, and logins travel in plain HTTP: set " + section + ".ip to 127.0.0.1 unless other machines need it")
+	}
 
 	sl, err := initStorageLayer(conf)
 	if err != nil {
