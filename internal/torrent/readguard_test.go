@@ -2,11 +2,13 @@ package torrent
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/stretchr/testify/require"
 )
@@ -99,4 +101,31 @@ func TestGuardedPieceKeepsWriteTo(t *testing.T) {
 
 	_, ok = guardPiece(&brokenPiece{}, 0, f).(io.WriterTo)
 	require.False(t, ok, "a piece without WriteTo doesn't gain one")
+}
+
+// fakeStorage hands out one broken piece and a whole-torrent reader that can't read either.
+type fakeStorage struct{ piece *brokenPiece }
+
+func (f fakeStorage) OpenTorrent(context.Context, *metainfo.Info, metainfo.Hash) (storage.TorrentImpl, error) {
+	broken := func() (int, error) { return 0, errors.New("EIO") }
+	return storage.TorrentImpl{
+		Piece: func(metainfo.Piece) storage.PieceImpl { return f.piece },
+		NewReader: func() storage.TorrentReader {
+			return guardedReader{ReaderAt: readerAtFunc(func([]byte, int64) (int, error) { return broken() }), Closer: io.NopCloser(nil)}
+		},
+	}, nil
+}
+
+func TestGuardReadsCountsWholeTorrentReaders(t *testing.T) {
+	inner := &brokenPiece{}
+	info := &metainfo.Info{PieceLength: 16, Length: 64}
+	ti, err := GuardReads(fakeStorage{inner}, 0).OpenTorrent(context.Background(), info, metainfo.Hash{})
+	require.NoError(t, err)
+
+	r := ti.NewReader()
+	for range freeFailedReads + 1 {
+		_, err := r.ReadAt(make([]byte, 4), 20)
+		require.Error(t, err)
+	}
+	require.Equal(t, 1, inner.notComplete, "failed whole-torrent reads count against their piece too")
 }

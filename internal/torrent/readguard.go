@@ -51,7 +51,51 @@ func (c readGuardClient) OpenTorrent(ctx context.Context, info *metainfo.Info, i
 			return guardPiece(piece(p, hash), p.Index(), pieces)
 		}
 	}
+	// whole-torrent and per-piece readers read the same data, so they count the same way
+	if newReader := t.NewReader; newReader != nil {
+		pieceAt := func(off int64) *guardedPiece {
+			mp := info.Piece(int(off / info.PieceLength))
+			if t.PieceWithHash != nil {
+				return asGuarded(t.PieceWithHash(mp, g.None[[]byte]()))
+			}
+			return asGuarded(t.Piece(mp))
+		}
+		t.NewReader = func() storage.TorrentReader {
+			r := newReader()
+			return guardedReader{ReaderAt: readerAtFunc(func(b []byte, off int64) (int, error) {
+				n, err := r.ReadAt(b, off)
+				if gp := pieceAt(off); gp != nil {
+					gp.record(n, err)
+				}
+				return n, err
+			}), Closer: r}
+		}
+	}
+	if newPieceReader := t.NewPieceReader; newPieceReader != nil {
+		t.NewPieceReader = func(p storage.Piece) storage.PieceReader {
+			r := newPieceReader(p)
+			gp := asGuarded(p.PieceImpl)
+			if r == nil || gp == nil {
+				return r
+			}
+			return guardedReader{ReaderAt: readerAtFunc(func(b []byte, off int64) (int, error) {
+				n, err := r.ReadAt(b, off)
+				gp.record(n, err)
+				return n, err
+			}), Closer: r}
+		}
+	}
 	return t, nil
+}
+
+func asGuarded(p storage.PieceImpl) *guardedPiece {
+	switch p := p.(type) {
+	case *guardedPiece:
+		return p
+	case guardedPieceWriterTo:
+		return p.guardedPiece
+	}
+	return nil
 }
 
 // pieceReadFailures tracks each piece's reads that failed in a row; it holds at most one
