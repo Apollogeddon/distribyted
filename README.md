@@ -99,6 +99,8 @@ The application uses a YAML configuration file. See `examples/conf_example.yaml`
 - **WebDAV:** `http://localhost:36911` (user `admin`, with a random password written to the generated config on first run).
 - **Web UI:** `http://localhost:4444`
 
+Both listen on `127.0.0.1` only, unless `http.ip` and `webdav.ip` (or `--http-ip` and `--webdav-ip`) say otherwise; the container image listens on every address, reached through the ports you publish.
+
 ---
 
 ## Integrations

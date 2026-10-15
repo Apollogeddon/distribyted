@@ -66,3 +66,53 @@ func TestValidateRouteName(t *testing.T) {
 		}
 	}
 }
+
+func TestValidate_NumbersOutOfRange(t *testing.T) {
+	t.Parallel()
+
+	valid := func() *Root {
+		return AddDefaults(&Root{
+			HTTPGlobal: &HTTPGlobal{User: "u", Pass: "p"},
+			WebDAV:     &WebDAVGlobal{User: "u", Pass: "p"},
+			Servers:    []*Server{{Name: "s"}},
+		})
+	}
+	require.NoError(t, Validate(valid()))
+
+	cases := map[string]func(r *Root){
+		"http port":         func(r *Root) { r.HTTPGlobal.Port = 70000 },
+		"webdav port":       func(r *Root) { r.WebDAV.Port = -1 },
+		"read timeout":      func(r *Root) { r.Torrent.ReadTimeout = -1 },
+		"add timeout":       func(r *Root) { r.Torrent.AddTimeout = -5 },
+		"cache size":        func(r *Root) { r.Torrent.GlobalCacheSize = -2 },
+		"extract limit":     func(r *Root) { r.Torrent.ArchiveExtractLimit = -2 },
+		"listen port":       func(r *Root) { r.Torrent.ListenPort = 65536 },
+		"conns per torrent": func(r *Root) { r.Torrent.MaxConnsPerTorrent = -1 },
+		"torrent ip":        func(r *Root) { r.Torrent.IP = "1.2.3" },
+		"log size":          func(r *Root) { r.Log.MaxSize = -1 },
+		"watcher interval":  func(r *Root) { r.Servers[0].WatcherInterval = -1 },
+	}
+	for name, mutate := range cases {
+		r := valid()
+		mutate(r)
+		require.Error(t, Validate(r), name)
+	}
+
+	// the documented "no limit" and "any port" values stay valid
+	r := valid()
+	r.Torrent.GlobalCacheSize, r.Torrent.ArchiveExtractLimit, r.Torrent.ListenPort = -1, -1, -1
+	r.HTTPGlobal.IP = "::1"
+	require.NoError(t, Validate(r))
+}
+
+func TestExposed(t *testing.T) {
+	t.Parallel()
+
+	r := &Root{HTTPGlobal: &HTTPGlobal{IP: "127.0.0.1"}, WebDAV: &WebDAVGlobal{IP: "::1"}}
+	require.Empty(t, Exposed(r))
+	require.Empty(t, Exposed(&Root{HTTPGlobal: &HTTPGlobal{IP: "localhost"}}))
+
+	r = &Root{HTTPGlobal: &HTTPGlobal{IP: "0.0.0.0"}, WebDAV: &WebDAVGlobal{IP: "192.168.1.2"}}
+	require.Equal(t, []string{"http", "webdav"}, Exposed(r))
+	require.Equal(t, []string{"http"}, Exposed(&Root{HTTPGlobal: &HTTPGlobal{IP: "::"}}))
+}

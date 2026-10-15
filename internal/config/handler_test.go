@@ -115,3 +115,15 @@ func TestHandlerGet_RawError(t *testing.T) {
 	require.Nil(conf)
 	require.Contains(err.Error(), "error reading configuration file")
 }
+
+// A new install's web interface and WebDAV serve this machine only, both from the defaults and
+// from the configuration file it generates: their logins travel in plain HTTP.
+func TestHandlerGet_GeneratedConfigListensOnLoopback(t *testing.T) {
+	t.Parallel()
+
+	conf, err := NewHandler(filepath.Join(t.TempDir(), "config.yaml")).Get()
+	require.NoError(t, err)
+	require.Equal(t, "127.0.0.1", conf.HTTPGlobal.IP)
+	require.Equal(t, "127.0.0.1", conf.WebDAV.IP)
+	require.Equal(t, "127.0.0.1", DefaultIP)
+}

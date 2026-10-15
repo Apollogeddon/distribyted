@@ -283,6 +283,17 @@ const (
 // select, abandoning (not killing — Go cannot kill a goroutine) a read
 // that doesn't finish in time.
 //
+// Neither part stops a piece that storage says is complete while every read of it fails:
+// that retries without ever parking. torrent.GuardReads, around the storage, slows those
+// reads and then marks the piece incomplete, so the read parks waiting for a download.
+//
+// A parked read wakes with an error when its torrent is dropped or the client closed, and then
+// recurses the same way, overflowing its stack within a second and killing the process.
+// Deleting a torrent that wouldn't play (from the UI, or an *arr app through the qBittorrent
+// API) did exactly that to its abandoned reads. So every read counts itself in flight
+// (inflight.go), and DropWhenIdle drops a torrent only once none is. The client itself is
+// closed only at exit, with os.Exit straight after.
+//
 // Once abandoned, the wrapper is permanently dead: the abandoned goroutine
 // still owns the underlying torrent.Reader and the scratch buffer it was
 // reading into (reusing either while that goroutine might still be inside
@@ -294,6 +305,7 @@ const (
 // wrapper and builds a fresh one on the next call.
 type readAtWrapper struct {
 	r       torrent.Reader
+	hash    string // the torrent's, to count library reads in flight (inflight.go); "" in tests
 	timeout time.Duration
 	log     zerolog.Logger
 	stats   *readStats
@@ -390,8 +402,14 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 	prog := make(chan struct{}, 1)
 	var state atomic.Int32
 
+	if rw.hash != "" {
+		libraryReadStarted(rw.hash)
+	}
 	go func() {
 		n, err := readAtLeast(rw.r, buf, min, prog)
+		if rw.hash != "" {
+			libraryReadEnded(rw.hash)
+		}
 		if state.CompareAndSwap(stateRunning, stateDone) {
 			res <- readResult{n, err}
 			return
@@ -714,6 +732,9 @@ func (h *torrentFileHandle) load() reader {
 			}
 		}
 		h.reader = newReadAtWrapper(r, time.Duration(h.timeout)*time.Second, h.stats, h.log)
+		if rw, ok := h.reader.(*readAtWrapper); ok {
+			rw.hash = h.hash
+		}
 	}
 	return h.reader
 }

@@ -30,7 +30,7 @@ The HTTP server (`internal/http`) protects everything except `/login`, static as
 - **Browser clients** (Web UI, HTTPFS) hit a real login page at `/login`; on success a session cookie is set and the browser is redirected back to the page it originally requested.
 - **API clients** (Radarr/Sonarr/Prowlarr via the qBittorrent-compatible API, or direct callers of the native `/api/*` routes) authenticate the same way real qBittorrent does: `POST /api/v2/auth/login` with `username`/`password` form fields, which sets the `SID` cookie for subsequent requests. Missing or invalid sessions get `403` on the qBittorrent-compat API (matching real qBittorrent, so *arr clients re-authenticate automatically) or a redirect to `/login` on browser-facing routes.
 - Credentials are configured via `http.user`/`http.pass` and compared in constant time (`internal/auth.CredentialsMatch`). **The server fails closed**: if those aren't set and `http.disable_auth: true` isn't explicitly set either, startup is refused (`internal/config.Validate`) rather than silently running unauthenticated.
-- WebDAV (`internal/webdav`) is authenticated separately via HTTP Basic Auth against `webdav.user`/`webdav.pass`, with the same fail-closed behavior and constant-time comparison.
+- WebDAV (`internal/webdav`) is authenticated separately via HTTP Basic Auth against `webdav.user`/`webdav.pass`, with the same fail-closed behavior, constant-time comparison and failed-login limit per address (`internal/auth`).
 
 ## Data Flow: A Read Request
 

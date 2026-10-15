@@ -37,11 +37,28 @@ func newServer(fs fs.Filesystem, user, pass string) *http.Server {
 
 func NewWebDAVHandler(fs fs.Filesystem, user, pass string) http.Handler {
 	srv := newHandler(fs)
+	limiter := auth.NewLimiter()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// the connection's own address, as the web UI's login limit uses
+		addr, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			addr = r.RemoteAddr
+		}
+		if !limiter.Allowed(addr) {
+			w.Header().Set("Retry-After", limiter.RetryAfter(addr))
+			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+
 		username, password, ok := r.BasicAuth()
 		if ok && auth.CredentialsMatch(username, password, user, pass) {
+			limiter.Succeeded(addr)
 			srv.ServeHTTP(w, r)
 			return
+		}
+		// clients ask without credentials first to be challenged, which isn't a guess
+		if ok {
+			limiter.Failed(addr)
 		}
 
 		w.Header().Set("WWW-Authenticate", `Basic realm="BASIC WebDAV REALM"`)

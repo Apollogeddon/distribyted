@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -36,7 +37,44 @@ func Validate(r *Root) error {
 		}
 	}
 
-	return nil
+	return validateNumbers(r)
+}
+
+// validateNumbers rejects ports, timeouts and sizes out of range, and a torrent.ip that isn't one. 0 means the
+// default for each; a negative timeout would fail every read or add at once, and a negative
+// watcher interval stops the watcher with a panic.
+func validateNumbers(r *Root) error {
+	var errs []error
+	check := func(ok bool, format string, args ...any) {
+		if !ok {
+			errs = append(errs, fmt.Errorf(format, args...))
+		}
+	}
+	port := func(section string, port int) {
+		check(port >= 0 && port <= 65535, "%s.port %d is not a port (1-65535)", section, port)
+	}
+	if h := r.HTTPGlobal; h != nil {
+		port("http", h.Port)
+	}
+	if w := r.WebDAV; w != nil {
+		port("webdav", w.Port)
+	}
+	if t := r.Torrent; t != nil {
+		check(t.ReadTimeout >= 0, "torrent.read_timeout %d is negative", t.ReadTimeout)
+		check(t.AddTimeout >= 0, "torrent.add_timeout %d is negative", t.AddTimeout)
+		check(t.GlobalCacheSize >= -1, "torrent.global_cache_size %d: use -1 for no limit", t.GlobalCacheSize)
+		check(t.ArchiveExtractLimit >= -1, "torrent.archive_extract_limit %d: use -1 for no limit", t.ArchiveExtractLimit)
+		check(t.ListenPort >= -1 && t.ListenPort <= 65535, "torrent.listen_port %d is not a port (-1 for any)", t.ListenPort)
+		check(t.MaxConnsPerTorrent >= 0, "torrent.max_conns_per_torrent %d is negative", t.MaxConnsPerTorrent)
+		check(t.IP == "" || net.ParseIP(t.IP) != nil, "torrent.ip %q is not an IP address", t.IP)
+	}
+	if l := r.Log; l != nil {
+		check(l.MaxBackups >= 0 && l.MaxSize >= 0 && l.MaxAge >= 0, "log.max_backups, max_size and max_age can't be negative")
+	}
+	for _, s := range r.Servers {
+		check(s.WatcherInterval >= 0, "servers %q: watcher_interval %d is negative", s.Name, s.WatcherInterval)
+	}
+	return errors.Join(errs...)
 }
 
 // ValidateRouteName rejects route names that aren't a single path segment. A route name
@@ -63,4 +101,25 @@ func warnDefaultCredentials(section string, enabled bool, user, pass string) {
 	if enabled && user == "admin" && pass == "admin" {
 		log.Warn().Str("section", section).Msg("the login is still admin/admin; change " + section + ".pass in the configuration file")
 	}
+}
+
+// Exposed lists the sections (http, webdav) listening beyond this machine: their logins
+// travel in plain HTTP. Configurations written before 127.0.0.1 became the default name
+// 0.0.0.0, so an upgrade keeps them listening on every address.
+func Exposed(r *Root) []string {
+	var exposed []string
+	beyond := func(ip string) bool {
+		if ip == "" || ip == "localhost" {
+			return false
+		}
+		parsed := net.ParseIP(ip)
+		return parsed == nil || !parsed.IsLoopback()
+	}
+	if r.HTTPGlobal != nil && beyond(r.HTTPGlobal.IP) {
+		exposed = append(exposed, "http")
+	}
+	if r.WebDAV != nil && beyond(r.WebDAV.IP) {
+		exposed = append(exposed, "webdav")
+	}
+	return exposed
 }

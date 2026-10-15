@@ -26,7 +26,7 @@ import (
 // without ever touching the network. Returns the flaky storage handle (for
 // Fail/Heal) and an *fs.TorrentFS wired to the torrent, the same
 // abstraction the real FUSE/WebDAV mounts read through in production.
-func newFlakyTorrent(t *testing.T, readTimeoutSeconds int) (*flakyStorage, *fs.TorrentFS, string, []byte) {
+func newFlakyTorrent(t *testing.T, readTimeoutSeconds int, giveUpAfter time.Duration, closeClient bool) (*flakyStorage, *fs.TorrentFS, string, []byte) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -57,14 +57,17 @@ func newFlakyTorrent(t *testing.T, readTimeoutSeconds int) (*flakyStorage, *fs.T
 	id, err := dtorrent.GetOrCreatePeerID(filepath.Join(dir, "ID"))
 	require.NoError(t, err)
 
-	c, err := dtorrent.NewClient(flaky, noopBEP44Store{}, &config.TorrentGlobal{
+	// guarded as cmd/distribyted guards its storage
+	c, err := dtorrent.NewClient(dtorrent.GuardReads(flaky, giveUpAfter), noopBEP44Store{}, &config.TorrentGlobal{
 		DisableDHT:  true,
 		DisableUPnP: true,
 		DisableIPv6: true,
 		ListenPort:  -1,
 	}, id)
 	require.NoError(t, err)
-	t.Cleanup(func() { c.Close() })
+	if closeClient {
+		t.Cleanup(func() { c.Close() })
+	}
 
 	to, _ := c.AddTorrentOpt(torrent.AddTorrentOpts{InfoHash: ih})
 	require.NoError(t, to.SetInfoBytes(infoBytes))
@@ -93,7 +96,7 @@ func TestFlakyStorage_HealableFailureRecoversWithoutHanging(t *testing.T) {
 	}
 
 	const readTimeoutSeconds = 2
-	flaky, tfs, path, content := newFlakyTorrent(t, readTimeoutSeconds)
+	flaky, tfs, path, content := newFlakyTorrent(t, readTimeoutSeconds, time.Minute, true)
 
 	// Sanity: prove the harness itself works before introducing failure.
 	f, err := tfs.Open(path)
@@ -136,29 +139,46 @@ func TestFlakyStorage_HealableFailureRecoversWithoutHanging(t *testing.T) {
 	}
 }
 
-// TestFlakyStorage_PermanentFailure documents, and deliberately does not
-// exercise, the one case this fix cannot make safe on its own: a piece
-// whose storage.Completion() never stops lying that it's complete while
-// ReadAt never stops failing. reader.go's retry-then-recurse (see
-// readAtWrapper's doc comment) never finds a legitimate reason to block, so
-// it spins at 100% CPU indefinitely in the real library, independent of
-// this package's context-propagation fix. internal/fs's hard deadline
-// (readAtWrapper.doRead) still bounds *our* read and keeps the mount
-// responsive — but the abandoned goroutine itself keeps spinning forever in
-// the background, its stack still growing without bound, which will
-// eventually either exhaust the process's memory or hit Go's own
-// unrecoverable stack-overflow fatal error. That is not survivable by
-// definition, so this test must never actually invoke the scenario (doing
-// so even once would risk crashing the entire test binary, not just this
-// test) — it exists to document the gap and point at the fix that closes
-// it.
-//
-// TODO(oom-fix-phase-2): once anacrolix/torrent carries a patch capping
-// readAt's retry-then-recurse (see docs — the library's own reader.go
-// comment already flags this exact risk), un-skip this test, wire it
-// through a go.mod replace pointing at the patched module, and assert the
-// read now returns ErrReadTimeout (or a library-level error) instead of
-// spinning, without any goroutine-count growth after the deadline.
+// TestFlakyStorage_PermanentFailure: a piece whose storage keeps saying it's complete while
+// every read of it fails. anacrolix/torrent retries such a read by recursing with no delay
+// and no limit, so before dtorrent.GuardReads the abandoned read spun at 100% CPU with a
+// growing stack until the process died. Now the failed reads slow down, and once they've
+// failed for giveUpAfter the piece is incomplete, so the read waits for a download (there is
+// no peer here) instead of retrying: the storage sees no more reads.
 func TestFlakyStorage_PermanentFailure(t *testing.T) {
-	t.Skip("intentionally not run — see doc comment: this scenario spins the real library forever and can only be bounded by a library patch, not by this package alone")
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	const readTimeoutSeconds = 1
+	const giveUpAfter = 300 * time.Millisecond
+	// The client stays open: closing it wakes the parked read with an error that anacrolix/torrent
+	// retries without limit until the stack overflows. distribyted closes the client only at exit,
+	// and drops a torrent only once no read is parked in it (TestDropWithParkedRead).
+	flaky, tfs, path, _ := newFlakyTorrent(t, readTimeoutSeconds, giveUpAfter, false)
+	flaky.Fail()
+
+	f, err := tfs.Open(path)
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+
+	resCh := make(chan error, 1)
+	go func() {
+		_, err := f.ReadAt(make([]byte, 16), 0)
+		resCh <- err
+	}()
+	select {
+	case err := <-resCh:
+		require.Error(t, err, "a piece that can never be read must not read successfully")
+	case <-time.After(5 * time.Second):
+		t.Fatal("read did not return within 5s")
+	}
+
+	// the abandoned read has stopped retrying: the storage sees no further reads
+	require.Eventually(t, func() bool {
+		before := flaky.Reads()
+		time.Sleep(300 * time.Millisecond)
+		return flaky.Reads() == before
+	}, 5*time.Second, 10*time.Millisecond, "the abandoned read kept retrying a piece that can't be read")
+	require.Less(t, flaky.Reads(), int64(1000), "failed reads were retried without slowing down")
 }

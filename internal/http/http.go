@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/Apollogeddon/distribyted/internal/auth"
 	"github.com/Apollogeddon/distribyted/internal/config"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
@@ -73,7 +74,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 
 	ac := newAuthConfig(conf.HTTPGlobal)
 	st := newSessionStore(sessionTTL)
-	ll := newLoginLimiter()
+	ll := auth.NewLimiter()
 	browserAuth := browserAuthMiddleware(ac, st)
 	qbitAuth := qbitAuthMiddleware(ac, st)
 

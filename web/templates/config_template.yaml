@@ -5,7 +5,9 @@
 http:
   port: 4444
 
-  ip: "0.0.0.0"
+  # 127.0.0.1 serves this machine only. Logins travel in plain HTTP, so use 0.0.0.0
+  # (every address) only on a network you trust, or behind a proxy with TLS.
+  ip: "127.0.0.1"
 
   # Serve all routes content over http on IP:PORT/fs
   httpfs: true
@@ -27,7 +29,8 @@ http:
 webdav:
   port: 36911
 
-  ip: "0.0.0.0"
+  # as http.ip: 127.0.0.1 serves this machine only, 0.0.0.0 every address
+  ip: "127.0.0.1"
 
   user: admin
   pass: admin

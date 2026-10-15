@@ -124,3 +124,37 @@ func TestNewServer_Timeouts(t *testing.T) {
 	assert.Zero(t, srv.ReadTimeout)
 	assert.Zero(t, srv.WriteTimeout)
 }
+
+// TestNewWebDAVHandler_LimitsFailedLogins: Basic auth is checked on every request, so without
+// a limit a client could guess passwords as fast as it can send them.
+func TestNewWebDAVHandler_LimitsFailedLogins(t *testing.T) {
+	handler := NewWebDAVHandler(fs.NewMemory(), "admin", "secret")
+	do := func(remote, pass string) int {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = remote
+		if pass != "" {
+			req.SetBasicAuth("admin", pass)
+		}
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	// being challenged isn't a guess
+	for range 10 {
+		require.Equal(t, http.StatusUnauthorized, do("10.0.0.1:1000", ""))
+	}
+	require.NotEqual(t, http.StatusUnauthorized, do("10.0.0.1:1000", "secret"))
+
+	for range 5 {
+		require.Equal(t, http.StatusUnauthorized, do("10.0.0.2:1000", "wrong"))
+	}
+	// the right password is refused too until the wait is over, from any port of that address
+	require.Equal(t, http.StatusTooManyRequests, do("10.0.0.2:2000", "secret"))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.2:3000"
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	require.Equal(t, "1", w.Header().Get("Retry-After"), "the wait after the fifth failure")
+	require.NotEqual(t, http.StatusTooManyRequests, do("10.0.0.3:1000", "secret"), "other addresses are unaffected")
+}

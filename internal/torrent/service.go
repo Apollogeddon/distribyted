@@ -596,6 +596,8 @@ func (s *Service) addRoute(r string) {
 
 func (s *Service) addTorrent(r string, t fs.Torrent) error {
 	hash := t.InfoHash().String()
+	// added again before a deferred drop ran: keep it
+	fs.KeepTorrent(hash)
 	s.timings.Added(hash, r, t.Name(), webseedCount(t), t)
 	// peers that sent it data before, which can also send the metadata
 	s.offerPeers(t)
@@ -725,9 +727,10 @@ func (s *Service) RemoveFromHash(r, h string) error {
 		return err
 	}
 
+	// a read parked in the torrent would spin once it's dropped, so it goes once they're done
 	t, ok := s.c.Torrent(metainfo.NewHashFromHex(h))
 	if ok {
-		t.Drop()
+		fs.DropWhenIdle(h, t.Drop)
 	}
 
 	// Listeners run with the lock released, same as addRoute's
