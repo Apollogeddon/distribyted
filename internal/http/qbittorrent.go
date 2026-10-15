@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -317,43 +318,60 @@ func qBitTorrentsInfoHandler(ss *torrent.Stats, fusePath string) gin.HandlerFunc
 	}
 }
 
+const (
+	// maxAddBody bounds a torrents/add request: magnets and .torrent files, which even for
+	// very large torrents are a few MB
+	maxAddBody = 64 << 20
+	// maxAddsAtOnce is how many of one request's torrents are added at a time: each can wait
+	// up to add_timeout for its metadata, so one after another a request of several could
+	// take minutes
+	maxAddsAtOnce = 8
+)
+
 func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAddBody)
+		// .torrent files arrive as multipart "torrents" parts, which Sonarr and Radarr
+		// send for indexers that serve files rather than magnets
+		form, formErr := c.MultipartForm()
+		if tooLarge := (*http.MaxBytesError)(nil); errors.As(formErr, &tooLarge) {
+			c.String(http.StatusRequestEntityTooLarge, "Fails.")
+			return
+		}
 		urls := c.PostForm("urls")
 		category := c.PostForm("category")
 		if category == "" {
 			category = "torrents" // Default route
 		}
 
-		magnets := strings.Split(urls, "\n")
-		var succeeded int
-		var lastErr error
-		for _, m := range magnets {
+		var adds []func() error
+		for _, m := range strings.Split(urls, "\n") {
 			m = strings.TrimSpace(m)
 			if m == "" {
 				continue
 			}
-			if err := s.AddMagnet(category, m); err != nil {
-				log.Error().Err(err).Str("category", category).Msg("error adding magnet via qBit API")
-				lastErr = err
-			} else {
-				succeeded++
-			}
-		}
-
-		// .torrent files arrive as multipart "torrents" parts, which Sonarr and Radarr
-		// send for indexers that serve files rather than magnets
-		if form, err := c.MultipartForm(); err == nil {
-			for _, fh := range form.File["torrents"] {
-				if err := addTorrentFile(s, category, fh); err != nil {
-					log.Error().Err(err).Str("category", category).Str("file", fh.Filename).Msg("error adding torrent file via qBit API")
-					lastErr = err
-				} else {
-					succeeded++
+			adds = append(adds, func() error {
+				err := s.AddMagnet(category, m)
+				if err != nil {
+					log.Error().Err(err).Str("category", category).Msg("error adding magnet via qBit API")
 				}
+				return err
+			})
+		}
+
+		if formErr == nil {
+			for _, fh := range form.File["torrents"] {
+				adds = append(adds, func() error {
+					err := addTorrentFile(s, category, fh)
+					if err != nil {
+						log.Error().Err(err).Str("category", category).Str("file", fh.Filename).Msg("error adding torrent file via qBit API")
+					}
+					return err
+				})
 			}
 		}
 
+		succeeded, lastErr := addAll(adds)
 		if succeeded == 0 {
 			if lastErr != nil {
 				c.String(http.StatusInternalServerError, lastErr.Error())
@@ -366,6 +384,32 @@ func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 		}
 		c.String(http.StatusOK, "Ok.")
 	}
+}
+
+// addAll runs adds, up to maxAddsAtOnce at a time, and reports how many succeeded and an
+// error from one that didn't.
+func addAll(adds []func() error) (succeeded int, lastErr error) {
+	var (
+		mu  sync.Mutex
+		wg  sync.WaitGroup
+		sem = make(chan struct{}, maxAddsAtOnce)
+	)
+	for _, add := range adds {
+		sem <- struct{}{}
+		wg.Go(func() {
+			defer func() { <-sem }()
+			err := add()
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				lastErr = err
+			} else {
+				succeeded++
+			}
+		})
+	}
+	wg.Wait()
+	return succeeded, lastErr
 }
 
 func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
