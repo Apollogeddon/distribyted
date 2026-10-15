@@ -129,3 +129,38 @@ func TestGuardReadsCountsWholeTorrentReaders(t *testing.T) {
 	}
 	require.Equal(t, 1, inner.notComplete, "failed whole-torrent reads count against their piece too")
 }
+
+// endPiece is a piece read at its end: there's nothing more to read.
+type endPiece struct{ brokenPiece }
+
+func (*endPiece) ReadAt([]byte, int64) (int, error) { return 0, io.EOF }
+
+func TestGuardedPieceDoesNotCountReadsAtTheEnd(t *testing.T) {
+	f := &pieceReadFailures{failed: make(map[int]*readFailures), giveUpAfter: 0, now: time.Now}
+	inner := &endPiece{}
+	p := guardPiece(inner, 0, f)
+	r, err := p.(storage.PieceReaderer).NewReader()
+	require.NoError(t, err)
+	for range freeFailedReads + 2 {
+		n, err := r.ReadAt(make([]byte, 4), 16)
+		require.Zero(t, n)
+		require.ErrorIs(t, err, io.EOF)
+	}
+	require.Zero(t, inner.notComplete, "reading at the end of a piece isn't a failed read")
+	require.True(t, p.Completion().Complete)
+	require.Empty(t, f.failed)
+}
+
+func TestGuardReadsIgnoresWholeTorrentReadsPastTheEnd(t *testing.T) {
+	inner := &brokenPiece{}
+	info := &metainfo.Info{PieceLength: 16, Length: 64}
+	ti, err := GuardReads(fakeStorage{inner}, 0).OpenTorrent(context.Background(), info, metainfo.Hash{})
+	require.NoError(t, err)
+
+	r := ti.NewReader()
+	for range freeFailedReads + 1 {
+		_, err := r.ReadAt(make([]byte, 4), 64)
+		require.Error(t, err)
+	}
+	require.Zero(t, inner.notComplete, "a read past the end has no piece to count against")
+}
