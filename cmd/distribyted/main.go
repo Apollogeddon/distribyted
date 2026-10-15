@@ -52,15 +52,16 @@ var (
 
 func main() {
 	app := &cli.App{
-		Name:    "distribyted",
-		Usage:   "Torrent client with on-demand file downloading as a filesystem.",
-		Version: Version,
+		Name:      "distribyted",
+		Usage:     "Torrent client with on-demand file downloading as a filesystem.",
+		ArgsUsage: "[config file]",
+		Version:   Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    configFlag,
-				Value:   "./distribyted-data/config/config.yaml",
+				Value:   defaultConfigPath,
 				EnvVars: []string{"DISTRIBYTED_CONFIG"},
-				Usage:   "YAML file containing distribyted configuration.",
+				Usage:   "YAML file containing distribyted configuration; it can also be given as the one argument.",
 			},
 			&cli.IntFlag{
 				Name:    portFlag,
@@ -102,7 +103,10 @@ func main() {
 			if c.IsSet(webDAVPortFlag) {
 				o.webDAVPort = c.Int(webDAVPortFlag)
 			}
-			err := load(c.String(configFlag), o)
+			path, err := configPath(c.Args().Slice(), c.String(configFlag), c.IsSet(configFlag))
+			if err == nil {
+				err = load(path, o)
+			}
 
 			// stop program execution on errors to avoid flashing consoles
 			if err != nil && runtime.GOOS == "windows" {
@@ -140,6 +144,23 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal().Err(err).Msg("problem starting application")
 	}
+}
+
+const defaultConfigPath = "./distribyted-data/config/config.yaml"
+
+// configPath is the configuration file to load: --config (or DISTRIBYTED_CONFIG), or the one
+// argument. Anything else on the command line is refused rather than ignored, so a mistyped
+// flag or a second path doesn't silently start on the default configuration.
+func configPath(args []string, flagValue string, flagSet bool) (string, error) {
+	switch {
+	case len(args) == 0:
+		return flagValue, nil
+	case len(args) > 1:
+		return "", fmt.Errorf("unexpected arguments %q: give one configuration file, and flags before it", args)
+	case flagSet && flagValue != args[0]:
+		return "", fmt.Errorf("two configuration files, %q from --config or DISTRIBYTED_CONFIG and %q: give one", flagValue, args[0])
+	}
+	return args[0], nil
 }
 
 type storageLayer struct {
