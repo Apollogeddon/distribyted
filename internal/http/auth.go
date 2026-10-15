@@ -139,6 +139,7 @@ func qBitLoginHandler(ac authConfig, st *sessionStore, ll *auth.Limiter) gin.Han
 
 		addr := clientAddr(c)
 		if !ll.Allowed(addr) {
+			c.Header("Retry-After", ll.RetryAfter(addr))
 			c.String(http.StatusTooManyRequests, "Fails.")
 			return
 		}

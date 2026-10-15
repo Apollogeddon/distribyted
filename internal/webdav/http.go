@@ -45,7 +45,7 @@ func NewWebDAVHandler(fs fs.Filesystem, user, pass string) http.Handler {
 			addr = r.RemoteAddr
 		}
 		if !limiter.Allowed(addr) {
-			w.Header().Set("Retry-After", "1")
+			w.Header().Set("Retry-After", limiter.RetryAfter(addr))
 			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
 			return
 		}

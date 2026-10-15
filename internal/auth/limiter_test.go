@@ -22,10 +22,14 @@ func TestLimiter(t *testing.T) {
 
 	// past the free attempts the address waits, and longer after each further failure
 	require.False(t, l.Allowed("1.2.3.4"))
+	require.Equal(t, time.Second, l.Wait("1.2.3.4"))
+	require.Equal(t, "1", l.RetryAfter("1.2.3.4"))
+	require.Equal(t, "0", l.RetryAfter("5.6.7.8"))
 	require.True(t, l.Allowed("5.6.7.8"), "other addresses are unaffected")
 	now = now.Add(time.Second)
 	require.True(t, l.Allowed("1.2.3.4"))
 	l.Failed("1.2.3.4")
+	require.Equal(t, "2", l.RetryAfter("1.2.3.4"), "Retry-After says the real wait")
 	now = now.Add(time.Second)
 	require.False(t, l.Allowed("1.2.3.4"))
 	now = now.Add(time.Second)

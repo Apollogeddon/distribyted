@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"strconv"
 	"sync"
 	"time"
 )
@@ -35,10 +36,23 @@ func NewLimiter() *Limiter {
 
 // Allowed reports whether addr may try to log in now.
 func (l *Limiter) Allowed(addr string) bool {
+	return l.Wait(addr) == 0
+}
+
+// Wait is how long addr must wait before it may try to log in again; 0 means now.
+func (l *Limiter) Wait(addr string) time.Duration {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	a, ok := l.attempts[addr]
-	return !ok || !l.now().Before(a.until)
+	if !ok {
+		return 0
+	}
+	return max(a.until.Sub(l.now()), 0)
+}
+
+// RetryAfter is Wait as a Retry-After header's whole seconds, rounded up.
+func (l *Limiter) RetryAfter(addr string) string {
+	return strconv.FormatInt(int64((l.Wait(addr)+time.Second-1)/time.Second), 10)
 }
 
 // Failed records a failed login from addr.

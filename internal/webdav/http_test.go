@@ -151,5 +151,10 @@ func TestNewWebDAVHandler_LimitsFailedLogins(t *testing.T) {
 	}
 	// the right password is refused too until the wait is over, from any port of that address
 	require.Equal(t, http.StatusTooManyRequests, do("10.0.0.2:2000", "secret"))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.2:3000"
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	require.Equal(t, "1", w.Header().Get("Retry-After"), "the wait after the fifth failure")
 	require.NotEqual(t, http.StatusTooManyRequests, do("10.0.0.3:1000", "secret"), "other addresses are unaffected")
 }
