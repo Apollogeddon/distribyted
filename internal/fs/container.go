@@ -71,9 +71,9 @@ func (fs *ContainerFs) AddFS(p string, fss Filesystem) error {
 	return fs.s.AddFS(fss, p)
 }
 
+// Open and ReadDir don't take fs.mu: storage keeps itself consistent, and a slow archive
+// listing under fs.mu would hold up every change, and through the waiting change every read.
 func (fs *ContainerFs) Open(filename string) (File, error) {
-	fs.mu.RLock()
-	defer fs.mu.RUnlock()
 	f, err := fs.s.Get(filename)
 	if err != nil {
 		return nil, err
@@ -90,8 +90,6 @@ func (fs *ContainerFs) Open(filename string) (File, error) {
 }
 
 func (fs *ContainerFs) ReadDir(path string) (map[string]File, error) {
-	fs.mu.RLock()
-	defer fs.mu.RUnlock()
 	return fs.s.Children(path)
 }
 

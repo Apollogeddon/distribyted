@@ -1,7 +1,10 @@
 package fs
 
 import (
+	"archive/zip"
+	"bytes"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -440,4 +443,70 @@ func TestContainer_LinkToArchive(t *testing.T) {
 	n, err := h2.ReadAt(buf, 0)
 	require.NoError(err)
 	require.Equal("hello", string(buf[:n]))
+}
+
+// stalledFile is an archive whose reads wait for release, as a torrent's do for pieces no
+// peer has sent yet.
+type stalledFile struct {
+	*MemoryFile
+	reading chan struct{}
+	once    sync.Once
+	release chan struct{}
+}
+
+func (f *stalledFile) ReadAt(b []byte, off int64) (int, error) {
+	f.once.Do(func() { close(f.reading) })
+	<-f.release
+	return f.MemoryFile.ReadAt(b, off)
+}
+
+// A slow archive listing holds no lock other paths, or changes, need: before, it held both
+// the container's and the route's read locks, a change queued behind them, and every later
+// lookup queued behind the change.
+func TestContainer_SlowArchiveListingDoesNotBlockOtherPaths(t *testing.T) {
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+	w, err := zw.Create("inside.txt")
+	require.NoError(t, err)
+	_, err = w.Write([]byte("inside"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	archive := &stalledFile{MemoryFile: NewMemoryFile(buf.Bytes()), reading: make(chan struct{}), release: make(chan struct{})}
+	route := &Memory{Storage: newStorage(GetSupportedFactories())}
+	require.NoError(t, route.Storage.Add(archive, "/slow.zip"))
+	require.NoError(t, route.Storage.Add(NewMemoryFile([]byte("plain")), "/plain.txt"))
+	other := NewMemory()
+	require.NoError(t, other.Storage.Add(NewMemoryFile([]byte("other")), "/file.txt"))
+	c, err := NewContainerFs(map[string]Filesystem{"/route": route, "/other": other})
+	require.NoError(t, err)
+
+	listed := make(chan error, 1)
+	go func() {
+		_, err := c.ReadDir("/route/slow.zip")
+		listed <- err
+	}()
+	<-archive.reading
+
+	done := make(chan error, 3)
+	go func() { done <- c.Mkdir("/made") }()
+	// let the change queue up first, as it would behind a held read lock
+	time.Sleep(50 * time.Millisecond)
+	go func() { _, err := c.Open("/other/file.txt"); done <- err }()
+	go func() { _, err := c.Open("/route/plain.txt"); done <- err }()
+	for range 3 {
+		select {
+		case err := <-done:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			close(archive.release)
+			t.Fatal("a slow archive listing blocked another path")
+		}
+	}
+
+	close(archive.release)
+	require.NoError(t, <-listed)
+	files, err := c.ReadDir("/route/slow.zip")
+	require.NoError(t, err)
+	require.Contains(t, files, "inside.txt")
 }

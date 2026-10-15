@@ -171,7 +171,7 @@ func (r *recordingFs) ReadDir(path string) (map[string]File, error) {
 }
 
 // TestStorageGetFileFromFs_SiblingPrefixCollision is the regression test for
-// BACKLOG.md's "Route lookup collides on prefix": getFileFromFsLocked used
+// BACKLOG.md's "Route lookup collides on prefix": the mount lookup used
 // to match mounts with a bare strings.HasPrefix, so mount "/movies" would
 // also match path "/movies-4k/file.mkv" (no separator boundary), and since
 // map iteration order is randomized, which mount actually served the
@@ -189,7 +189,7 @@ func TestStorageGetFileFromFs_SiblingPrefixCollision(t *testing.T) {
 
 		_, err := s.Get("/movies-4k/file.mkv")
 		require.NoError(err)
-		// getFileFromFsLocked prepends its own separator on top of the
+		// Get prepends its own separator on top of the
 		// leading "/" already left by TrimPrefix — pre-existing, harmless,
 		// unrelated to the matching fix under test here.
 		require.Equal("//file.mkv", movies4k.openedPath, "iteration %d: wrong mount served the request", i)
