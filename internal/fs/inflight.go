@@ -10,11 +10,22 @@ import "sync"
 // library read is in flight on it: until then it stays in the client, out of every route,
 // and the parked read returns when its data arrives.
 
-var inflight = struct {
+var inflight = newInflightState()
+
+type inflightState struct {
 	mu    sync.Mutex
 	reads map[string]int
 	drops map[string]func()
-}{reads: make(map[string]int), drops: make(map[string]func())}
+	// dropping counts the drops running now, which KeepTorrent waits out
+	dropping map[string]int
+	dropped  *sync.Cond
+}
+
+func newInflightState() *inflightState {
+	s := &inflightState{reads: make(map[string]int), drops: make(map[string]func()), dropping: make(map[string]int)}
+	s.dropped = sync.NewCond(&s.mu)
+	return s
+}
 
 func libraryReadStarted(hash string) {
 	inflight.mu.Lock()
@@ -32,10 +43,27 @@ func libraryReadEnded(hash string) {
 	delete(inflight.reads, hash)
 	drop := inflight.drops[hash]
 	delete(inflight.drops, hash)
-	inflight.mu.Unlock()
-	if drop != nil {
-		drop()
+	if drop == nil {
+		inflight.mu.Unlock()
+		return
 	}
+	inflight.runDropLocked(hash, drop)
+}
+
+// runDropLocked runs drop with the lock released, marked as running so KeepTorrent waits for
+// it, and unlocks.
+func (s *inflightState) runDropLocked(hash string, drop func()) {
+	s.dropping[hash]++
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		if s.dropping[hash]--; s.dropping[hash] <= 0 {
+			delete(s.dropping, hash)
+		}
+		s.dropped.Broadcast()
+		s.mu.Unlock()
+	}()
+	drop()
 }
 
 // DropWhenIdle calls drop, which drops the torrent with this hash from the client, now if no
@@ -47,15 +75,19 @@ func DropWhenIdle(hash string, drop func()) {
 		inflight.mu.Unlock()
 		return
 	}
-	inflight.mu.Unlock()
-	drop()
+	inflight.runDropLocked(hash, drop)
 }
 
-// KeepTorrent cancels a pending DropWhenIdle: the torrent was added again.
+// KeepTorrent cancels a pending DropWhenIdle: the torrent was added again. A drop already
+// running can't be cancelled, so KeepTorrent waits for it to finish; the caller then checks
+// whether the torrent it added was dropped, and adds it again if it was.
 func KeepTorrent(hash string) {
 	inflight.mu.Lock()
 	defer inflight.mu.Unlock()
 	delete(inflight.drops, hash)
+	for inflight.dropping[hash] > 0 {
+		inflight.dropped.Wait()
+	}
 }
 
 // LibraryReadsInFlight reports how many library reads are in flight on the torrent.

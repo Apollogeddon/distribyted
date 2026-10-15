@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/anacrolix/chansync"
+	"github.com/anacrolix/chansync/events"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
@@ -731,4 +733,40 @@ func TestService_Load_ForgetsUnloadedInfo(t *testing.T) {
 	saved, err = db.SavedHashes()
 	require.NoError(t, err)
 	require.Len(t, saved, 3, "nothing forgotten while a .torrent file can't be read")
+}
+
+// closedTorrent is a torrent the client dropped as it was being added again.
+type closedTorrent struct {
+	*mockTorrent
+	closed chansync.SetOnce
+}
+
+func (c *closedTorrent) Closed() events.Done { return c.closed.Done() }
+
+func TestService_AddMagnet_AddsAgainATorrentDroppedAsItWasAdded(t *testing.T) {
+	hash := metainfo.NewHashFromHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4")
+	magnet := "magnet:?xt=urn:btih:e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
+	gotInfo := make(chan struct{})
+	close(gotInfo)
+	dropped := &closedTorrent{mockTorrent: &mockTorrent{hash: hash, gotInfo: gotInfo, info: &metainfo.Info{Name: "old"}}}
+	dropped.closed.Set()
+	fresh := &mockTorrent{hash: hash, gotInfo: gotInfo, info: &metainfo.Info{Name: "fresh"}}
+
+	var adds []fs.Torrent
+	mockC := &mockTorrentClient{
+		addMagnetFunc: func(string) (fs.Torrent, error) {
+			if len(adds) == 0 {
+				adds = append(adds, dropped)
+			} else {
+				adds = append(adds, fresh)
+			}
+			return adds[len(adds)-1], nil
+		},
+	}
+	stats := NewStats()
+	svc := NewService(nil, &MockLoaderAdder{}, stats, mockC, 1, 1, true, false, nil)
+
+	require.NoError(t, svc.AddMagnet("r1", magnet))
+	require.Equal(t, []fs.Torrent{dropped, fresh}, adds)
+	require.Equal(t, map[string]fs.Torrent{hash.HexString(): fresh}, stats.GetTorrentsInRoute("r1"))
 }

@@ -383,11 +383,7 @@ func (s *Service) AddTorrentMetaInfo(r string, mi *metainfo.MetaInfo) error {
 	}
 	magnet := m.String()
 
-	t, err := s.c.AddTorrent(mi)
-	if err != nil {
-		return err
-	}
-	if err := s.addTorrent(r, t); err != nil {
+	if err := s.addTorrent(r, func() (fs.Torrent, error) { return s.c.AddTorrent(mi) }); err != nil {
 		return err
 	}
 
@@ -455,22 +451,11 @@ func cleanRoute(r string) string {
 }
 
 func (s *Service) addTorrentPath(r, p string) error {
-	// Add to client
-	t, err := s.c.AddTorrentFromFile(p)
-	if err != nil {
-		return err
-	}
-
-	return s.addTorrent(r, t)
+	return s.addTorrent(r, func() (fs.Torrent, error) { return s.c.AddTorrentFromFile(p) })
 }
 
 func (s *Service) addMagnet(r, m string) error {
-	t, err := s.addMagnetToClient(m)
-	if err != nil {
-		return err
-	}
-
-	return s.addTorrent(r, t)
+	return s.addTorrent(r, func() (fs.Torrent, error) { return s.addMagnetToClient(m) })
 }
 
 // addMagnetToClient adds a magnet with the info dictionary saved when it was last added,
@@ -594,10 +579,21 @@ func (s *Service) addRoute(r string) {
 	}
 }
 
-func (s *Service) addTorrent(r string, t fs.Torrent) error {
+// addTorrent adds the torrent add puts in the client to route r.
+func (s *Service) addTorrent(r string, add func() (fs.Torrent, error)) error {
+	t, err := add()
+	if err != nil {
+		return err
+	}
 	hash := t.InfoHash().String()
-	// added again before a deferred drop ran: keep it
-	fs.KeepTorrent(hash)
+	// added again before a deferred drop ran: keep it. The client hands back the torrent it
+	// already has, so one being dropped as it was added is added again once the drop is done.
+	keepTorrent(hash)
+	if isClosed(t) {
+		if t, err = add(); err != nil {
+			return err
+		}
+	}
 	s.timings.Added(hash, r, t.Name(), webseedCount(t), t)
 	// peers that sent it data before, which can also send the metadata
 	s.offerPeers(t)
@@ -661,6 +657,23 @@ func (s *Service) addTorrent(r string, t fs.Torrent) error {
 	s.log.Info().Str(dlog.KeyName, name).Str(dlog.KeyRoute, r).Msg("torrent added")
 
 	return nil
+}
+
+// keepTorrent is fs.KeepTorrent, which tests replace to drop a torrent as it's added.
+var keepTorrent = fs.KeepTorrent
+
+// isClosed reports whether t was dropped from the client.
+func isClosed(t fs.Torrent) bool {
+	c, ok := t.(interface{ Closed() events.Done })
+	if !ok {
+		return false
+	}
+	select {
+	case <-c.Closed():
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Service) RemoveFromHash(r, h string) error {
