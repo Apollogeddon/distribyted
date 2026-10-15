@@ -203,11 +203,8 @@ func initStorageLayer(conf *config.Root) (storageLayer, error) {
 		return 0, false
 	}
 	// the capacity makes anacrolix/torrent retry a failed read without limit (GuardReads)
+	// the same on every platform, so global_cache_size and the read guard apply on Windows too
 	st := torrent.GuardReads(storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc}), readGiveUpAfter)
-	// cache is not working with windows
-	if runtime.GOOS == "windows" {
-		st = storage.NewFileWithCompletion(cf, pc)
-	}
 
 	fis, err := torrent.NewFileItemStore(filepath.Join(conf.Torrent.MetadataFolder, "items"), itemStoreTTL)
 	if err != nil {
