@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	dlog "github.com/Apollogeddon/distribyted/internal/log"
 )
 
@@ -263,7 +264,7 @@ func (s *Server) makeMagnet() error {
 	// the folder changed, so the torrent describing its old contents is gone: seeding it
 	// on would serve pieces that no longer match its hashes
 	if old := s.t; old != nil && old.InfoHash() != ih {
-		old.Drop()
+		fs.DropWhenIdle(old.InfoHash().HexString(), old.Drop)
 	}
 	s.t = to
 	s.si.Magnet = m.String()

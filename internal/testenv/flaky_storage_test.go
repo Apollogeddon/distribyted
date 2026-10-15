@@ -152,8 +152,9 @@ func TestFlakyStorage_PermanentFailure(t *testing.T) {
 
 	const readTimeoutSeconds = 1
 	const giveUpAfter = 300 * time.Millisecond
-	// The client stays open: anacrolix/torrent retries the parked read without limit once its
-	// torrent is closed, a library defect GuardReads can't reach (it needs a library patch).
+	// The client stays open: closing it wakes the parked read with an error that anacrolix/torrent
+	// retries without limit until the stack overflows. distribyted closes the client only at exit,
+	// and drops a torrent only once no read is parked in it (TestDropWithParkedRead).
 	flaky, tfs, path, _ := newFlakyTorrent(t, readTimeoutSeconds, giveUpAfter, false)
 	flaky.Fail()
 
