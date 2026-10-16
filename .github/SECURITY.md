@@ -14,7 +14,7 @@ This is a fork of [distribyted/distribyted](https://github.com/distribyted/distr
 
 ## Automated security tooling
 
-This repository's CI runs on every pull request, on every push to `main` and weekly:
+This repository's CI (`.github/workflows/.index.yml`) runs these scans in the `service / scan` stage on every pull request and again before each release; weekly, the `patch` pipeline upgrades the modules govulncheck finds vulnerable:
 
 - **Gitleaks** scans for committed secrets.
 - **govulncheck** reports known vulnerabilities in the Go code distribyted calls.

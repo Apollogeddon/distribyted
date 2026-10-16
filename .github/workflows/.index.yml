@@ -1,0 +1,165 @@
+name: index
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # sent by the merge pipeline, as a merge it makes starts no push run on main
+  repository_dispatch:
+    types: [auto-merged]
+  # weekly, for the patch pipelines; a manual or dispatched run patches too
+  schedule:
+    - cron: '26 14 * * 1'
+
+concurrency:
+  # a pull request's newer run replaces its older one; every other run has a group of its own, so a run on
+  # main, running or queued, is never cancelled and a release is never created without being published
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# read-only unless a job asks for more; the checks run the pull request's own code
+permissions:
+  contents: read
+
+# Each job calls one of forgego's pipelines, so the run page reads <pipeline> / <stage>. Pull requests run
+# the checks (service, docker and website); main runs version, and on a release checks the service again
+# before the native builds and the image ship; the docs site deploys from every change to main.
+jobs:
+  # release-please, on main: the release pull request, and on its merge a draft release
+  version:
+    if: github.event_name != 'pull_request' && github.event_name != 'schedule'
+    uses: apollogeddon/forgego/.github/workflows/version.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+
+  # Gitleaks, OSV-Scanner, govulncheck, forgego sync-check, go mod tidy and golangci-lint; the full tests with
+  # the race detector and the build on Linux, and the short tests and the build on macOS and Windows. On a
+  # pull request, and on main a release's, before it ships.
+  service:
+    needs: version
+    if: >-
+      !cancelled() && (github.event_name == 'pull_request' ||
+      needs.version.outputs.new_release_published == 'true')
+    uses: apollogeddon/forgego/.github/workflows/service.yml@main
+    with:
+      # cgofuse compiles against the FUSE headers on Linux, and the setup script installs macFUSE
+      # on macOS and WinFsp on Windows
+      apt_packages: fuse libfuse-dev pkg-config
+      setup_script: .github/setup/setup.sh
+      artifact_name: build
+      artifact_path: bin
+      # Windows builds without cgo, as cgofuse loads WinFsp at run time, so its tests check the
+      # build that's released
+      test_windows: '{"runs_on": "windows-latest", "env": {"CGO_ENABLED": "0"}}'
+      test_macos: macos-latest
+      extra_test_task: test:short
+    permissions:
+      contents: read
+      pull-requests: write # Gitleaks lists a pull request's commits
+
+  # QEMU, as build/Dockerfile compiles cgofuse in each target platform's own image. A pull request builds
+  # linux/amd64 alone, as emulating arm64 takes far longer, so a broken Dockerfile fails the checks; a
+  # release builds both platforms and pushes them.
+  docker:
+    needs: [version, service]
+    if: ${{ !cancelled() && needs.service.result == 'success' }}
+    uses: apollogeddon/forgego/.github/workflows/docker.yml@main
+    with:
+      push: ${{ needs.version.outputs.new_release_published == 'true' }}
+      version: ${{ needs.version.outputs.tag_name }}
+      platforms: ${{ needs.version.outputs.new_release_published == 'true' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+      dockerfile: build/Dockerfile
+      qemu: true
+      build_args: BUILD=${{ github.sha }}
+      tags: |
+        type=ref,event=branch
+        type=semver,pattern={{version}},value=${{ needs.version.outputs.tag_name }}
+        type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.tag_name }}
+        type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+        type=sha,format=long,prefix=
+    permissions:
+      contents: read
+      packages: write
+
+  # GoReleaser cross-compiles on Linux, which cgo can't for macOS, so each platform builds on its own
+  # runner, and the binaries and LICENSE are attached to release-please's draft before it's published
+  publish:
+    needs: [version, service]
+    if: ${{ !cancelled() && needs.service.result == 'success' && needs.version.outputs.new_release_published == 'true' }}
+    uses: apollogeddon/forgego/.github/workflows/publish.yml@main
+    with:
+      tag_name: ${{ needs.version.outputs.tag_name }}
+      apt_packages: fuse libfuse-dev pkg-config
+      setup_script: .github/setup/setup.sh
+      artifact_path: bin
+      release_binaries: false
+      native_builds: >-
+        [{"runs_on": "ubuntu-latest", "name": "linux_amd64"},
+         {"runs_on": "macos-latest", "name": "mac", "env": {"GOARCH": "amd64", "CGO_ENABLED": "1"}},
+         {"runs_on": "windows-latest", "name": "windows_amd64", "env": {"CGO_ENABLED": "0"}}]
+      release_files: LICENSE
+      checksums: ''
+    permissions:
+      contents: write
+
+  # The documentation site in docs/, a forgego --website module: checked and built on every change, and
+  # deployed to GitHub Pages from main
+  website:
+    if: github.event_name != 'schedule'
+    uses: apollogeddon/forgego/.github/workflows/website.yml@main
+    with:
+      working_directory: docs
+      # the service's scan already checks the repository for secrets
+      enable_secrets: false
+      artifact_name: pages-dist
+    permissions:
+      contents: read
+      pull-requests: write
+
+  pages:
+    needs: website
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: apollogeddon/forgego/.github/workflows/pages.yml@main
+    with:
+      artifact_name: pages-dist
+    permissions:
+      pages: write
+      id-token: write
+
+  # weekly, on a manual run or after a Dependabot merge: forgego's files refreshed and vulnerable modules
+  # upgraded on main
+  patch:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
+    uses: apollogeddon/forgego/.github/workflows/patch.yml@main
+    with:
+      apt_packages: fuse libfuse-dev pkg-config
+    permissions:
+      contents: write
+
+  # the same for the docs module, which pins its own forgego; after patch, so their pushes to main don't race
+  patch-docs:
+    name: patch (docs)
+    needs: patch
+    if: >-
+      !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'repository_dispatch')
+    uses: apollogeddon/forgego/.github/workflows/patch.yml@main
+    with:
+      working_directory: docs
+    permissions:
+      contents: write
+
+  # Dependabot's pull requests: a review request, and a squash merge when the checks passed
+  merge:
+    needs: [service, docker, website]
+    if: >-
+      !cancelled() && github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login == 'dependabot[bot]'
+    uses: apollogeddon/forgego/.github/workflows/merge.yml@main
+    with:
+      checks_passed: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    permissions:
+      contents: write
+      pull-requests: write
