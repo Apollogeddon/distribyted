@@ -1352,3 +1352,15 @@ func TestQBitTorrentsAddHandler_RefusesAnOversizedRequest(t *testing.T) {
 
 	require.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
 }
+
+// With several failed adds, the answer names the first in the request, however the adds finish.
+func TestAddAll_ReportsTheFirstFailureInOrder(t *testing.T) {
+	first, second := errors.New("first"), errors.New("second")
+	succeeded, err := addAll([]func() error{
+		func() error { time.Sleep(100 * time.Millisecond); return first },
+		func() error { return nil },
+		func() error { return second },
+	})
+	require.Equal(t, 1, succeeded)
+	require.ErrorIs(t, err, first)
+}

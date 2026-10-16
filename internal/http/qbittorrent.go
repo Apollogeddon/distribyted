@@ -371,10 +371,10 @@ func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 			}
 		}
 
-		succeeded, lastErr := addAll(adds)
+		succeeded, firstErr := addAll(adds)
 		if succeeded == 0 {
-			if lastErr != nil {
-				c.String(http.StatusInternalServerError, lastErr.Error())
+			if firstErr != nil {
+				c.String(http.StatusInternalServerError, firstErr.Error())
 				return
 			}
 			// nothing to add: qBittorrent answers Fails., which the *arr apps treat as a
@@ -386,30 +386,30 @@ func qBitTorrentsAddHandler(s torrentService) gin.HandlerFunc {
 	}
 }
 
-// addAll runs adds, up to maxAddsAtOnce at a time, and reports how many succeeded and an
-// error from one that didn't.
-func addAll(adds []func() error) (succeeded int, lastErr error) {
+// addAll runs adds, up to maxAddsAtOnce at a time, and reports how many succeeded and the
+// error of the first, in request order, that didn't, so the answer doesn't depend on timing.
+func addAll(adds []func() error) (succeeded int, firstErr error) {
+	errs := make([]error, len(adds))
 	var (
-		mu  sync.Mutex
 		wg  sync.WaitGroup
 		sem = make(chan struct{}, maxAddsAtOnce)
 	)
-	for _, add := range adds {
+	for i, add := range adds {
 		sem <- struct{}{}
 		wg.Go(func() {
 			defer func() { <-sem }()
-			err := add()
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				lastErr = err
-			} else {
-				succeeded++
-			}
+			errs[i] = add()
 		})
 	}
 	wg.Wait()
-	return succeeded, lastErr
+	for _, err := range errs {
+		if err == nil {
+			succeeded++
+		} else if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return succeeded, firstErr
 }
 
 func qBitTorrentsDeleteHandler(s torrentService) gin.HandlerFunc {
