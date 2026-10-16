@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -104,6 +106,9 @@ func main() {
 				o.webDAVPort = c.Int(webDAVPortFlag)
 			}
 			path, err := configPath(c.Args().Slice(), c.String(configFlag), c.IsSet(configFlag))
+			if errors.Is(err, errUsage) {
+				_ = cli.ShowAppHelp(c)
+			}
 			if err == nil {
 				err = load(path, o)
 			}
@@ -148,19 +153,36 @@ func main() {
 
 const defaultConfigPath = "./distribyted-data/config/config.yaml"
 
+// errUsage marks a command line distribyted can't make sense of.
+var errUsage = errors.New("usage")
+
 // configPath is the configuration file to load: --config (or DISTRIBYTED_CONFIG), or the one
 // argument. Anything else on the command line is refused rather than ignored, so a mistyped
-// flag or a second path doesn't silently start on the default configuration.
+// flag or a second path doesn't silently start on the default configuration. The argument
+// must look like a configuration file or name one that exists: a missing configuration is
+// written from the template, so a mistyped command (`distribyted version`) would otherwise
+// start the server and leave a file of that name behind.
 func configPath(args []string, flagValue string, flagSet bool) (string, error) {
 	switch {
 	case len(args) == 0:
 		return flagValue, nil
 	case len(args) > 1:
-		return "", fmt.Errorf("unexpected arguments %q: give one configuration file, and flags before it", args)
+		return "", fmt.Errorf("%w: unexpected arguments %q: give one configuration file, and flags before it", errUsage, args)
+	case !looksLikeConfig(args[0]):
+		return "", fmt.Errorf("%w: unknown command or argument %q: a configuration file ends in .yaml, .yml or .json, or already exists", errUsage, args[0])
 	case flagSet && flagValue != args[0]:
-		return "", fmt.Errorf("two configuration files, %q from --config or DISTRIBYTED_CONFIG and %q: give one", flagValue, args[0])
+		return "", fmt.Errorf("%w: two configuration files, %q from --config or DISTRIBYTED_CONFIG and %q: give one", errUsage, flagValue, args[0])
 	}
 	return args[0], nil
+}
+
+func looksLikeConfig(p string) bool {
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".yaml", ".yml", ".json":
+		return true
+	}
+	fi, err := os.Stat(p)
+	return err == nil && fi.Mode().IsRegular()
 }
 
 type storageLayer struct {
