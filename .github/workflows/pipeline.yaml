@@ -6,6 +6,9 @@ on:
   pull_request:
   schedule:
     - cron: '26 14 * * 1' # Weekly scan
+  # sent by the auto-merge job, as a merge it makes starts no push run on main
+  repository_dispatch:
+    types: [auto-merged]
 
 # read-only unless a job asks for more; the build runs the pull request's own code
 permissions:
