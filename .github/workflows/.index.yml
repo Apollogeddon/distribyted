@@ -29,7 +29,7 @@ jobs:
   # release-please, on main: the release pull request, and on its merge a draft release
   version:
     if: github.event_name != 'pull_request' && github.event_name != 'schedule'
-    uses: apollogeddon/forgego/.github/workflows/version.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/version.yml@main
     permissions:
       contents: write
       pull-requests: write
@@ -42,7 +42,7 @@ jobs:
     if: >-
       !cancelled() && (github.event_name == 'pull_request' ||
       needs.version.outputs.new_release_published == 'true')
-    uses: apollogeddon/forgego/.github/workflows/service.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/service.yml@main
     with:
       # cgofuse compiles against the FUSE headers on Linux, and the setup script installs macFUSE
       # on macOS and WinFsp on Windows
@@ -65,7 +65,7 @@ jobs:
   docker:
     needs: [version, service]
     if: ${{ !cancelled() && needs.service.result == 'success' }}
-    uses: apollogeddon/forgego/.github/workflows/docker.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/docker.yml@main
     with:
       push: ${{ needs.version.outputs.new_release_published == 'true' }}
       version: ${{ needs.version.outputs.tag_name }}
@@ -88,7 +88,7 @@ jobs:
   publish:
     needs: [version, service]
     if: ${{ !cancelled() && needs.service.result == 'success' && needs.version.outputs.new_release_published == 'true' }}
-    uses: apollogeddon/forgego/.github/workflows/publish.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/publish.yml@main
     with:
       tag_name: ${{ needs.version.outputs.tag_name }}
       apt_packages: fuse libfuse-dev pkg-config
@@ -108,7 +108,7 @@ jobs:
   # deployed to GitHub Pages from main
   website:
     if: github.event_name != 'schedule'
-    uses: apollogeddon/forgego/.github/workflows/website.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/website.yml@main
     with:
       working_directory: docs
       # the service's scan already checks the repository for secrets
@@ -121,7 +121,7 @@ jobs:
   pages:
     needs: website
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    uses: apollogeddon/forgego/.github/workflows/pages.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/pages.yml@main
     with:
       artifact_name: pages-dist
     permissions:
@@ -132,7 +132,7 @@ jobs:
   # upgraded on main
   patch:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
-    uses: apollogeddon/forgego/.github/workflows/patch.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/patch.yml@main
     with:
       apt_packages: fuse libfuse-dev pkg-config
     permissions:
@@ -145,7 +145,7 @@ jobs:
     if: >-
       !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       github.event_name == 'repository_dispatch')
-    uses: apollogeddon/forgego/.github/workflows/patch.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/patch.yml@main
     with:
       working_directory: docs
     permissions:
@@ -157,7 +157,7 @@ jobs:
     if: >-
       !cancelled() && github.event_name == 'pull_request' &&
       github.event.pull_request.user.login == 'dependabot[bot]'
-    uses: apollogeddon/forgego/.github/workflows/merge.yml@ci-v2
+    uses: apollogeddon/forgego/.github/workflows/merge.yml@main
     with:
       checks_passed: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     permissions:
