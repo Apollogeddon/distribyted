@@ -52,7 +52,7 @@ distribyted gives you access to terabytes of data instantly using minimal local 
 
 ## Features
 
-- **Filesystem Access:** Mount torrents via **FUSE** (Linux/Windows), **WebDAV**, or **HTTP**.
+- **Filesystem Access:** Mount torrents via **FUSE** (Linux, macOS and Windows), **WebDAV**, or **HTTP**.
 - **On-Demand Downloading:** Only downloads the specific blocks of data being read.
 - **Expandable Archives:** Automatically mount and seek through `.zip`, `.rar`, and `.7z` archives inside torrents.
 - **Routes:** Organize different sets of torrents into virtual folders.
@@ -85,13 +85,15 @@ Download a binary for Linux, macOS or Windows from the [releases page](https://g
 
 ### 1. Configuration
 
-The application uses a YAML configuration file. See `examples/conf_example.yaml` for a template.
+The application uses a YAML configuration file. On first run, distribyted writes one to `./distribyted-data/config/config.yaml` with a random password, or to the path you give it. [`examples/conf_example.yaml`](examples/conf_example.yaml) is the same file with the passwords left for you to set: distribyted won't start until they are.
 
 ### 2. Running
 
 ```bash
-./distribyted --config examples/conf_example.yaml
+./distribyted --config my-config.yaml
 ```
+
+The path can also be the one argument (`./distribyted my-config.yaml`); anything else on the command line after the flags is refused.
 
 ### 3. Accessing Files
 

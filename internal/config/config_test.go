@@ -2,11 +2,13 @@ package config
 
 import (
 	"io"
+	"os"
 	"testing"
 
 	"github.com/Apollogeddon/distribyted/web"
 	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/require"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 func TestTemplateConfig(t *testing.T) {
@@ -74,4 +76,29 @@ func TestDefaults_PortsAndAddresses(t *testing.T) {
 
 	// no webdav: section means no WebDAV
 	require.Nil(t, AddDefaults(&Root{}).WebDAV)
+}
+
+// The example the README points to stays the configuration distribyted generates, in the
+// current schema, with the passwords left for the user to choose.
+func TestExampleConfig(t *testing.T) {
+	t.Parallel()
+
+	f, err := os.Open("../../examples/conf_example.yaml")
+	require.NoError(t, err)
+	defer f.Close()
+	dec := yamlv3.NewDecoder(f)
+	dec.KnownFields(true)
+	conf := &Root{}
+	require.NoError(t, dec.Decode(conf))
+
+	want := DefaultConfig()
+	want.HTTPGlobal.Pass, want.WebDAV.Pass = "", ""
+	require.Equal(t, want, conf)
+	require.Equal(t, DefaultIP, conf.HTTPGlobal.IP)
+	require.Equal(t, DefaultIP, conf.WebDAV.IP)
+
+	// it doesn't start until the passwords are set, and then does
+	require.Error(t, Validate(AddDefaults(conf)))
+	conf.HTTPGlobal.Pass, conf.WebDAV.Pass = "chosen", "chosen"
+	require.NoError(t, Validate(conf))
 }

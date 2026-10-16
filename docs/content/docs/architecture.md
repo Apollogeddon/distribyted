@@ -21,7 +21,7 @@ The VFS layer maps the flat list of files in a torrent into a hierarchical direc
 
 ### 3. Filesystem Interfaces
 Distribyted exposes the VFS through multiple protocols:
-- **FUSE (Filesystem in Userspace)**: Using `cgofuse`, the VFS is mounted as a native drive on Linux or Windows (via WinFsp). This provides the highest performance and best application compatibility.
+- **FUSE (Filesystem in Userspace)**: Using `cgofuse`, the VFS is mounted as a native drive on Linux, macOS (via macFUSE) or Windows (via WinFsp). This provides the highest performance and best application compatibility.
 - **WebDAV**: A built-in WebDAV server allows the filesystem to be mounted over the network or in environments where FUSE is unavailable (e.g., some Docker setups).
 - **HTTP/httpfs**: A basic web-based file browser for quick access and verification.
 

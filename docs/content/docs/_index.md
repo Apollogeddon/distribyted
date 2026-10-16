@@ -25,10 +25,12 @@ or run the container image `ghcr.io/apollogeddon/distribyted`. Then start it wit
 configuration file:
 
 ```bash
-./distribyted --config examples/conf_example.yaml
+./distribyted --config my-config.yaml
 ```
 
-If the file doesn't exist, distribyted writes one from its built-in template. See
+If the file doesn't exist, distribyted writes one from its built-in template. Without
+`--config` it uses `./distribyted-data/config/config.yaml`. `examples/conf_example.yaml` in the
+repository is that template with the passwords left for you to set. See
 [Configuration](configuration/) for every setting.
 
 {{< callout type="warning" >}}
