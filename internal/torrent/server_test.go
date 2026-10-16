@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/Apollogeddon/distribyted/internal/config"
+	"github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/require"
@@ -169,4 +171,44 @@ func TestServer_Start_InvalidPath(t *testing.T) {
 	srv := NewServer(nil, nil, &config.Server{Path: invalidPath})
 	err := srv.Start()
 	require.Error(t, err)
+}
+
+// A folder back to contents whose torrent was waiting to be dropped keeps it, and a torrent
+// dropped as it was added is added again rather than left seeding nothing.
+func TestServer_MakeMagnet_KeepsATorrentDroppedAsItWasAdded(t *testing.T) {
+	cfg := torrent.NewDefaultClientConfig()
+	cfg.DataDir = t.TempDir()
+	cfg.ListenPort = 0
+	cfg.NoDHT = true
+	cfg.NoDefaultPortForwarding = true
+	cfg.DisableIPv6 = true
+	cfg.DisableUTP = true
+	client, err := torrent.NewClient(cfg)
+	require.NoError(t, err)
+	defer client.Close()
+
+	folder := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(folder, "a.txt"), []byte("contents"), 0o644))
+	srv := NewServer(client, storage.NewMapPieceCompletion(), &config.Server{Name: "s", Path: folder})
+
+	var kept []string
+	keepTorrent = func(hash string) {
+		kept = append(kept, hash)
+		// the drop a read in flight deferred runs as the torrent is added again
+		if to, ok := client.Torrent(metainfo.NewHashFromHex(hash)); ok {
+			to.Drop()
+		}
+	}
+	t.Cleanup(func() { keepTorrent = fs.KeepTorrent })
+
+	require.NoError(t, srv.makeMagnet())
+	require.Len(t, kept, 1)
+	srv.mu.RLock()
+	to := srv.t
+	srv.mu.RUnlock()
+	require.False(t, isClosed(TorrentWrapper{to}), "the server seeds a torrent the client dropped")
+	got, ok := client.Torrent(to.InfoHash())
+	require.True(t, ok)
+	require.Same(t, to, got)
+	require.Equal(t, kept[0], to.InfoHash().HexString())
 }

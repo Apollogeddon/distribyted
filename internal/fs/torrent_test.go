@@ -23,11 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testMagnet = "magnet:?xt=urn:btih:a88fda5954e89178c372716a6a78b8180ed4dad3&dn=The+WIRED+CD+-+Rip.+Sample.+Mash.+Share&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fwired-cd.torrent"
-
-// swarmTimeout bounds the wait for a real swarm's metadata, which a quiet swarm would otherwise hold until go test's
-// own timeout with no reason given.
-const swarmTimeout = 3 * time.Minute
+// swarmTimeout bounds the wait for the fixture swarm's metadata, which would otherwise hold until go test's own
+// timeout with no reason given.
+const swarmTimeout = time.Minute
 
 func waitForInfo(t *testing.T, to *torrent.Torrent) {
 	t.Helper()
@@ -41,13 +39,21 @@ func waitForInfo(t *testing.T, to *torrent.Torrent) {
 var Cli *torrent.Client
 
 func TestMain(m *testing.M) {
+	// a folder of its own, removed after the run: a download left in the shared temp folder
+	// would be found by the next run, which then checks it rather than fetching it
+	dataDir, err := os.MkdirTemp("", "fs-test-client")
+	if err != nil {
+		panic(err)
+	}
 	cfg := torrent.NewDefaultClientConfig()
-	cfg.DataDir = os.TempDir()
+	cfg.DataDir = dataDir
+	cfg.ListenHost = func(string) string { return "127.0.0.1" }
 	cfg.ListenPort = 0
 	cfg.NoDHT = true
 	cfg.NoDefaultPortForwarding = true
 	cfg.DisableIPv6 = true
 	cfg.DisableUTP = true
+	cfg.KeepAliveTimeout = keepAliveInterval
 
 	client, err := torrent.NewClient(cfg)
 	if err != nil {
@@ -59,20 +65,19 @@ func TestMain(m *testing.M) {
 	exitVal := m.Run()
 
 	client.Close()
+	fixture.close()
+	_ = os.RemoveAll(dataDir)
 
 	os.Exit(exitVal)
 }
 
 func TestTorrentFilesystem(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping test that fetches a real magnet in short mode")
+		t.Skip("skipping test that fetches a torrent from a local swarm in short mode")
 	}
 	require := require.New(t)
 
-	to, err := Cli.AddMagnet(testMagnet)
-	require.NoError(err)
-
-	waitForInfo(t, to)
+	to := addFixture(t)
 
 	tfs := NewTorrent(600, false)
 	tfs.AddTorrent(TorrentWrapper{to})
@@ -80,20 +85,22 @@ func TestTorrentFilesystem(t *testing.T) {
 	files, err := tfs.ReadDir("/")
 	require.NoError(err)
 	require.Len(files, 1)
-	require.Contains(files, "The WIRED CD - Rip. Sample. Mash. Share")
+	require.Contains(files, fixtureName)
 
-	files, err = tfs.ReadDir("/The WIRED CD - Rip. Sample. Mash. Share")
+	files, err = tfs.ReadDir("/" + fixtureName)
 	require.NoError(err)
-	require.Len(files, 18)
+	require.Len(files, len(fixtureFiles))
 
-	f, err := tfs.Open("/The WIRED CD - Rip. Sample. Mash. Share/not_existing_file.txt")
+	f, err := tfs.Open("/" + fixtureName + "/not_existing_file.txt")
 	require.Equal(os.ErrNotExist, err)
 	require.Nil(f)
 
-	f, err = tfs.Open("/The WIRED CD - Rip. Sample. Mash. Share/01 - Beastie Boys - Now Get Busy.mp3")
+	firstPath := "/" + fixtureName + "/" + fixtureFiles[0].name
+	content := fixtureContent(0)
+	f, err = tfs.Open(firstPath)
 	require.NoError(err)
 	require.NotNil(f)
-	require.Equal(f.Size(), int64(1964275))
+	require.Equal(f.Size(), int64(len(content)))
 	require.False(f.IsDir())
 
 	b := make([]byte, 10)
@@ -101,21 +108,34 @@ func TestTorrentFilesystem(t *testing.T) {
 	n, err := f.Read(b)
 	require.NoError(err)
 	require.Equal(10, n)
-	require.Equal([]byte{0x49, 0x44, 0x33, 0x3, 0x0, 0x0, 0x0, 0x0, 0x1f, 0x76}, b)
+	require.Equal(content[:10], b)
 
 	n, err = f.ReadAt(b, 10)
 	require.NoError(err)
 	require.Equal(10, n)
+	require.Equal(content[10:20], b)
 
-	n, err = f.ReadAt(b, 10000)
+	// a later piece
+	n, err = f.ReadAt(b, 40000)
 	require.NoError(err)
 	require.Equal(10, n)
+	require.Equal(content[40000:40010], b)
+
+	// a file that starts part-way into a piece the first one ends in
+	last := fixtureContent(len(fixtureFiles) - 1)
+	lf, err := tfs.Open("/" + fixtureName + "/" + fixtureFiles[len(fixtureFiles)-1].name)
+	require.NoError(err)
+	n, err = lf.ReadAt(b, int64(len(last)-10))
+	require.NoError(err)
+	require.Equal(10, n)
+	require.Equal(last[len(last)-10:], b)
+	require.NoError(lf.Close())
 
 	// Test Torrent extra methods
 	err = tfs.Mkdir("/newdir")
 	require.NoError(err)
 
-	err = tfs.Link("/The WIRED CD - Rip. Sample. Mash. Share/01 - Beastie Boys - Now Get Busy.mp3", "/linked.mp3")
+	err = tfs.Link(firstPath, "/linked.mp3")
 	require.NoError(err)
 
 	err = tfs.Rename("/linked.mp3", "/renamed.mp3")
@@ -142,15 +162,13 @@ func TestTorrentFilesystem(t *testing.T) {
 
 func TestReadAtTorrent(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping test that fetches a real magnet in short mode")
+		t.Skip("skipping test that fetches a torrent from a local swarm in short mode")
 	}
 	require := require.New(t)
 
-	to, err := Cli.AddMagnet(testMagnet)
-	require.NoError(err)
-
-	waitForInfo(t, to)
+	to := addFixture(t)
 	torrFile := to.Files()[0]
+	content := fixtureContent(0)
 
 	tf := torrentFile{
 		readerFunc: torrFile.NewReader,
@@ -165,27 +183,25 @@ func TestReadAtTorrent(t *testing.T) {
 	n, err := h.ReadAt(toRead, 6)
 	require.NoError(err)
 	require.Equal(5, n)
-	require.Equal([]byte{0x0, 0x0, 0x1f, 0x76, 0x54}, toRead)
+	require.Equal(content[6:11], toRead)
 
 	n, err = h.ReadAt(toRead, 0)
 	require.NoError(err)
 	require.Equal(5, n)
-	require.Equal([]byte{0x49, 0x44, 0x33, 0x3, 0x0}, toRead)
+	require.Equal(content[:5], toRead)
 }
 
 func TestReadAtWrapper(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping test that fetches a real magnet in short mode")
+		t.Skip("skipping test that fetches a torrent from a local swarm in short mode")
 	}
 	t.Parallel()
 
 	require := require.New(t)
 
-	to, err := Cli.AddMagnet(testMagnet)
-	require.NoError(err)
-
-	waitForInfo(t, to)
+	to := addFixture(t)
 	torrFile := to.Files()[0]
+	content := fixtureContent(0)
 
 	r := newReadAtWrapper(torrFile.NewReader(), 10*time.Second, &readStats{}, zerolog.Nop())
 	defer func() { _ = r.Close() }()
@@ -194,12 +210,12 @@ func TestReadAtWrapper(t *testing.T) {
 	n, err := r.ReadAt(toRead, 6)
 	require.NoError(err)
 	require.Equal(5, n)
-	require.Equal([]byte{0x0, 0x0, 0x1f, 0x76, 0x54}, toRead)
+	require.Equal(content[6:11], toRead)
 
 	n, err = r.ReadAt(toRead, 0)
 	require.NoError(err)
 	require.Equal(5, n)
-	require.Equal([]byte{0x49, 0x44, 0x33, 0x3, 0x0}, toRead)
+	require.Equal(content[:5], toRead)
 
 	_ = r.Close()
 	n, err = r.ReadAt(toRead, 0)

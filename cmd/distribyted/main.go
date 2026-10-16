@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -52,15 +54,16 @@ var (
 
 func main() {
 	app := &cli.App{
-		Name:    "distribyted",
-		Usage:   "Torrent client with on-demand file downloading as a filesystem.",
-		Version: Version,
+		Name:      "distribyted",
+		Usage:     "Torrent client with on-demand file downloading as a filesystem.",
+		ArgsUsage: "[config file]",
+		Version:   Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    configFlag,
-				Value:   "./distribyted-data/config/config.yaml",
+				Value:   defaultConfigPath,
 				EnvVars: []string{"DISTRIBYTED_CONFIG"},
-				Usage:   "YAML file containing distribyted configuration.",
+				Usage:   "YAML file containing distribyted configuration; it can also be given as the one argument.",
 			},
 			&cli.IntFlag{
 				Name:    portFlag,
@@ -102,7 +105,13 @@ func main() {
 			if c.IsSet(webDAVPortFlag) {
 				o.webDAVPort = c.Int(webDAVPortFlag)
 			}
-			err := load(c.String(configFlag), o)
+			path, err := configPath(c.Args().Slice(), c.String(configFlag), c.IsSet(configFlag))
+			if errors.Is(err, errUsage) {
+				_ = cli.ShowAppHelp(c)
+			}
+			if err == nil {
+				err = load(path, o)
+			}
 
 			// stop program execution on errors to avoid flashing consoles
 			if err != nil && runtime.GOOS == "windows" {
@@ -140,6 +149,40 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal().Err(err).Msg("problem starting application")
 	}
+}
+
+const defaultConfigPath = "./distribyted-data/config/config.yaml"
+
+// errUsage marks a command line distribyted can't make sense of.
+var errUsage = errors.New("usage")
+
+// configPath is the configuration file to load: --config (or DISTRIBYTED_CONFIG), or the one
+// argument. Anything else on the command line is refused rather than ignored, so a mistyped
+// flag or a second path doesn't silently start on the default configuration. The argument
+// must look like a configuration file or name one that exists: a missing configuration is
+// written from the template, so a mistyped command (`distribyted version`) would otherwise
+// start the server and leave a file of that name behind.
+func configPath(args []string, flagValue string, flagSet bool) (string, error) {
+	switch {
+	case len(args) == 0:
+		return flagValue, nil
+	case len(args) > 1:
+		return "", fmt.Errorf("%w: unexpected arguments %q: give one configuration file, and flags before it", errUsage, args)
+	case !looksLikeConfig(args[0]):
+		return "", fmt.Errorf("%w: unknown command or argument %q: a configuration file ends in .yaml, .yml or .json, or already exists", errUsage, args[0])
+	case flagSet && flagValue != args[0]:
+		return "", fmt.Errorf("%w: two configuration files, %q from --config or DISTRIBYTED_CONFIG and %q: give one", errUsage, flagValue, args[0])
+	}
+	return args[0], nil
+}
+
+func looksLikeConfig(p string) bool {
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".yaml", ".yml", ".json":
+		return true
+	}
+	fi, err := os.Stat(p)
+	return err == nil && fi.Mode().IsRegular()
 }
 
 type storageLayer struct {
@@ -182,11 +225,8 @@ func initStorageLayer(conf *config.Root) (storageLayer, error) {
 		return 0, false
 	}
 	// the capacity makes anacrolix/torrent retry a failed read without limit (GuardReads)
+	// the same on every platform, so global_cache_size and the read guard apply on Windows too
 	st := torrent.GuardReads(storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc}), readGiveUpAfter)
-	// cache is not working with windows
-	if runtime.GOOS == "windows" {
-		st = storage.NewFileWithCompletion(cf, pc)
-	}
 
 	fis, err := torrent.NewFileItemStore(filepath.Join(conf.Torrent.MetadataFolder, "items"), itemStoreTTL)
 	if err != nil {

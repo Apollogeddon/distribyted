@@ -2,7 +2,8 @@
 # Stage 1: Build
 #===============
 
-FROM golang:1.27-alpine AS builder
+# the same Alpine release as the image below, whose libraries the binary links against
+FROM golang:1.27-alpine3.24 AS builder
 
 RUN apk add --no-cache fuse-dev gcc libc-dev g++ git
 
@@ -26,7 +27,8 @@ RUN go tool -modfile=.forgego/task/go.mod task build BIN_OUTPUT=/bin/distribyted
 # Stage 2: Run
 #===============
 
-FROM alpine:3
+# pinned to a release and its digest, so a rebuild can't change the base unseen; Dependabot proposes updates
+FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 # Install only runtime dependencies
 RUN apk add --no-cache fuse libstdc++ libgcc

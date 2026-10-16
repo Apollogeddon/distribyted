@@ -50,9 +50,11 @@ func (l *Limiter) Wait(addr string) time.Duration {
 	return max(a.until.Sub(l.now()), 0)
 }
 
-// RetryAfter is Wait as a Retry-After header's whole seconds, rounded up.
+// RetryAfter is Wait as a Retry-After header's whole seconds, rounded up, for a refused login.
+// It's at least 1: the wait can run out between the refusal and this, and "0" would invite
+// a client to retry at once, in a loop.
 func (l *Limiter) RetryAfter(addr string) string {
-	return strconv.FormatInt(int64((l.Wait(addr)+time.Second-1)/time.Second), 10)
+	return strconv.FormatInt(max(int64((l.Wait(addr)+time.Second-1)/time.Second), 1), 10)
 }
 
 // Failed records a failed login from addr.

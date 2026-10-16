@@ -4,12 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/anacrolix/torrent/bencode"
 
@@ -1272,4 +1277,90 @@ func TestQBitTorrentsAddHandler_NothingToAdd(t *testing.T) {
 
 	// answering Ok. here made Sonarr believe a grab succeeded that was never added
 	require.Equal(t, "Fails.", w.Body.String())
+}
+
+// A request's torrents are added side by side: one after another, a request of several
+// waited add_timeout for each one's metadata in turn.
+func TestQBitTorrentsAddHandler_AddsSideBySide(t *testing.T) {
+	var (
+		mu      sync.Mutex
+		added   []string
+		running atomic.Int32
+		most    atomic.Int32
+	)
+	mockSvc := &mockTorrentService{
+		addMagnetFunc: func(r, m string) error {
+			n := running.Add(1)
+			defer running.Add(-1)
+			for {
+				old := most.Load()
+				if n <= old || most.CompareAndSwap(old, n) {
+					break
+				}
+			}
+			time.Sleep(200 * time.Millisecond)
+			mu.Lock()
+			defer mu.Unlock()
+			added = append(added, m)
+			return nil
+		},
+	}
+	conf := &config.Root{HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true}}
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
+	require.NoError(t, err)
+
+	var magnets []string
+	for i := range 2 * maxAddsAtOnce {
+		magnets = append(magnets, fmt.Sprintf("magnet-%d", i))
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v2/torrents/add",
+		strings.NewReader(url.Values{"urls": {strings.Join(magnets, "\n")}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	start := time.Now()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, "Ok.", w.Body.String())
+	require.ElementsMatch(t, magnets, added)
+	require.Less(t, time.Since(start), time.Duration(len(magnets))*200*time.Millisecond/2)
+	require.LessOrEqual(t, most.Load(), int32(maxAddsAtOnce), "at most maxAddsAtOnce at a time")
+}
+
+func TestQBitTorrentsAddHandler_RefusesAnOversizedRequest(t *testing.T) {
+	mockSvc := &mockTorrentService{
+		addTorrentMetaInfoFunc: func(string, *metainfo.MetaInfo) error {
+			t.Error("nothing is added from an oversized request")
+			return nil
+		},
+	}
+	conf := &config.Root{HTTPGlobal: &config.HTTPGlobal{IP: "0.0.0.0", Port: 4444, DisableAuth: true}}
+	r, err := NewHandler(nil, nil, mockSvc, nil, nil, nil, "", conf, "", nil)
+	require.NoError(t, err)
+
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	part, err := mw.CreateFormFile("torrents", "huge.torrent")
+	require.NoError(t, err)
+	_, err = part.Write(make([]byte, maxAddBody+1))
+	require.NoError(t, err)
+	require.NoError(t, mw.Close())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v2/torrents/add", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+}
+
+// With several failed adds, the answer names the first in the request, however the adds finish.
+func TestAddAll_ReportsTheFirstFailureInOrder(t *testing.T) {
+	first, second := errors.New("first"), errors.New("second")
+	succeeded, err := addAll([]func() error{
+		func() error { time.Sleep(100 * time.Millisecond); return first },
+		func() error { return nil },
+		func() error { return second },
+	})
+	require.Equal(t, 1, succeeded)
+	require.ErrorIs(t, err, first)
 }

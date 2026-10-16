@@ -3,6 +3,7 @@ package fs
 import (
 	"errors"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"strings"
@@ -72,13 +73,12 @@ func (s *storage) Clear() {
 	s.children = make(map[string]map[string]File)
 	s.filesystems = make(map[string]Filesystem)
 
-	_ = s.addLocked(&Dir{}, "/") // root "/" always succeeds
+	_ = s.addLocked(&Dir{}, "/", nil) // root "/" always succeeds
 }
 
 func (s *storage) Has(path string) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.hasLocked(path)
+	f, _ := s.Get(path)
+	return f != nil
 }
 
 // IsOwned reports whether p is a plain entry held directly in s.files (a
@@ -97,52 +97,89 @@ func (s *storage) IsOwned(p string) bool {
 	return ok
 }
 
-func (s *storage) hasLocked(p string) bool {
+// mounted holds what the filesystems mounted over a path and its parents have there, looked
+// up before a change takes the lock: opening a path inside an archive reads the archive, which
+// can take until the read timeout, and holding the lock meanwhile would stall every other path.
+type mounted map[string]File
+
+// lookUpMounted finds what the mounted filesystems have at p and each of its parents.
+func (s *storage) lookUpMounted(p string) mounted {
+	type lookup struct {
+		fs  Filesystem
+		sub string
+	}
+	lookups := make(map[string]lookup)
+	s.mu.RLock()
+	for q := clean(p); ; {
+		if _, own := s.files[q]; !own {
+			if fsp, fs, ok := s.matchFilesystemLocked(q); ok {
+				lookups[q] = lookup{fs, separator + strings.TrimPrefix(q, fsp)}
+			}
+		}
+		if q == separator {
+			break
+		}
+		base, _ := path.Split(q)
+		q = clean(base)
+	}
+	s.mu.RUnlock()
+
+	m := make(mounted, len(lookups))
+	for q, l := range lookups {
+		if f, _ := l.fs.Open(l.sub); f != nil {
+			m[q] = f
+		}
+	}
+	return m
+}
+
+// hasLocked reports whether p is held here, or in a mounted filesystem as m found it.
+func (s *storage) hasLocked(p string, m mounted) bool {
+	f, _ := s.getLocked(p, m)
+	return f != nil
+}
+
+func (s *storage) getLocked(p string, m mounted) (File, error) {
 	p = clean(p)
-
-	f := s.files[p]
-	if f != nil {
-		return true
+	if f := s.files[p]; f != nil {
+		return f, nil
 	}
-
-	if f, _ := s.getFileFromFsLocked(p); f != nil {
-		return true
+	if f := m[p]; f != nil {
+		return f, nil
 	}
-
-	return false
+	return nil, os.ErrNotExist
 }
 
 func (s *storage) AddFS(fs Filesystem, p string) error {
+	p = clean(p)
+	m := s.lookUpMounted(p)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	p = clean(p)
 	// something is already there: another mount, or a folder or file of the user's own.
 	// Mounting over it would hide what it holds, so the caller has to know the route
 	// didn't appear.
-	if _, mounted := s.filesystems[p]; mounted || s.hasLocked(p) {
+	if _, mounted := s.filesystems[p]; mounted || s.hasLocked(p, m) {
 		return os.ErrExist
 	}
 
 	s.filesystems[p] = fs
-	return s.createParentLocked(p, &Dir{})
+	return s.createParentLocked(p, &Dir{}, m)
 }
 
 func (s *storage) Add(f File, p string) error {
+	m := s.lookUpMounted(p)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.addLocked(f, p)
+	return s.addLocked(f, p, m)
 }
 
-func (s *storage) addLocked(f File, p string) error {
+func (s *storage) addLocked(f File, p string, m mounted) error {
 	p = clean(p)
-	if s.hasLocked(p) {
-		if dir, err := s.getLocked(p); err == nil {
-			if !dir.IsDir() {
-				return os.ErrExist
-			}
+	if dir, err := s.getLocked(p, m); err == nil {
+		if !dir.IsDir() {
+			return os.ErrExist
 		}
-
 		return nil
 	}
 
@@ -170,7 +207,7 @@ func (s *storage) addLocked(f File, p string) error {
 		f.IncNlink()
 	}
 
-	return s.createParentLocked(p, f)
+	return s.createParentLocked(p, f, m)
 }
 
 // ErrNotEmpty is returned for removing or renaming a folder that still has entries.
@@ -304,11 +341,11 @@ func (s *storage) RemoveByHash(h string) []string {
 	return removed
 }
 
-func (s *storage) createParentLocked(p string, f File) error {
+func (s *storage) createParentLocked(p string, f File, m mounted) error {
 	base, filename := path.Split(p)
 	base = clean(base)
 
-	if err := s.addLocked(&Dir{}, base); err != nil {
+	if err := s.addLocked(&Dir{}, base, m); err != nil {
 		return err
 	}
 
@@ -323,74 +360,65 @@ func (s *storage) createParentLocked(p string, f File) error {
 	return nil
 }
 
+// Children lists what's in the folder at path. The mounted filesystem's listing is read with
+// the lock released: an archive's first listing reads the archive, which can take until the
+// read timeout, and holding the lock meanwhile would stall every other path.
 func (s *storage) Children(path string) (map[string]File, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	path = clean(path)
+
+	s.mu.RLock()
+	own := maps.Clone(s.children[path])
+	_, isOwn := s.files[path]
+	fsp, fs, isMounted := s.matchFilesystemLocked(path)
+	s.mu.RUnlock()
 
 	l := make(map[string]File)
 
 	// Get children from sub-filesystems
-	files, err := s.getDirFromFsLocked(path)
-	if err == nil {
-		for n, f := range files {
-			l[n] = f
+	if isMounted && path != separator {
+		files, err := fs.ReadDir(strings.TrimPrefix(path, fsp))
+		if err == nil {
+			maps.Copy(l, files)
+		} else if !os.IsNotExist(err) {
+			return nil, err
 		}
-	} else if !os.IsNotExist(err) {
-		return nil, err
 	}
 
 	// Merge with children from the container itself
-	for n, f := range s.children[path] {
-		l[n] = f
-	}
+	maps.Copy(l, own)
 
-	if len(l) == 0 && !s.hasLocked(path) {
-		return nil, os.ErrNotExist
+	if len(l) == 0 && !isOwn {
+		if !isMounted {
+			return nil, os.ErrNotExist
+		}
+		if f, _ := fs.Open(separator + strings.TrimPrefix(path, fsp)); f == nil {
+			return nil, os.ErrNotExist
+		}
 	}
 
 	return l, nil
 }
 
+// Get returns the file at path, opening it in the filesystem mounted over it with the lock
+// released, as Children does.
 func (s *storage) Get(path string) (File, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.getLocked(path)
-}
-
-func (s *storage) getLocked(path string) (File, error) {
 	path = clean(path)
-	if !s.hasLocked(path) {
+
+	s.mu.RLock()
+	f := s.files[path]
+	fsp, fs, isMounted := s.matchFilesystemLocked(path)
+	s.mu.RUnlock()
+
+	if f != nil {
+		return f, nil
+	}
+	if !isMounted {
 		return nil, os.ErrNotExist
 	}
-
-	file, ok := s.files[path]
-	if ok {
-		return file, nil
+	if f, _ := fs.Open(separator + strings.TrimPrefix(path, fsp)); f != nil {
+		return f, nil
 	}
-
-	return s.getFileFromFsLocked(path)
-}
-
-func (s *storage) getFileFromFsLocked(p string) (File, error) {
-	fsp, fs, ok := s.matchFilesystemLocked(p)
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-	return fs.Open(separator + strings.TrimPrefix(p, fsp))
-}
-
-func (s *storage) getDirFromFsLocked(p string) (map[string]File, error) {
-	if p == "/" {
-		return nil, os.ErrNotExist
-	}
-
-	fsp, fs, ok := s.matchFilesystemLocked(p)
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-	return fs.ReadDir(strings.TrimPrefix(p, fsp))
+	return nil, os.ErrNotExist
 }
 
 // matchFilesystemLocked finds the mounted filesystem whose mount path is the

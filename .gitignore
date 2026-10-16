@@ -1,4 +1,6 @@
 bin/
+# what task start writes: the generated config, metadata, cache, mount and logs
+distribyted-data/
 
 CLAUDE.md
 GEMINI.md

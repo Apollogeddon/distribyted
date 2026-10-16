@@ -34,12 +34,12 @@ This runs `go generate` and writes the binary to `bin/`, named for the version a
 ```bash
 task start
 ```
-This runs the application using `examples/conf_example.yaml`, or the config path you pass after `--` (`task start -- my-config.yaml`). If that file doesn't exist yet, distribyted generates it automatically from the built-in template (`web/templates/config_template.yaml`) on first run, with the user `admin` and a random password (read it from `http.pass` and `webdav.pass` in that file) for both the HTTP and WebDAV servers. See [Configuration](../configuration/) for details.
+This runs the application with `./distribyted-data/config/config.yaml` (ignored by git), or the config path you pass after `--` (`task start -- my-config.yaml`), which it takes as its one argument. If that file doesn't exist yet, distribyted generates it automatically from the built-in template (`web/templates/config_template.yaml`) on first run, with the user `admin` and a random password (read it from `http.pass` and `webdav.pass` in that file) for both the HTTP and WebDAV servers. See [Configuration](../configuration/) for details.
 
 ### 3. Running Tests
 
 - `task test:short`: fast unit tests only (`-short`), no network access required. This is what CI runs across the full Linux/macOS/Windows matrix, and what you should run locally for quick iteration.
-- `task test`: the full suite, including the network-touching integration tests under `internal/testenv` (spins up real torrent clients/trackers/seeders on localhost). CI only runs this on Linux. Expect this to take a few minutes.
+- `task test`: the full suite, including the tests that run torrent clients against each other on localhost: the integration tests under `internal/testenv` (real clients, trackers and seeders) and the `internal/fs` tests that fetch a torrent from a seeder in the test process. None reaches the internet. CI only runs this on Linux. Expect this to take a few minutes.
 
 Both write `coverage.out` and a JUnit `junit-report.xml`. CI runs them with the race detector; do the same locally with `GOFLAGS=-race task test`.
 

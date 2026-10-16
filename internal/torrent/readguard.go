@@ -2,6 +2,7 @@ package torrent
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 	"time"
@@ -54,6 +55,10 @@ func (c readGuardClient) OpenTorrent(ctx context.Context, info *metainfo.Info, i
 	// whole-torrent and per-piece readers read the same data, so they count the same way
 	if newReader := t.NewReader; newReader != nil {
 		pieceAt := func(off int64) *guardedPiece {
+			// a read at or past the end has no piece to count against
+			if off < 0 || off >= info.TotalLength() || info.PieceLength <= 0 {
+				return nil
+			}
 			mp := info.Piece(int(off / info.PieceLength))
 			if t.PieceWithHash != nil {
 				return asGuarded(t.PieceWithHash(mp, g.None[[]byte]()))
@@ -175,6 +180,10 @@ func (p *guardedPiece) ReadAt(b []byte, off int64) (int, error) {
 func (p *guardedPiece) record(n int, err error) {
 	if n > 0 || err == nil {
 		p.failures.reset(p.index)
+		return
+	}
+	// reading at the end of the piece: nothing to read, not a failure
+	if errors.Is(err, io.EOF) {
 		return
 	}
 	wait, giveUp := p.failures.fail(p.index)
