@@ -39,8 +39,15 @@ func waitForInfo(t *testing.T, to *torrent.Torrent) {
 var Cli *torrent.Client
 
 func TestMain(m *testing.M) {
+	// a folder of its own, removed after the run: a download left in the shared temp folder
+	// would be found by the next run, which then checks it rather than fetching it
+	dataDir, err := os.MkdirTemp("", "fs-test-client")
+	if err != nil {
+		panic(err)
+	}
 	cfg := torrent.NewDefaultClientConfig()
-	cfg.DataDir = os.TempDir()
+	cfg.DataDir = dataDir
+	cfg.ListenHost = func(string) string { return "127.0.0.1" }
 	cfg.ListenPort = 0
 	cfg.NoDHT = true
 	cfg.NoDefaultPortForwarding = true
@@ -59,6 +66,7 @@ func TestMain(m *testing.M) {
 
 	client.Close()
 	fixture.close()
+	_ = os.RemoveAll(dataDir)
 
 	os.Exit(exitVal)
 }
