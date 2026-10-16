@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0](https://github.com/Apollogeddon/distribyted/compare/v0.32.2...v1.0.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* listen on loopback by default; limit WebDAV logins; bound the unreadable-piece spin ([#146](https://github.com/Apollogeddon/distribyted/issues/146))
+
+### Features
+
+* Listen on loopback by default; limit WebDAV logins; bound the unreadable-piece spin ([#146](https://github.com/Apollogeddon/distribyted/issues/146)) ([678acff](https://github.com/Apollogeddon/distribyted/commit/678acffa2b73073d6c2530b17385116a9053f122))
+
+
+### Bug Fixes
+
+* **deps:** Bump github.com/nwaples/rardecode/v2 ([#155](https://github.com/Apollogeddon/distribyted/issues/155)) ([3b12464](https://github.com/Apollogeddon/distribyted/commit/3b124645de2cbd670eb77a751186633e3af6b581))
+* **deps:** Bump golang.org/x/net ([#147](https://github.com/Apollogeddon/distribyted/issues/147)) ([25abd6e](https://github.com/Apollogeddon/distribyted/commit/25abd6ead7682e311fb4f681fe513544bcc7c62d))
+* Review 4 findings (Windows cache limit, offline tests, config path, slow archives, qBittorrent adds) ([#151](https://github.com/Apollogeddon/distribyted/issues/151)) ([be7dd8b](https://github.com/Apollogeddon/distribyted/commit/be7dd8b175261c0be14a5f78dc1fb8a475d38a35))
+
 ## [0.32.2](https://github.com/Apollogeddon/distribyted/compare/v0.32.1...v0.32.2) (2026-10-12)
 
 
