@@ -17,7 +17,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/goccy/go-yaml v1.19.2
 	github.com/mattn/go-colorable v0.1.16
-	github.com/nwaples/rardecode/v2 v2.4.2
+	github.com/nwaples/rardecode/v2 v2.4.5
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v2 v2.27.7
