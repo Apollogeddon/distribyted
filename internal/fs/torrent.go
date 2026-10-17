@@ -651,10 +651,13 @@ var _ File = &torrentFileHandle{}
 
 type torrentFileHandle struct {
 	*torrentFile
-	reader   reader
-	mu       sync.Mutex
-	closed   bool
-	pos      int64 // where the next Read starts
+	reader reader
+	mu     sync.Mutex
+	closed bool
+	pos    int64 // where the next Read starts
+	// readMu holds pos through a whole Read, so two at once on the handle don't both start at
+	// pos and return the same bytes
+	readMu   sync.Mutex
 	openedAt time.Time
 	// syncedPiece is the piece the last read started in, whose readahead was checked for
 	// evicted pieces (see pieceSync)
@@ -793,6 +796,8 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	if r == nil {
 		return 0, io.EOF
 	}
+	h.readMu.Lock()
+	defer h.readMu.Unlock()
 	h.mu.Lock()
 	off := h.pos
 	h.mu.Unlock()

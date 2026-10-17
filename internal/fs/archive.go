@@ -386,6 +386,9 @@ type ArchiveFileHandle struct {
 	reader iio.Reader
 	closed bool
 	pos    int64
+	// readMu holds pos through a whole Read, so two at once on the handle don't both start at
+	// pos and return the same bytes
+	readMu sync.Mutex
 }
 
 // load returns the shared copy, joining it on first use. Callers use the reader it returns
@@ -413,6 +416,8 @@ func (h *ArchiveFileHandle) Read(p []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	h.readMu.Lock()
+	defer h.readMu.Unlock()
 	h.mu.Lock()
 	off := h.pos
 	h.mu.Unlock()
