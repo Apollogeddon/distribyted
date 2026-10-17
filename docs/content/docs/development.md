@@ -7,7 +7,7 @@ This guide is intended for developers who want to contribute to Distribyted or b
 
 ## Prerequisites
 
-- **Go**: Version 1.27 or higher (see the `go` directive in `go.mod`).
+- **Go**.
 - **FUSE Support**:
     - **Linux**: `libfuse-dev` installed.
     - **Windows**: [WinFsp](https://github.com/winfsp/winfsp) installed.
@@ -38,10 +38,10 @@ This runs the application with `./distribyted-data/config/config.yaml` (ignored 
 
 ### 3. Running Tests
 
-- `task test:short`: fast unit tests only (`-short`), no network access required. This is what CI runs across the full Linux/macOS/Windows matrix, and what you should run locally for quick iteration.
+- `task test:short`: fast unit tests only (`-short`), no network access required. This is what CI runs on macOS and Windows, and what you should run locally for quick iteration.
 - `task test`: the full suite, including the tests that run torrent clients against each other on localhost: the integration tests under `internal/testenv` (real clients, trackers and seeders) and the `internal/fs` tests that fetch a torrent from a seeder in the test process. None reaches the internet. CI only runs this on Linux. Expect this to take a few minutes.
 
-Both write `coverage.out` and a JUnit `junit-report.xml`. CI runs them with the race detector; do the same locally with `GOFLAGS=-race task test`.
+Both write `coverage.out` and a JUnit `junit-report.xml`. CI runs them with the race detector, except on Windows, which builds without cgo; do the same locally with `GOFLAGS=-race task test`.
 
 Tests gated behind `testing.Short()` are skipped by `test:short`; look for `if testing.Short() { t.Skip(...) }` at the top of a test if you're not sure which lane it runs in.
 
@@ -71,6 +71,21 @@ All packages below live under `internal/`, except the entry point:
 4. Run `task test:short` for quick feedback, and `task test` before submitting to also cover the integration tests. `task lint` formats the code and fixes what golangci-lint can.
 5. Install the Git hooks once with `task hooks`: they format staged Go files on commit, lint on push, and check commit messages against Conventional Commits.
 6. Submit a Pull Request.
+
+## Continuous Integration
+
+`.github/workflows/.index.yml` runs on pull requests, pushes to `main`, a manual run, the `auto-merged` dispatch a Dependabot merge sends, and weekly. Each job calls one of forgego's pipelines, so a run page reads `<pipeline> / <stage>`:
+
+| Job | Stages | When |
+| --- | --- | --- |
+| `version` | `release` | On `main`: release-please keeps the release pull request open, and creates a draft release when it merges. |
+| `service` | `lint`, `scan`, `test`, `test (windows)`, `test (macos)`, `build` | On a pull request, and again for a release. `lint` runs golangci-lint, `go mod tidy` and forgego's sync check; `scan` runs Gitleaks, OSV-Scanner and govulncheck; `test` runs `task test` with the race detector on Linux, and the Windows and macOS stages run `task test:short`. |
+| `docker` | `build`, `push` | Once `service` passes: a pull request builds `build/Dockerfile` for linux/amd64; a release builds linux/amd64 and linux/arm64 and pushes `ghcr.io/apollogeddon/distribyted`. |
+| `publish` | `package`, `assets (native)`, `assets` | For a release: builds the binaries on Linux, macOS and Windows runners, attaches them and `LICENSE` to the draft, and publishes it. |
+| `website` | `lint`, `scan`, `test`, `build`, `check` | Every run but the weekly one: the Hugo site in `docs/`. |
+| `pages` | `deploy` | On `main`: deploys the site to GitHub Pages. |
+| `patch`, `patch (docs)` | `update` | Weekly, on a manual run and after a Dependabot merge: refreshes forgego's files and upgrades vulnerable modules, in the repository and in `docs/`, committing to `main`. |
+| `merge` | `review`, `squash` | A Dependabot pull request: requests a review, and squash-merges it once the checks pass. |
 
 ## Cross-Platform Builds
 

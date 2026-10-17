@@ -49,6 +49,46 @@ Media servers often perform "Deep Analysis" or "Thumbnail Generation" which invo
 
 ---
 
+## HTTP API
+
+Every route but `/login`, `/api/v2/auth/login`, `/healthz` and `/readyz` needs a session: a browser signs in at `/login`, and an API client posts `username` and `password` to `/api/v2/auth/login` and sends back the `SID` cookie it sets. With `http.disable_auth: true`, none does.
+
+### Native API
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/status` | Cache use (`cacheItems`, and `cacheFilled` and `cacheCapacity` in MB) and the bytes downloaded and uploaded (`torrentStats`). |
+| `GET /api/routes` | Each route with its torrents and their health, pieces and peers. |
+| `POST /api/routes/:route/torrent` | Adds a torrent to a route, from a JSON body `{"magnet": "magnet:?..."}`. |
+| `DELETE /api/routes/:route/torrent/:torrent_hash` | Removes a torrent from a route. |
+| `GET /api/servers` | Each configured server: its name, folder, current magnet, state, peers and seeds. |
+| `GET /api/links` | The links: each with its `oldPath`, `newPath`, `isDir` and the `route` its target falls under. |
+| `POST /api/links` | Shows a file or folder at a second path, from `{"old_path": "...", "new_path": "..."}`. |
+| `DELETE /api/links/*path` | Removes a link. |
+| `GET /api/fs/*path` | Lists a folder of the virtual filesystem. |
+| `DELETE /api/fs/*path` | Deletes a file or folder. |
+| `POST /api/fs/mkdir` | Creates a folder, from `{"path": "..."}`. |
+| `POST /api/fs/rename` | Renames or moves an entry, from `{"old_path": "...", "new_path": "..."}`. |
+| `GET /api/log` | The end of the log file (the last 64 KiB). |
+
+`GET /fs/*filepath` serves the files themselves over HTTP when `http.httpfs` is on, and `/debug/pprof/` the Go profiles when `http.pprof` is.
+
+### qBittorrent-compatible API
+
+Under `/api/v2`, for Radarr, Sonarr and Prowlarr:
+
+| Route | What it does |
+| --- | --- |
+| `/auth/login`, `POST /auth/logout` | Signs in against `http.user` and `http.pass`, and out. |
+| `/app/version`, `/app/webapiVersion`, `/app/preferences` | The version and preferences a client checks, with the mount as the save path. `POST /app/setPreferences` is accepted and changes nothing. |
+| `/transfer/info`, `/transfer/speedLimitsMode` | Transfer speeds and totals, and the speed limits mode. `POST /transfer/toggleSpeedLimitsMode` is accepted and changes nothing. |
+| `/torrents/info` | The torrents, filtered by `category`. |
+| `/torrents/categories`, `POST /torrents/createCategory`, `POST /torrents/removeCategories` | Categories: one for each route, plus those a client creates. |
+| `POST /torrents/add` | Adds the magnets in `urls`, and `.torrent` files uploaded in the form, to the route named by `category` (`torrents` when it's empty). |
+| `POST /torrents/delete` | Removes the torrents in `hashes`. |
+| `/sync/maindata` | The torrents and categories in one response, for clients that poll it. |
+| `POST /torrents/setCategory`, `/torrents/addTags`, `/torrents/pause`, `/torrents/resume` | Accepted and change nothing. |
+
 ## Health Checks (Docker, Kubernetes)
 
 The HTTP server answers two endpoints for health checks, without logging in and whatever `http.disable_auth` says. They return only `ok` or `not ready` as plain text, and nothing about torrents, routes or paths, and aren't written to the log.
