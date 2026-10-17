@@ -1097,3 +1097,33 @@ func TestTorrentFileHandle_ReadResumesAfterAbandonedRead(t *testing.T) {
 	_, err = h.Read(buf)
 	require.ErrorIs(t, err, io.EOF)
 }
+
+// TestReadAtWrapper_ConcurrentReadsGetTheirOwnData: the kernel sends several reads on one handle
+// at once. Each must get its own bytes; one released its hold on the scratch buffer before
+// copying out of it, so the next read could overwrite what it returned.
+func TestReadAtWrapper_ConcurrentReadsGetTheirOwnData(t *testing.T) {
+	content := make([]byte, 1<<20)
+	for i := range content {
+		content[i] = byte(i * 31 / 7)
+	}
+	r := newReadAtWrapper(&seekingTorrentReader{Reader: bytes.NewReader(content)}, time.Second, &readStats{}, zerolog.Nop())
+
+	const chunk = 4 << 10
+	var wg sync.WaitGroup
+	for g := range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p := make([]byte, chunk)
+			for i := range 200 {
+				off := int64((g*200+i)*chunk) % int64(len(content)-chunk)
+				n, err := r.ReadAt(p, off)
+				if err != nil || !bytes.Equal(p[:n], content[off:off+chunk]) {
+					t.Errorf("read at %d: got other bytes (err %v)", off, err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+}

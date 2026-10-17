@@ -444,8 +444,9 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 	for {
 		select {
 		case r := <-res:
-			<-rw.sem
+			// copy out before releasing sem: the next read on this handle reuses buf
 			n := copy(p, buf[:r.n])
+			<-rw.sem
 			if r.err != nil && !errors.Is(r.err, io.EOF) {
 				rw.log.Error().Err(r.err).Int64("off", off).
 					Float64("duration_sec", time.Since(start).Seconds()).
@@ -472,8 +473,9 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 				// firing and us handling it — take its result rather than
 				// abandoning a read that actually succeeded.
 				r := <-res
+				n := copy(p, buf[:r.n])
 				<-rw.sem
-				return copy(p, buf[:r.n]), r.err
+				return n, r.err
 			}
 			rw.markDead(off, len(p), time.Since(start))
 			return 0, ErrReadTimeout
