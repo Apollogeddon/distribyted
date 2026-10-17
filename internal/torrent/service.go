@@ -565,6 +565,7 @@ func (s *Service) addRoute(r string) {
 		tfs = fs.NewTorrent(s.readTimeout, s.responsiveReads)
 		tfs.OnFirstRead(s.timings.FirstRead)
 		tfs.OnReadStart(s.offerPeersOnRead)
+		tfs.OnEvicted(s.offerPeersOnEviction)
 		s.fss[folder] = tfs
 		listeners = append(listeners, s.routeAddedListeners...)
 	}

@@ -200,5 +200,6 @@ To keep local disk usage low, Distribyted uses a **Least Recently Used (LRU)** c
 2.  **Usage**: The system tracks which pieces are being accessed by the VFS.
 3.  **Capacity Check**: Once the total size of the cache reaches the `global_cache_size` (e.g., 2GB), the eviction process begins.
 4.  **Eviction**: The oldest/least accessed pieces are deleted from the disk to make room for new data.
-5.  **Metadata Preservation**: Note that **Torrent Metadata** (the file list and piece hashes) is never evicted; only the actual file data pieces are cycled.
+5.  **Re-download**: The torrent client isn't told of an eviction and still counts those pieces complete, so before each read reaches a new piece, the pieces it and its readahead cover are checked against the cache. Evicted ones are downloaded again ahead of the read, from the torrent's saved peers if it has none left, instead of stalling the read when it gets there.
+6.  **Metadata Preservation**: Note that **Torrent Metadata** (the file list and piece hashes) is never evicted; only the actual file data pieces are cycled.
 

@@ -167,3 +167,24 @@ func (s *Service) offerPeersOnRead(hash string) {
 	}
 	go s.offerPeers(t)
 }
+
+// offerPeersOnEviction is the TorrentFS eviction callback: pieces the client counted complete
+// were evicted from the piece cache and are needed again. A torrent that counted them complete
+// may have let every peer go, wanting nothing more; one with no peer left gets its saved peers
+// at once, without waiting out peerOfferInterval, as nothing else would find it any before the
+// next tracker announce, minutes away. It runs on the read it was found on, so the work is done
+// elsewhere.
+func (s *Service) offerPeersOnEviction(hash string) {
+	t, ok := s.s.GetAllTorrents()[hash]
+	if !ok {
+		return
+	}
+	go func() {
+		if t.Stats().ActivePeers == 0 {
+			s.mu.Lock()
+			delete(s.peersOffered, hash)
+			s.mu.Unlock()
+		}
+		s.offerPeers(t)
+	}()
+}
