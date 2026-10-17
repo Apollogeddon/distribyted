@@ -818,6 +818,12 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 }
 
 func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
+	defer func() {
+		// io.EOF only at the file's end: data stopping short of it is missing, not done
+		if errors.Is(err, io.EOF) && off+int64(n) < h.len {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
 	r := h.load()
 	if r == nil {
 		return 0, io.EOF
