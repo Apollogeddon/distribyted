@@ -36,6 +36,22 @@ func (s *pieceSync) pieceAt(off int64) int {
 	return int((s.offset + off) / s.pieceLen)
 }
 
+// local reports whether every piece holding the file's n bytes from off is complete, to the
+// client and in storage, so reading them waits on no peer. Storage is asked too: an inline read
+// can't be abandoned, and one reaching a piece the cache evicted would wait for its download.
+func (s *pieceSync) local(off int64, n int) bool {
+	end := s.offset + min(off+int64(n), s.length)
+	for i := s.pieceAt(off); int64(i)*s.pieceLen < end; i++ {
+		if !s.t.PieceState(i).Complete {
+			return false
+		}
+		if c := s.t.Piece(i).Storage().Completion(); !c.Ok || !c.Complete {
+			return false
+		}
+	}
+	return true
+}
+
 // sync makes the client forget every piece holding the file's bytes from off for length that it
 // counts complete but storage no longer has, and reports whether there were any. Storage is
 // asked without the client's lock; only a piece found evicted takes it.

@@ -322,6 +322,10 @@ type readAtWrapper struct {
 	timeout time.Duration
 	log     zerolog.Logger
 	stats   *readStats
+	// local reports whether the client already has every piece a read covers. Such a read is
+	// done on the caller's goroutine: handing it to another, which only a read that waits on
+	// the network needs, costs a FUSE thread about 90 µs, and halved FUSE throughput. nil in tests.
+	local func(off int64, n int) bool
 
 	// sem guards r and buf: whoever holds it exclusively owns the read
 	// head. A channel instead of a sync.Mutex because acquisition needs to
@@ -403,6 +407,9 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 			rw.log.Error().Err(err).Int64("off", off).Msg("Seek failed")
 			return 0, err
 		}
+		if rw.local != nil && rw.local(off, len(p)) {
+			return rw.readLocal(p, off, min)
+		}
 	}
 
 	if cap(rw.buf) < len(p) {
@@ -445,6 +452,7 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 		select {
 		case r := <-res:
 			<-rw.sem
+			rw.logSlow(off, len(p), time.Since(start), false)
 			n := copy(p, buf[:r.n])
 			if r.err != nil && !errors.Is(r.err, io.EOF) {
 				rw.log.Error().Err(r.err).Int64("off", off).
@@ -479,6 +487,35 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 			return 0, ErrReadTimeout
 		}
 	}
+}
+
+// readLocal reads data the client already has, on the caller's goroutine, holding sem as doRead
+// does. It can't be abandoned, so it is only for reads that don't wait on peers.
+func (rw *readAtWrapper) readLocal(p []byte, off int64, min int) (int, error) {
+	defer func() { <-rw.sem }()
+	start := time.Now()
+	if rw.hash != "" {
+		libraryReadStarted(rw.hash)
+		defer libraryReadEnded(rw.hash)
+	}
+	n, err := readAtLeast(rw.r, p, min, nil)
+	rw.logSlow(off, len(p), time.Since(start), true)
+	if err != nil && !errors.Is(err, io.EOF) {
+		rw.log.Error().Err(err).Int64("off", off).Msg("ReadAt failed")
+	}
+	return n, err
+}
+
+// slowRead is how long a read may take before it's logged: well under a player's buffer, but
+// long enough that it isn't noise.
+const slowRead = 2 * time.Second
+
+func (rw *readAtWrapper) logSlow(off int64, n int, elapsed time.Duration, local bool) {
+	if elapsed < slowRead {
+		return
+	}
+	rw.log.Warn().Int64("off", off).Int("len", n).Float64("elapsed", elapsed.Seconds()).Bool("local", local).
+		Msg("slow read")
 }
 
 // markDead permanently poisons the wrapper. Called at most once: only the
@@ -776,6 +813,9 @@ func (h *torrentFileHandle) load() reader {
 		h.reader = newReadAtWrapper(r, time.Duration(h.timeout)*time.Second, h.stats, h.log)
 		if rw, ok := h.reader.(*readAtWrapper); ok {
 			rw.hash = h.hash
+			if h.pieces != nil {
+				rw.local = h.pieces.local
+			}
 		}
 	}
 	return h.reader

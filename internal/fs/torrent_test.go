@@ -1097,3 +1097,59 @@ func TestTorrentFileHandle_ReadResumesAfterAbandonedRead(t *testing.T) {
 	_, err = h.Read(buf)
 	require.ErrorIs(t, err, io.EOF)
 }
+
+// TestReadAtWrapper_LocalReadRunsOnTheCaller: a read of data the client already has is done
+// inline, so it isn't abandoned on the deadline the way a read waiting on peers is.
+func TestReadAtWrapper_LocalReadRunsOnTheCaller(t *testing.T) {
+	for _, local := range []bool{true, false} {
+		t.Run(fmt.Sprintf("local=%v", local), func(t *testing.T) {
+			block := make(chan struct{})
+			stub := &stubTorrentReader{block: block, data: []byte("abcd")}
+			r := newReadAtWrapper(stub, 50*time.Millisecond, &readStats{}, zerolog.Nop())
+			r.(*readAtWrapper).local = func(int64, int) bool { return local }
+			time.AfterFunc(150*time.Millisecond, func() { close(block) })
+
+			p := make([]byte, 4)
+			n, err := r.ReadAt(p, 0)
+			if local {
+				require.NoError(t, err)
+				require.Equal(t, "abcd", string(p[:n]))
+				return
+			}
+			require.ErrorIs(t, err, ErrReadTimeout)
+		})
+	}
+}
+
+func TestReadAtWrapper_LocalReadAtPastTheEndIsEOF(t *testing.T) {
+	r := newReadAtWrapper(&seekingTorrentReader{Reader: bytes.NewReader([]byte("0123456789"))},
+		time.Second, &readStats{}, zerolog.Nop())
+	r.(*readAtWrapper).local = func(int64, int) bool { return true }
+
+	buf := make([]byte, 8)
+	n, err := r.ReadAt(buf, 6)
+	require.Equal(t, 4, n)
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, "6789", string(buf[:n]))
+}
+
+// TestReadAtWrapper_LocalReadCountsInFlight: a torrent is dropped only once no read is in it
+// (inflight.go), and an inline read is one.
+func TestReadAtWrapper_LocalReadCountsInFlight(t *testing.T) {
+	block := make(chan struct{})
+	stub := &stubTorrentReader{block: block, data: []byte("abcd")}
+	r := newReadAtWrapper(stub, time.Second, &readStats{}, zerolog.Nop())
+	rw := r.(*readAtWrapper)
+	rw.hash = "local-inflight"
+	rw.local = func(int64, int) bool { return true }
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = r.ReadAt(make([]byte, 4), 0)
+	}()
+	require.Eventually(t, func() bool { return LibraryReadsInFlight("local-inflight") == 1 }, time.Second, time.Millisecond)
+	close(block)
+	<-done
+	require.Equal(t, 0, LibraryReadsInFlight("local-inflight"))
+}
