@@ -116,10 +116,14 @@ Add `distribyted` as a **qBitTorrent** download client:
 
 ### Supported qBitTorrent API (v2) Endpoints
 
-- `POST /auth/login` (Session-cookie auth against `http.user`/`http.pass`)
-- `GET /torrents/info` (Compatible listing)
-- `POST /torrents/add` (Adds magnets to routes)
+- `POST /auth/login` (Session-cookie auth against `http.user`/`http.pass`) and `POST /auth/logout`
+- `GET /torrents/info` (Compatible listing) and `GET /sync/maindata`
+- `POST /torrents/add` (Adds magnets and `.torrent` files to routes)
 - `POST /torrents/delete` (Surgical removal)
+- `GET /torrents/categories`, `POST /torrents/createCategory` and `POST /torrents/removeCategories` (Routes and categories)
+- `/app/*` and `/transfer/*` (Version, preferences and transfer info)
+
+The native API under `/api` and every route are listed in [Integration](https://apollogeddon.github.io/distribyted/docs/integration/#http-api).
 
 ### Health checks
 
@@ -141,7 +145,7 @@ Contributions are welcome! Please check the [Development Guide](https://apolloge
 
 ## About this fork
 
-This is a fork of [distribyted/distribyted](https://github.com/distribyted/distribyted), created by Antonio Navarro Pérez and its contributors. It has been modified since April 2026, among other things with:
+This is a fork of [distribyted/distribyted](https://github.com/distribyted/distribyted). It has been modified since April 2026, among other things with:
 - security fixes
 - a reworked torrent service and filesystem
 - a server-rendered web interface
