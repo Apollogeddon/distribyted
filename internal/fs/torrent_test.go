@@ -1098,15 +1098,21 @@ func TestTorrentFileHandle_ReadResumesAfterAbandonedRead(t *testing.T) {
 	require.ErrorIs(t, err, io.EOF)
 }
 
-// TestReadAtWrapper_LocalReadRunsOnTheCaller: a read of data the client already has is done
-// inline, so it isn't abandoned on the deadline the way a read waiting on peers is.
+// TestReadAtWrapper_LocalReadRunsOnTheCaller: a read local can do runs inline, so it isn't
+// abandoned on the deadline; one it can't do goes to the reader, deadline and all.
 func TestReadAtWrapper_LocalReadRunsOnTheCaller(t *testing.T) {
 	for _, local := range []bool{true, false} {
 		t.Run(fmt.Sprintf("local=%v", local), func(t *testing.T) {
 			block := make(chan struct{})
 			stub := &stubTorrentReader{block: block, data: []byte("abcd")}
 			r := newReadAtWrapper(stub, 50*time.Millisecond, &readStats{}, zerolog.Nop())
-			r.(*readAtWrapper).local = func(int64, int) bool { return local }
+			r.(*readAtWrapper).local = fakeLocal(func(p []byte, _ int64) (int, bool, error) {
+				if !local {
+					return 0, false, nil
+				}
+				<-block
+				return copy(p, "abcd"), true, nil
+			})
 			time.AfterFunc(150*time.Millisecond, func() { close(block) })
 
 			p := make([]byte, 4)
@@ -1114,6 +1120,7 @@ func TestReadAtWrapper_LocalReadRunsOnTheCaller(t *testing.T) {
 			if local {
 				require.NoError(t, err)
 				require.Equal(t, "abcd", string(p[:n]))
+				require.Zero(t, stub.reads.Load(), "a local read doesn't touch the reader")
 				return
 			}
 			require.ErrorIs(t, err, ErrReadTimeout)
@@ -1121,27 +1128,17 @@ func TestReadAtWrapper_LocalReadRunsOnTheCaller(t *testing.T) {
 	}
 }
 
-func TestReadAtWrapper_LocalReadAtPastTheEndIsEOF(t *testing.T) {
-	r := newReadAtWrapper(&seekingTorrentReader{Reader: bytes.NewReader([]byte("0123456789"))},
-		time.Second, &readStats{}, zerolog.Nop())
-	r.(*readAtWrapper).local = func(int64, int) bool { return true }
-
-	buf := make([]byte, 8)
-	n, err := r.ReadAt(buf, 6)
-	require.Equal(t, 4, n)
-	require.ErrorIs(t, err, io.EOF)
-	require.Equal(t, "6789", string(buf[:n]))
-}
-
 // TestReadAtWrapper_LocalReadCountsInFlight: a torrent is dropped only once no read is in it
-// (inflight.go), and an inline read is one.
+// (inflight.go), and a local one is.
 func TestReadAtWrapper_LocalReadCountsInFlight(t *testing.T) {
 	block := make(chan struct{})
-	stub := &stubTorrentReader{block: block, data: []byte("abcd")}
-	r := newReadAtWrapper(stub, time.Second, &readStats{}, zerolog.Nop())
+	r := newReadAtWrapper(&stubTorrentReader{}, time.Second, &readStats{}, zerolog.Nop())
 	rw := r.(*readAtWrapper)
 	rw.hash = "local-inflight"
-	rw.local = func(int64, int) bool { return true }
+	rw.local = fakeLocal(func(p []byte, _ int64) (int, bool, error) {
+		<-block
+		return len(p), true, nil
+	})
 
 	done := make(chan struct{})
 	go func() {
@@ -1153,3 +1150,49 @@ func TestReadAtWrapper_LocalReadCountsInFlight(t *testing.T) {
 	<-done
 	require.Equal(t, 0, LibraryReadsInFlight("local-inflight"))
 }
+
+// TestPieceSync_ReadLocal reads a downloaded file straight from storage: each range as the
+// reader returns it, and the end of the file as io.EOF.
+func TestPieceSync_ReadLocal(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test that fetches a torrent from a local swarm in short mode")
+	}
+	to := addFixture(t)
+	f := to.Files()[0]
+	content := fixtureContent(0)
+	s := newPieceSync(f)
+	require.NotNil(t, s)
+	l := s.newLocalReader()
+	defer l.close()
+
+	// download it all first
+	r := f.NewReader()
+	got := make([]byte, len(content))
+	_, err := io.ReadFull(r, got)
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	require.Equal(t, content, got)
+
+	for _, off := range []int64{0, 1, int64(len(content)) / 2} {
+		p := make([]byte, 5)
+		n, ok, err := l.read(p, off)
+		require.True(t, ok)
+		require.NoError(t, err)
+		require.Equal(t, content[off:off+5], p[:n])
+	}
+
+	p := make([]byte, 8)
+	n, ok, err := l.read(p, int64(len(content))-3)
+	require.True(t, ok)
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, content[len(content)-3:], p[:n])
+
+	_, ok, err = l.read(p, int64(len(content)))
+	require.True(t, ok)
+	require.ErrorIs(t, err, io.EOF)
+}
+
+type fakeLocal func(p []byte, off int64) (int, bool, error)
+
+func (f fakeLocal) read(p []byte, off int64) (int, bool, error) { return f(p, off) }
+func (fakeLocal) close()                                        {}

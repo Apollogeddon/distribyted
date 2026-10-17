@@ -322,10 +322,10 @@ type readAtWrapper struct {
 	timeout time.Duration
 	log     zerolog.Logger
 	stats   *readStats
-	// local reports whether the client already has every piece a read covers. Such a read is
-	// done on the caller's goroutine: handing it to another, which only a read that waits on
-	// the network needs, costs a FUSE thread about 90 µs, and halved FUSE throughput. nil in tests.
-	local func(off int64, n int) bool
+	// local reads data the client already has straight from storage, on the caller's goroutine.
+	// Handing a read to another goroutine, which only a read that waits on the network needs,
+	// costs a FUSE thread about 90 µs, and halved FUSE throughput. nil in tests.
+	local localReading
 
 	// sem guards r and buf: whoever holds it exclusively owns the read
 	// head. A channel instead of a sync.Mutex because acquisition needs to
@@ -407,8 +407,10 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 			rw.log.Error().Err(err).Int64("off", off).Msg("Seek failed")
 			return 0, err
 		}
-		if rw.local != nil && rw.local(off, len(p)) {
-			return rw.readLocal(p, off, min)
+		if rw.local != nil {
+			if n, ok, err := rw.readLocal(p, off); ok {
+				return n, err
+			}
 		}
 	}
 
@@ -441,6 +443,10 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 			Int64("recovered_total", rw.stats.recovered.Load()).
 			Msg("abandoned torrent read finally returned; closing its reader")
 		rw.closeOnce.Do(func() { _ = rw.r.Close() })
+		// sem stays held once abandoned, so nothing else can be using local
+		if rw.local != nil {
+			rw.local.close()
+		}
 	}()
 
 	deadline := time.NewTimer(rw.timeout)
@@ -489,21 +495,28 @@ func (rw *readAtWrapper) doRead(p []byte, off int64, seek bool, min int) (int, e
 	}
 }
 
-// readLocal reads data the client already has, on the caller's goroutine, holding sem as doRead
-// does. It can't be abandoned, so it is only for reads that don't wait on peers.
-func (rw *readAtWrapper) readLocal(p []byte, off int64, min int) (int, error) {
-	defer func() { <-rw.sem }()
+// localReading reads data the client already has, reporting whether it could (localReader).
+type localReading interface {
+	read(p []byte, off int64) (n int, ok bool, err error)
+	close()
+}
+
+// readLocal tries local, holding sem as doRead does, and releases sem only if it read: a read it
+// couldn't do carries on through doRead's own path, which still holds sem.
+func (rw *readAtWrapper) readLocal(p []byte, off int64) (int, bool, error) {
 	start := time.Now()
 	if rw.hash != "" {
 		libraryReadStarted(rw.hash)
-		defer libraryReadEnded(rw.hash)
 	}
-	n, err := readAtLeast(rw.r, p, min, nil)
-	rw.logSlow(off, len(p), time.Since(start), true)
-	if err != nil && !errors.Is(err, io.EOF) {
-		rw.log.Error().Err(err).Int64("off", off).Msg("ReadAt failed")
+	n, ok, err := rw.local.read(p, off)
+	if rw.hash != "" {
+		libraryReadEnded(rw.hash)
 	}
-	return n, err
+	if ok {
+		<-rw.sem
+		rw.logSlow(off, len(p), time.Since(start), true)
+	}
+	return n, ok, err
 }
 
 // slowRead is how long a read may take before it's logged: well under a player's buffer, but
@@ -618,6 +631,9 @@ func (rw *readAtWrapper) Close() error {
 		defer func() { <-rw.sem }()
 		if rw.deadFlag.Load() {
 			return nil
+		}
+		if rw.local != nil {
+			rw.local.close()
 		}
 		var err error
 		rw.closeOnce.Do(func() { err = rw.r.Close() })
@@ -814,7 +830,7 @@ func (h *torrentFileHandle) load() reader {
 		if rw, ok := h.reader.(*readAtWrapper); ok {
 			rw.hash = h.hash
 			if h.pieces != nil {
-				rw.local = h.pieces.local
+				rw.local = h.pieces.newLocalReader()
 			}
 		}
 	}
