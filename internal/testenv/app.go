@@ -259,13 +259,16 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 				capacity = o.cacheCapacity
 			}
 		}
-		if capacity != 0 {
-			fc.SetCapacity(capacity)
-			capFunc = func() (int64, bool) { return capacity, true }
-		}
 		st = storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc})
 		if capacity != 0 {
-			st = dtorrent.GuardReads(st, time.Minute)
+			// as cmd/distribyted wires it
+			fc.SetCapacity(capacity)
+			partial, err := filecache.NewCache(filepath.Join(actualTempDir, "cache-partial"))
+			if err != nil {
+				return nil, err
+			}
+			_ = partial.Info()
+			st = dtorrent.PieceStorage(fc, partial, time.Minute)
 		}
 	default:
 		cf := filepath.Join(actualTempDir, "cache")

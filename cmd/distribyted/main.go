@@ -214,19 +214,15 @@ func initStorageLayer(conf *config.Root) (storageLayer, error) {
 		return storageLayer{}, fmt.Errorf("error creating piece completion db: %w", err)
 	}
 
-	// Without a capacity func, the client doesn't know the cache evicts
-	// pieces under it (SetCapacity is only called on fc, below, after
-	// startup completes), which affects its piece-eviction/retry logic. A
-	// negative filecache capacity means unlimited (see filecache.Cache).
-	capFunc := func() (int64, bool) {
-		if c := fc.Info().Capacity; c >= 0 {
-			return c, true
-		}
-		return 0, false
+	// pieces still downloading, out of reach of fc's eviction (torrent.PieceStorage)
+	partial, err := filecache.NewCache(filepath.Join(conf.Torrent.MetadataFolder, "cache-partial"))
+	if err != nil {
+		return storageLayer{}, fmt.Errorf("error creating partial piece cache: %w", err)
 	}
-	// the capacity makes anacrolix/torrent retry a failed read without limit (GuardReads)
-	// the same on every platform, so global_cache_size and the read guard apply on Windows too
-	st := torrent.GuardReads(storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc}), readGiveUpAfter)
+
+	// the same on every platform, so global_cache_size and the read guard apply on Windows too;
+	// fc's capacity is set below, once startup completes
+	st := torrent.PieceStorage(fc, partial, readGiveUpAfter)
 
 	fis, err := torrent.NewFileItemStore(filepath.Join(conf.Torrent.MetadataFolder, "items"), itemStoreTTL)
 	if err != nil {
