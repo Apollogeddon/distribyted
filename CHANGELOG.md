@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.2](https://github.com/Apollogeddon/distribyted/compare/v1.0.1...v1.0.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **fs:** Read data the client already has on the FUSE thread, and log reads slower than 2 s ([#161](https://github.com/Apollogeddon/distribyted/issues/161)) ([4661eac](https://github.com/Apollogeddon/distribyted/commit/4661eac019563fa07dee61c8ad998566ccd8e869))
+* **fs:** Stop concurrent reads on one handle returning another read's bytes ([#162](https://github.com/Apollogeddon/distribyted/issues/162)) ([5bf9b7c](https://github.com/Apollogeddon/distribyted/commit/5bf9b7c2d1ffdc3a0a2007fa3efd471f7340e884))
+* **fuse:** Fail a read that comes up short before the end of the file, rather than return it short ([#163](https://github.com/Apollogeddon/distribyted/issues/163)) ([022f808](https://github.com/Apollogeddon/distribyted/commit/022f80817e68ef8ef66b77c908beb4681f274bd7))
+* **fuse:** Log each open and release at debug ([#160](https://github.com/Apollogeddon/distribyted/issues/160)) ([d420b35](https://github.com/Apollogeddon/distribyted/commit/d420b35c32cf4f77d8ade18ed53fa13071ff8b09))
+* **torrent:** Keep pieces still downloading out of the cache's eviction, so they don't fail their hash check ([#165](https://github.com/Apollogeddon/distribyted/issues/165)) ([3aebb8d](https://github.com/Apollogeddon/distribyted/commit/3aebb8d275b9d592e801cac88c52f50d76ab0047))
+
 ## [1.0.1](https://github.com/Apollogeddon/distribyted/compare/v1.0.0...v1.0.1) (2026-10-17)
 
 
