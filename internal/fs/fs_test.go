@@ -1,10 +1,14 @@
 package fs
 
 import (
+	"bytes"
 	"io"
 	"os"
+	"sync"
 	"testing"
 
+	"github.com/anacrolix/torrent"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
@@ -81,4 +85,70 @@ func TestContainerFs_Links(t *testing.T) {
 
 	cfs.onLinkRemoved("p")
 	require.True(linkRemoved)
+}
+
+// blocksContent is n 4 KiB blocks, each starting with its index.
+func blocksContent(n int) []byte {
+	b := make([]byte, n*4096)
+	for i := range n {
+		b[i*4096], b[i*4096+1] = byte(i>>8), byte(i)
+	}
+	return b
+}
+
+// readAllConcurrently reads f to its end with 8 goroutines calling Read at once, and checks
+// every block came back exactly once.
+func readAllConcurrently(t *testing.T, f File, blocks int) {
+	t.Helper()
+	var mu sync.Mutex
+	seen := make([]int, blocks)
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p := make([]byte, 4096)
+			for {
+				n, err := f.Read(p)
+				if n == 4096 {
+					mu.Lock()
+					seen[int(p[0])<<8|int(p[1])]++
+					mu.Unlock()
+				} else if n != 0 {
+					t.Errorf("short read of %d bytes", n)
+				}
+				if err != nil || n == 0 {
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	for i, c := range seen {
+		if c != 1 {
+			t.Errorf("block %d read %d times", i, c)
+		}
+	}
+}
+
+func TestTorrentFileHandle_ConcurrentReadsDontRepeat(t *testing.T) {
+	content := blocksContent(256)
+	tf := &torrentFile{
+		readerFunc: func() torrent.Reader { return &seekingTorrentReader{Reader: bytes.NewReader(content)} },
+		len:        int64(len(content)),
+		timeout:    5,
+		stats:      &readStats{},
+		log:        zerolog.Nop(),
+	}
+	h := tf.NewHandle()
+	defer func() { _ = h.Close() }()
+	readAllConcurrently(t, h, 256)
+}
+
+func TestArchiveFileHandle_ConcurrentReadsDontRepeat(t *testing.T) {
+	content := blocksContent(256)
+	af := NewArchiveFile(func() (io.Reader, error) { return bytes.NewReader(content), nil }, int64(len(content)))
+	h := af.NewHandle()
+	defer func() { _ = h.Close() }()
+	readAllConcurrently(t, h, 256)
 }
