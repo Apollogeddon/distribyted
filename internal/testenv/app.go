@@ -142,6 +142,19 @@ func NewTestAppProductionStorage() (*TestApp, error) {
 type testAppOption struct {
 	torrent func(*config.TorrentGlobal)
 	client  func(*atorrent.Client)
+	// cacheCapacity, if not 0, limits the production storage's piece cache to this many bytes,
+	// with the capacity told to the client and the reads guarded, as cmd/distribyted does
+	cacheCapacity int64
+}
+
+// NewTestAppCappedCache is NewTestAppProductionStorage reaching peers only through dialers the
+// caller adds, with its piece cache limited to capacity bytes as global_cache_size limits it, so
+// reads can outlast the pieces the cache evicts. readTimeout is the read timeout in seconds.
+func NewTestAppCappedCache(capacity int64, readTimeout int) (*TestApp, error) {
+	return newTestApp("", nil, false, true, true, false, nil, testAppOption{
+		torrent:       func(t *config.TorrentGlobal) { t.ReadTimeout = readTimeout },
+		cacheCapacity: capacity,
+	})
 }
 
 // NewTestAppSwarm is NewTestAppNoDefaultDialer for a Swarm: it reaches the Swarm's peers
@@ -240,7 +253,20 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		// for why this exists as a separate path from the default below,
 		// and for a known reliability caveat with this storage backend.
 		capFunc := func() (int64, bool) { return -1, false }
+		var capacity int64
+		for _, o := range opts {
+			if o.cacheCapacity != 0 {
+				capacity = o.cacheCapacity
+			}
+		}
+		if capacity != 0 {
+			fc.SetCapacity(capacity)
+			capFunc = func() (int64, bool) { return capacity, true }
+		}
 		st = storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc})
+		if capacity != 0 {
+			st = dtorrent.GuardReads(st, time.Minute)
+		}
 	default:
 		cf := filepath.Join(actualTempDir, "cache")
 		var err error

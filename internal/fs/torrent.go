@@ -30,6 +30,7 @@ type TorrentFS struct {
 	log             zerolog.Logger
 	onFirstRead     func(hash, path string, sinceOpen time.Duration)
 	onReadStart     func(hash string)
+	onEvicted       func(hash string)
 }
 
 // OnFirstRead registers a callback fired at most once per file, the first
@@ -51,6 +52,16 @@ func (fs *TorrentFS) OnReadStart(f func(hash string)) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	fs.onReadStart = f
+}
+
+// OnEvicted registers a callback fired with the torrent's hash when a read finds that pieces it
+// is about to need, which the client counted complete, were evicted from the piece cache: the
+// torrent needs peers again, and may have let them all go. Like OnReadStart, it must be called
+// before AddTorrent.
+func (fs *TorrentFS) OnEvicted(f func(hash string)) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.onEvicted = f
 }
 
 func NewTorrent(readTimeout int, responsiveReads bool) *TorrentFS {
@@ -112,6 +123,8 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			stats:       &readStats{},
 			onFirstRead: fs.onFirstRead,
 			onReadStart: fs.onReadStart,
+			onEvicted:   fs.onEvicted,
+			pieces:      newPieceSync(file),
 			log:         fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
 		tf.SetIno(HashIno(ih + file.Path()))
@@ -591,6 +604,8 @@ type torrentFile struct {
 	stats       *readStats
 	onFirstRead func(hash, path string, sinceOpen time.Duration)
 	onReadStart func(hash string)
+	onEvicted   func(hash string)
+	pieces      *pieceSync // nil when the file has no real torrent, as in tests
 	log         zerolog.Logger
 }
 
@@ -598,6 +613,7 @@ func (d *torrentFile) NewHandle() *torrentFileHandle {
 	return &torrentFileHandle{
 		torrentFile: d,
 		openedAt:    time.Now(),
+		syncedPiece: -1,
 	}
 }
 
@@ -638,6 +654,32 @@ type torrentFileHandle struct {
 	closed   bool
 	pos      int64 // where the next Read starts
 	openedAt time.Time
+	// syncedPiece is the piece the last read started in, whose readahead was checked for
+	// evicted pieces (see pieceSync)
+	syncedPiece int
+}
+
+// syncAhead checks the pieces a read at off and its readahead will need for ones the piece cache
+// evicted, once per piece a run of reads enters, so the client downloads them again before the
+// read gets there, and tells onEvicted when there were any.
+func (h *torrentFileHandle) syncAhead(off int64, n int) {
+	if h.pieces == nil {
+		return
+	}
+	piece := h.pieces.pieceAt(off)
+	h.mu.Lock()
+	if piece == h.syncedPiece {
+		h.mu.Unlock()
+		return
+	}
+	h.syncedPiece = piece
+	h.mu.Unlock()
+	if h.pieces.sync(off, int64(n)+readahead) {
+		h.log.Debug().Int64("off", off).Msg("pieces ahead were evicted from the cache; downloading them again")
+		if h.onEvicted != nil {
+			h.onEvicted(h.hash)
+		}
+	}
 }
 
 // reportFirstRead fires torrentFile.onFirstRead at most once per file
@@ -752,6 +794,7 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	h.mu.Lock()
 	off := h.pos
 	h.mu.Unlock()
+	h.syncAhead(off, len(p))
 	n, err = r.readFrom(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
@@ -772,6 +815,7 @@ func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 	if r == nil {
 		return 0, io.EOF
 	}
+	h.syncAhead(off, len(p))
 	n, err = r.ReadAt(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
