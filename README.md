@@ -145,7 +145,7 @@ Contributions are welcome! Please check the [Development Guide](https://apolloge
 
 ## About this fork
 
-This is a fork of [distribyted/distribyted](https://github.com/distribyted/distribyted). It has been modified since April 2026, among other things with:
+This is a fork of [distribyted/distribyted](https://github.com/distribyted/distribyted), created by Antonio Navarro Pérez and its contributors. It has been modified since April 2026, among other things with:
 - security fixes
 - a reworked torrent service and filesystem
 - a server-rendered web interface
