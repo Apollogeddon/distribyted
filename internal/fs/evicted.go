@@ -1,7 +1,11 @@
 package fs
 
 import (
+	"errors"
+	"io"
+
 	"github.com/anacrolix/torrent"
+	astorage "github.com/anacrolix/torrent/storage"
 )
 
 // The piece cache (global_cache_size) evicts pieces without telling the torrent client, which
@@ -34,6 +38,64 @@ func newPieceSync(f *torrent.File) *pieceSync {
 // pieceAt is the index of the piece holding the file's byte at off.
 func (s *pieceSync) pieceAt(off int64) int {
 	return int((s.offset + off) / s.pieceLen)
+}
+
+// localReader reads a handle's data straight from storage, if the client counts every piece it's
+// in complete. It never waits on a peer, nor retries a failed read as the client's reader does,
+// so a read it can't do is left to that reader and its deadline. Like that reader, it keeps the
+// piece it last read open. Only one read uses it at a time (readAtWrapper's sem).
+type localReader struct {
+	s     *pieceSync
+	piece int
+	pr    astorage.PieceReader
+}
+
+func (s *pieceSync) newLocalReader() *localReader {
+	return &localReader{s: s, piece: -1}
+}
+
+// read reports whether it read all of the file's bytes from off; at the end of the file it reads
+// what's left and returns io.EOF. When it can't, any error is only for the record.
+func (l *localReader) read(p []byte, off int64) (n int, ok bool, err error) {
+	s := l.s
+	if off >= s.length {
+		return 0, true, io.EOF
+	}
+	want := int(min(int64(len(p)), s.length-off))
+	for n < want {
+		at := s.offset + off + int64(n)
+		i := int(at / s.pieceLen)
+		if !s.t.PieceState(i).Complete {
+			return 0, false, nil
+		}
+		piece := s.t.Piece(i)
+		if l.piece != i {
+			l.close()
+			pr, err := piece.Storage().NewReader()
+			if err != nil {
+				return 0, false, err
+			}
+			l.pr, l.piece = pr, i
+		}
+		pieceOff := at - piece.Info().Offset()
+		m, err := l.pr.ReadAt(p[n:want][:min(int64(want-n), piece.Info().Length()-pieceOff)], pieceOff)
+		n += m
+		if m == 0 || err != nil && (!errors.Is(err, io.EOF) || n < want) {
+			l.close()
+			return 0, false, nil
+		}
+	}
+	if want < len(p) {
+		return n, true, io.EOF
+	}
+	return n, true, nil
+}
+
+func (l *localReader) close() {
+	if l.pr != nil {
+		_ = l.pr.Close()
+		l.pr, l.piece = nil, -1
+	}
 }
 
 // sync makes the client forget every piece holding the file's bytes from off for length that it
