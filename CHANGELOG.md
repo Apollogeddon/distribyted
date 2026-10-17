@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/Apollogeddon/distribyted/compare/v1.0.0...v1.0.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **fs:** Download pieces the cache evicted before a read reaches them ([eb5b334](https://github.com/Apollogeddon/distribyted/commit/eb5b3345405ac9b88dfd3cdcab12a4a6bb0df022))
+* **fs:** Download pieces the cache evicted before a read reaches them ([13798c5](https://github.com/Apollogeddon/distribyted/commit/13798c5dc340a131ed018052f6e8e6c97a608299))
+
 ## [1.0.0](https://github.com/Apollogeddon/distribyted/compare/v0.32.2...v1.0.0) (2026-10-16)
 
 
