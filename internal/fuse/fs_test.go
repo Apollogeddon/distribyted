@@ -110,6 +110,21 @@ func TestFS_Unit(t *testing.T) {
 		require.Equal(0, errc)
 	})
 
+	t.Run("Short read before the end is an error", func(t *testing.T) {
+		mfs.files["/short.bin"] = &mockFile{size: 8, data: []byte("half")}
+		errc, fh := f.Open("/short.bin", 0)
+		require.Equal(0, errc)
+		require.Equal(-fuse.EIO, f.Read("/short.bin", make([]byte, 8), 0, fh))
+		f.Release("/short.bin", fh)
+
+		// the same bytes are fine where they are the end of the file
+		mfs.files["/whole.bin"] = &mockFile{size: 4, data: []byte("half")}
+		errc, fh = f.Open("/whole.bin", 0)
+		require.Equal(0, errc)
+		require.Equal(4, f.Read("/whole.bin", make([]byte, 8), 0, fh))
+		f.Release("/whole.bin", fh)
+	})
+
 	t.Run("Readdir", func(t *testing.T) {
 		var names []string
 		fill := func(name string, stat *fuse.Stat_t, ofst int64) bool {

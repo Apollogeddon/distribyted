@@ -1226,3 +1226,28 @@ func TestReadAtWrapper_ConcurrentReadsGetTheirOwnData(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// TestTorrentFileHandle_DataEndingEarlyIsntEOF: io.EOF tells FUSE the file ended, so data that
+// stops short of the file's length must be an error instead.
+func TestTorrentFileHandle_DataEndingEarlyIsntEOF(t *testing.T) {
+	tf := &torrentFile{
+		readerFunc: func() torrent.Reader { return &seekingTorrentReader{Reader: bytes.NewReader([]byte("0123"))} },
+		len:        8,
+		timeout:    5,
+		stats:      &readStats{},
+		log:        zerolog.Nop(),
+	}
+	h := tf.NewHandle()
+	defer func() { _ = h.Close() }()
+
+	n, err := h.ReadAt(make([]byte, 8), 0)
+	require.Equal(t, 4, n)
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+
+	tf.len = 4
+	h2 := tf.NewHandle()
+	defer func() { _ = h2.Close() }()
+	n, err = h2.ReadAt(make([]byte, 8), 2)
+	require.Equal(t, 2, n)
+	require.ErrorIs(t, err, io.EOF, "the end of the file is still io.EOF")
+}

@@ -224,6 +224,13 @@ func (fs *FS) Read(path string, dest []byte, off int64, fh uint64) int {
 		log.Error().Err(err).Str(dlog.KeyPath, path).Msg("error reading data")
 		return errno(err)
 	}
+	// buf ends at the file's size, so less is data missing, not the end. The kernel takes a short
+	// read for the end of the file, zero-filling the rest and shrinking the size it caches.
+	if n < len(buf) {
+		log.Error().Str(dlog.KeyPath, path).Int64("off", off).Int("want", len(buf)).Int("got", n).
+			Msg("read came up short before the end of the file")
+		return -fuse.EIO
+	}
 
 	return n
 }
