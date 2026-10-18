@@ -178,6 +178,12 @@ reliability issue above is understood.
   — there's nothing for a second connection to accomplish. Documented as a
   known deviation in `docs/configuration.md`; a real test needs a
   multi-seeder harness, which is its own scoped task, not a drive-by.
+
+  **Update**: measured with the multi-seeder swarm harness (`internal/testenv/swarm.go`):
+  22 seeders at 512 KiB/s and 150 dead addresses, 16 MiB pieces, reading the file's first
+  64 KiB. Dialling 12 at once took 10.3 s on average over 11 runs (7.2–12.0 s); dialling 25,
+  the library's default, 7.2 s over 8 runs (6.0–7.9 s), as a dead address holds its slot for
+  the 3 s minimum dial timeout. `HalfOpenConnsPerTorrent` now equals `max_conns_per_torrent`.
 - **FUSE mount options** (`max_readahead` etc.): the library-level lock
   contention this could address is real (see `internal/fs/torrent.go`'s
   `readAtWrapper` — every read takes the client-wide lock), and fewer,

@@ -43,7 +43,9 @@ func NewClient(st storage.ClientImpl, fis bep44.Store, cfg *config.TorrentGlobal
 	torrentCfg.KeepAliveTimeout = peerKeepAlive
 	if cfg.MaxConnsPerTorrent > 0 {
 		torrentCfg.EstablishedConnsPerTorrent = cfg.MaxConnsPerTorrent
-		torrentCfg.HalfOpenConnsPerTorrent = max(1, cfg.MaxConnsPerTorrent/2)
+		// a dial to a dead address holds its slot for the whole dial timeout, so with half as many
+		// slots a torrent among many dead addresses took seconds longer to reach its seeders
+		torrentCfg.HalfOpenConnsPerTorrent = cfg.MaxConnsPerTorrent
 	}
 
 	if cfg.ListenPort != 0 {
