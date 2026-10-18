@@ -1251,3 +1251,19 @@ func TestTorrentFileHandle_DataEndingEarlyIsntEOF(t *testing.T) {
 	require.Equal(t, 2, n)
 	require.ErrorIs(t, err, io.EOF, "the end of the file is still io.EOF")
 }
+
+// TestReadAtWrapper_SlowNetworkReadsArentWarnings: waiting for a piece to download is how a read
+// ahead of the download goes, once per piece, so only a slow read of data on disk warns.
+func TestReadAtWrapper_SlowNetworkReadsArentWarnings(t *testing.T) {
+	var buf bytes.Buffer
+	rw := newReadAtWrapper(&stubTorrentReader{}, time.Second, &readStats{}, zerolog.New(&buf)).(*readAtWrapper)
+
+	rw.logSlow(0, 1, slowRead, false)
+	require.Contains(t, buf.String(), `"level":"debug"`)
+	buf.Reset()
+	rw.logSlow(0, 1, slowRead, true)
+	require.Contains(t, buf.String(), `"level":"warn"`)
+	buf.Reset()
+	rw.logSlow(0, 1, slowRead-time.Millisecond, true)
+	require.Empty(t, buf.String())
+}
