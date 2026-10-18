@@ -61,7 +61,7 @@ Core settings for the BitTorrent engine.
 | `listen_port` | Port the torrent engine listens on for peers, over TCP and uTP. `-1` picks a random free port. | `42069` |
 | `seed` | Keep uploading a torrent to other peers once it's complete, which `servers` need to share their folders. With it off, `servers` still make magnets, but their content isn't shared with the swarm. | `false` |
 | `ip` | Public IP to report to trackers/DHT. | (Auto-detected) |
-| `max_conns_per_torrent` | Maximum peer connections per torrent. Distribyted defaults to half of the underlying torrent library's own default (25 established / 12 half-open vs. the library's 50/25) — raise it on a fast connection if a torrent has many available peers. Not yet benchmarked against time-to-first-byte, only known to affect steady-state peer count. | `25` |
+| `max_conns_per_torrent` | Maximum peer connections per torrent, and how many it may be dialling at once. Distribyted defaults to half the torrent library's 50 established, and the library's own 25 dialling: in a swarm with many dead addresses each dial waits out its timeout, so fewer at once is slower to reach the seeders. Raise it on a fast connection if a torrent has many available peers. | `25` |
 | `responsive_reads` | Return reads as soon as their data has arrived, instead of waiting for the whole covering piece to finish downloading *and* pass hash verification. Substantially reduces time-to-first-byte, especially with large piece lengths (see `docs/benchmarking.md`) — but bytes may reach a reader before their integrity against the torrent's hash has been confirmed. | `false` |
 
 ### `log`

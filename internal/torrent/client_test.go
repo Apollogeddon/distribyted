@@ -67,3 +67,26 @@ func TestNewClient_PeerKeepAlive(t *testing.T) {
 
 	require.Equal(t, 5*time.Second, keepAlive)
 }
+
+// TestNewClient_DialsAsManyAsItConnects: a torrent may dial as many peers at once as it may
+// connect, since a dial to a dead address holds its slot for the whole dial timeout.
+func TestNewClient_DialsAsManyAsItConnects(t *testing.T) {
+	tempDir := t.TempDir()
+	fis, err := NewFileItemStore(tempDir, 1*time.Hour)
+	require.NoError(t, err)
+	defer func() { _ = fis.Close() }()
+
+	cfg := &config.TorrentGlobal{DisableIPv6: true, DisableUTP: true, DisableUPnP: true, DisableDHT: true, ListenPort: -1, MaxConnsPerTorrent: 25}
+	var id [20]byte
+	var established, halfOpen int
+	st := storage.NewFile(tempDir)
+	defer func() { _ = st.Close() }()
+	client, err := NewClient(st, fis, cfg, id, func(cc *atorrent.ClientConfig) {
+		established, halfOpen = cc.EstablishedConnsPerTorrent, cc.HalfOpenConnsPerTorrent
+	})
+	require.NoError(t, err)
+	defer client.Close()
+
+	require.Equal(t, 25, established)
+	require.Equal(t, 25, halfOpen)
+}
