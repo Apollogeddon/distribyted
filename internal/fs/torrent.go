@@ -525,11 +525,18 @@ func (rw *readAtWrapper) readLocal(p []byte, off int64) (int, bool, error) {
 // long enough that it isn't noise.
 const slowRead = 2 * time.Second
 
+// logSlow warns only for data already on disk. A player reading ahead waits, once per piece, for
+// the whole piece to download and verify: seconds with large pieces, and normal (stall heartbeat
+// covers a read that's really stuck).
 func (rw *readAtWrapper) logSlow(off int64, n int, elapsed time.Duration, local bool) {
 	if elapsed < slowRead {
 		return
 	}
-	rw.log.Warn().Int64("off", off).Int("len", n).Float64("elapsed", elapsed.Seconds()).Bool("local", local).
+	ev := rw.log.Debug()
+	if local {
+		ev = rw.log.Warn()
+	}
+	ev.Int64("off", off).Int("len", n).Float64("elapsed", elapsed.Seconds()).Bool("local", local).
 		Msg("slow read")
 }
 
