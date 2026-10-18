@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.3](https://github.com/Apollogeddon/distribyted/compare/v1.0.2...v1.0.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* **fs:** Log a slow read that waited on the swarm at debug, not as a warning ([#166](https://github.com/Apollogeddon/distribyted/issues/166)) ([affea6d](https://github.com/Apollogeddon/distribyted/commit/affea6d9a10c7e2ccaaa56129b1ddbf6beddec16))
+* **torrent:** Dial as many peers at once as a torrent may connect, so a new stream reaches its seeders sooner ([#167](https://github.com/Apollogeddon/distribyted/issues/167)) ([002fb72](https://github.com/Apollogeddon/distribyted/commit/002fb72020974cfc9e38bbd92705d162a5271cbd))
+
 ## [1.0.2](https://github.com/Apollogeddon/distribyted/compare/v1.0.1...v1.0.2) (2026-10-17)
 
 
