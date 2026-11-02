@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/Apollogeddon/distribyted/compare/v1.0.3...v1.1.0) (2026-11-02)
+
+
+### Features
+
+* **http:** Search the mount for the file to link, in a dropdown under Add link's File field ([b3a83d9](https://github.com/Apollogeddon/distribyted/commit/b3a83d9f9878b42e41c2f40a2f9984d907c27834))
+
+
+### Bug Fixes
+
+* **deps:** Bump alpine from 3.24.2 to 3.24.3 in /build in the non-major group ([71b82a1](https://github.com/Apollogeddon/distribyted/commit/71b82a1d397e22c9dbc94335d16fb12693468c53))
+* **deps:** Bump alpine in /build in the non-major group ([72f45f0](https://github.com/Apollogeddon/distribyted/commit/72f45f0d29478d82ed5d1112db7ebdcb37dcc82e))
+* **torrent:** Keep links, and the folders and files made in the mount, across a restart ([31fab52](https://github.com/Apollogeddon/distribyted/commit/31fab52ba5b278efe163d3078c38dedbf54145c7))
+* **torrent:** Keep links, and the folders and files made in the mount, across a restart ([f110c3c](https://github.com/Apollogeddon/distribyted/commit/f110c3c645893ed74d248edf89b2681364543325))
+
 ## [1.0.3](https://github.com/Apollogeddon/distribyted/compare/v1.0.2...v1.0.3) (2026-10-18)
 
 
