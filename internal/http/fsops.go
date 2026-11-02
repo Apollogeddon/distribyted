@@ -168,18 +168,16 @@ func listLinks(s torrentService, ss *torrent.Stats) ([]Link, error) {
 
 	out := make([]Link, 0, len(links))
 	for newPath, oldPath := range links {
-		isDir := oldPath == "/" || oldPath == ""
-		normOld := normalizeLinkPath(oldPath)
-		route := ""
-		if !isDir {
-			route = routeForPath(normOld, routeNames)
+		isDir := oldPath == torrent.DirRecord || oldPath == ""
+		isFile := oldPath == torrent.FileRecord
+		l := Link{NewPath: normalizeLinkPath(newPath), IsDir: isDir, IsFile: isFile}
+		if !isDir && !isFile {
+			l.OldPath = normalizeLinkPath(oldPath)
+			l.Route = routeForPath(l.OldPath, routeNames)
+		} else if isDir {
+			l.OldPath = "/"
 		}
-		out = append(out, Link{
-			OldPath: normOld,
-			NewPath: normalizeLinkPath(newPath),
-			IsDir:   isDir,
-			Route:   route,
-		})
+		out = append(out, l)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].NewPath < out[j].NewPath })
 	return out, nil

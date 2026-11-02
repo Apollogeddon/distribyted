@@ -36,6 +36,12 @@ added, or link a file to a second path. Files inside a torrent are managed from 
 ## Links
 
 A link shows a file at a second path, such as a film filed the way your library names it.
+In **Add link**, type part of a file's name or folder to search the mount, and pick the
+file from the matches; every word typed has to appear in its path. Archives are found as
+files, not searched inside.
+
+Links, and the folders and files made in the mount, come back after a restart. A link
+whose torrent is still loading appears as soon as the torrent does.
 
 {{< screenshot name="links" alt="The Links page" >}}
 

@@ -53,7 +53,7 @@ func newLinksPage(s torrentService, ss *torrent.Stats) linksPage {
 			DeleteURL:      "/links/entry?path=" + url.QueryEscape(l.NewPath),
 			DeleteQuestion: "Delete the link “" + l.NewPath + "”? If nothing else points at its torrent, the torrent is removed too.",
 		}
-		if !l.IsDir {
+		if !l.IsDir && !l.IsFile {
 			v.SourceHref = filesHref(path.Dir(l.OldPath))
 		}
 		page.Links = append(page.Links, v)

@@ -14,6 +14,8 @@ type LoaderAdder interface {
 	AddLink(oldpath, newpath string) error
 	RemoveLink(path string) error
 	ListLinks() (map[string]string, error)
+	// GetLink returns the value of the link record at newpath, and whether there is one.
+	GetLink(newpath string) (string, bool, error)
 
 	// SaveInfo keeps a torrent's info dictionary, so that re-adding it, as every start
 	// does, needn't wait for a peer to send it. LoadInfo returns it, and ForgetInfo drops
