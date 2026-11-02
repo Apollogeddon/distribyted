@@ -127,6 +127,9 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			pieces:      newPieceSync(file),
 			log:         fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
+		if tf.pieces != nil {
+			tf.readahead = readaheadFor(tf.pieces.pieceLen)
+		}
 		tf.SetIno(HashIno(ih + file.Path()))
 		if err := fs.s.Add(tf, file.Path()); err != nil {
 			fs.log.Error().Err(err).Str(dlog.KeyPath, file.Path()).Msg("failed to register file in storage")
@@ -674,7 +677,9 @@ type torrentFile struct {
 	onReadStart func(hash string)
 	onEvicted   func(hash string)
 	pieces      *pieceSync // nil when the file has no real torrent, as in tests
-	log         zerolog.Logger
+	// readahead is how far ahead of a read the client downloads (readaheadFor)
+	readahead int64
+	log       zerolog.Logger
 }
 
 func (d *torrentFile) NewHandle() *torrentFileHandle {
@@ -745,7 +750,7 @@ func (h *torrentFileHandle) syncAhead(off int64, n int) {
 	}
 	h.syncedPiece = piece
 	h.mu.Unlock()
-	if h.pieces.sync(off, int64(n)+readahead) {
+	if h.pieces.sync(off, int64(n)+h.readaheadLen()) {
 		h.log.Debug().Int64("off", off).Msg("pieces ahead were evicted from the cache; downloading them again")
 		if h.onEvicted != nil {
 			h.onEvicted(h.hash)
@@ -812,7 +817,28 @@ func (h *torrentFileHandle) reportFirstRead() {
 // +27% DSL) — the per-call function invocation this requires runs under the
 // client-wide lock on every Read/Seek, unlike a plain static field read.
 // See docs/content/docs/benchmarking.md.
-const readahead = 4 * 1024 * 1024 // 4MB
+//
+// The window is a file's piece length, from minReadahead to maxReadahead, still set once per
+// reader. Smaller than a piece, it asked for the next piece only once a read was within 4 MB of
+// it, so with the 16 MiB pieces of most films a player waited at every piece boundary for a
+// whole piece to download, with a few seconds of buffer.
+const (
+	minReadahead = 4 * 1024 * 1024
+	maxReadahead = 64 * 1024 * 1024
+)
+
+// readaheadFor is the readahead for a torrent whose pieces are pieceLen long, or minReadahead
+// for a file with no torrent, as in tests.
+func readaheadFor(pieceLen int64) int64 {
+	return min(max(pieceLen, minReadahead), maxReadahead)
+}
+
+func (d *torrentFile) readaheadLen() int64 {
+	if d.readahead > 0 {
+		return d.readahead
+	}
+	return minReadahead
+}
 
 // responsive (torrentFile.responsive, set from config.TorrentGlobal.ResponsiveReads)
 // controls torrent.Reader.SetResponsive(): a read normally waits for its
@@ -839,7 +865,7 @@ func (h *torrentFileHandle) load() reader {
 		}
 		r := h.readerFunc()
 		if r != nil {
-			r.SetReadahead(readahead)
+			r.SetReadahead(h.readaheadLen())
 			if h.responsive {
 				r.SetResponsive()
 			}
