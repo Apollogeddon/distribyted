@@ -135,6 +135,8 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		pages.GET("/files/rename", filesRenameFormHandler)
 		pages.POST("/files/rename", filesRenameHandler(lfs))
 		pages.DELETE("/files/entry", filesDeleteHandler(lfs))
+		pages.GET("/files/readiness", filesReadinessHandler(lfs, conf))
+		pages.POST("/files/prepare", filesPrepareHandler(lfs, conf))
 		pages.GET("/version/api", qBitWebapiVersionHandler)
 	}
 

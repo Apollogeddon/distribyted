@@ -44,6 +44,9 @@ type fileView struct {
 	LinkForm         string
 	DeleteURL        string
 	DeleteQuestion   string
+	// Readiness, for a torrent's file, is "ready" when a player can start it at once, else
+	// "cold"; ReadinessURL opens its readiness dialog.
+	Readiness, ReadinessURL string
 }
 
 func filesHref(p string) string {
@@ -91,6 +94,12 @@ func newFilesPage(cfs containerFS, conf *config.Root, p string) (filesPage, int)
 				v.Download = (&url.URL{Path: "/fs" + e.Path}).EscapedPath()
 			}
 			v.LinkForm = "/links/form?source=" + q
+			if e.Ready != nil {
+				v.Readiness, v.ReadinessURL = "cold", "/files/readiness?path="+q
+				if *e.Ready {
+					v.Readiness = "ready"
+				}
+			}
 		}
 		if e.Owned {
 			v.RenameForm = "/files/rename?path=" + q
