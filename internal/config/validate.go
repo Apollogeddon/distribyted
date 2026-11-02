@@ -36,6 +36,9 @@ func Validate(r *Root) error {
 			return err
 		}
 	}
+	if err := validatePreviousNames(r.Routes); err != nil {
+		return err
+	}
 
 	return validateNumbers(r)
 }
@@ -90,6 +93,31 @@ func ValidateRouteName(name string) error {
 	for _, c := range name {
 		if c < 0x20 || c == 0x7f {
 			return fmt.Errorf("invalid route name %q: it can't contain control characters", name)
+		}
+	}
+	return nil
+}
+
+// validatePreviousNames rejects a previous name that's a route's name now, or that two
+// routes both had: either would move a route's torrents and links to the wrong one.
+func validatePreviousNames(routes []*Route) error {
+	current := make(map[string]bool, len(routes))
+	for _, rt := range routes {
+		current[rt.Name] = true
+	}
+	claimed := make(map[string]string)
+	for _, rt := range routes {
+		for _, prev := range rt.PreviousNames {
+			if err := ValidateRouteName(prev); err != nil {
+				return fmt.Errorf("routes %q: previous_names: %w", rt.Name, err)
+			}
+			if current[prev] {
+				return fmt.Errorf("routes %q: previous name %q is a route's name now", rt.Name, prev)
+			}
+			if other, ok := claimed[prev]; ok {
+				return fmt.Errorf("routes %q and %q both list %q in previous_names", other, rt.Name, prev)
+			}
+			claimed[prev] = rt.Name
 		}
 	}
 	return nil
