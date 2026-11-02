@@ -125,6 +125,7 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		pages.GET("/links", linksPageHandler(s, ss))
 		pages.GET("/links/list", linksListHandler(s, ss))
 		pages.GET("/links/form", linksFormHandler)
+		pages.GET("/links/search", linksSearchHandler(lfs))
 		pages.POST("/links", linksAddHandler(lfs))
 		pages.DELETE("/links/entry", linksDeleteHandler(lfs, s))
 		pages.GET("/files", filesPageHandler(lfs, conf))
