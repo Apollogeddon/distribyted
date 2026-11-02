@@ -679,7 +679,9 @@ type torrentFile struct {
 	pieces      *pieceSync // nil when the file has no real torrent, as in tests
 	// readahead is how far ahead of a read the client downloads (readaheadFor)
 	readahead int64
-	log       zerolog.Logger
+	// asked is the Preparation last asked for, shared by every handle and link to the file
+	asked atomic.Int32
+	log   zerolog.Logger
 }
 
 func (d *torrentFile) NewHandle() *torrentFileHandle {
