@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/Apollogeddon/distribyted/compare/v1.1.0...v1.2.0) (2026-11-02)
+
+
+### Features
+
+* **config:** Rename a route with previous_names, moving its torrents and the links into it at the next start ([a8076f9](https://github.com/Apollogeddon/distribyted/commit/a8076f977e4556f41a2738cb1e8cf2a0c220ae53))
+* **fs:** Download a file's start and end as soon as it's linked into a library, so its first play starts at once ([0c1613e](https://github.com/Apollogeddon/distribyted/commit/0c1613e05d8c0b9444f478f6ea9daf74b8418c01))
+* **http:** Show in Files whether each torrent's file is ready to play, and download its start and end, or all of it, ahead ([fdc1b21](https://github.com/Apollogeddon/distribyted/commit/fdc1b2135f0556a21d4a2b55fe9f8a1ea97c6378))
+* Start films at once, read a whole piece ahead, show readiness in Files, and rename routes ([42b997d](https://github.com/Apollogeddon/distribyted/commit/42b997d1db9f1c0817096440c5e7086eaa4b0488))
+
+
+### Bug Fixes
+
+* **deps:** Bump github.com/a-h/templ ([93e24fd](https://github.com/Apollogeddon/distribyted/commit/93e24fd6e154d14815961d4949a6327123ef0a91))
+* **deps:** Bump github.com/a-h/templ from 0.3.1070 to 0.3.1100 in the templ group across 1 directory ([c649be3](https://github.com/Apollogeddon/distribyted/commit/c649be3061e13f26a8cb9923c7aeaf9dd5d038f3))
+* **deps:** Bump golang.org/x/net ([#175](https://github.com/Apollogeddon/distribyted/issues/175)) ([c424c03](https://github.com/Apollogeddon/distribyted/commit/c424c0352388f42ed353fd67d05ed86fb3e1b1b2))
+* **deps:** Regenerate the templ views for templ 0.3.1100 ([3508fa8](https://github.com/Apollogeddon/distribyted/commit/3508fa89d62d1c6bdf5a89b8f03d21137af72aa1))
+* **fs:** Read a whole piece ahead, not 4 MB, so a player doesn't wait for each 16 MiB piece as it reaches it ([42469df](https://github.com/Apollogeddon/distribyted/commit/42469df184052cf06b2a581a0e2408a08de7d21c))
+* **http:** Keep the readiness dialog's buttons on one row on a phone ([fc36e9b](https://github.com/Apollogeddon/distribyted/commit/fc36e9bbf31be9284d26252e1992179a84ca7f9d))
+
 ## [1.1.0](https://github.com/Apollogeddon/distribyted/compare/v1.0.3...v1.1.0) (2026-11-02)
 
 
