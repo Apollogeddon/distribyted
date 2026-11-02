@@ -3,7 +3,7 @@ module github.com/Apollogeddon/distribyted
 go 1.27.0
 
 require (
-	github.com/a-h/templ v0.3.1070
+	github.com/a-h/templ v0.3.1100
 	github.com/anacrolix/chansync v0.8.0
 	github.com/anacrolix/dht/v2 v2.24.0
 	github.com/anacrolix/generics v0.2.0
@@ -42,7 +42,7 @@ require (
 	github.com/anacrolix/sync v0.6.0 // indirect
 	github.com/anacrolix/upnp v0.1.4 // indirect
 	github.com/anacrolix/utp v0.2.0 // indirect
-	github.com/andybalholm/brotli v1.2.6 // indirect
+	github.com/andybalholm/brotli v1.2.7 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/immutable v0.4.3 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
