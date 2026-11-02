@@ -31,6 +31,15 @@ A magnet link that can't be added says why, without closing the dialog.
 Everything the mounts show. Download a file, make a folder, rename or delete what you
 added, or link a file to a second path. Files inside a torrent are managed from Routes.
 
+Each torrent's file says whether it's **Ready to play**: its start and end, which a player
+reads before it shows a frame, are in the piece cache. Select it to see how much of the
+file is cached and how many peers its torrent has, and to download its start and end, or
+the whole file, ahead of time. A file over half the piece cache (`global_cache_size`)
+can't be downloaded whole, as it would push everything else out.
+
+A file linked into a library, as Radarr's and Sonarr's imports do, has its start and end
+downloaded straight away, so its first play starts at once.
+
 {{< screenshot name="files" alt="The Files page" >}}
 
 ## Links

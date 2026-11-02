@@ -81,6 +81,9 @@ type Route struct {
 	Name          string     `yaml:"name"`
 	Torrents      []*Torrent `yaml:"torrents"`
 	TorrentFolder string     `yaml:"torrent_folder"`
+	// PreviousNames are names the route had before. At a start, the torrents added to them,
+	// and the links to files in them, are moved to this one.
+	PreviousNames []string `yaml:"previous_names,omitempty"`
 }
 
 type Server struct {

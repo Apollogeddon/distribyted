@@ -332,6 +332,10 @@ button, input, select { font: inherit; color: inherit; }
 .tone-wait { background: var(--info-soft); color: var(--info); }
 .tone-warn { background: var(--warn-soft); color: var(--warn); }
 .tone-error { background: var(--danger-soft); color: var(--danger); }
+.tone-idle { background: var(--surface-2); color: var(--text-2); }
+/* a pill that opens something, as a file's readiness does */
+.pill-button { border: 0; font-family: inherit; cursor: pointer; }
+.pill-button:hover { filter: brightness(0.95); }
 
 /* ---- Alerts and toasts ---- */
 
@@ -422,6 +426,7 @@ dialog p { overflow-wrap: anywhere; color: var(--text-2); }
 
 .meter { height: 8px; margin-top: 0.85rem; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
 .meter > span { display: block; height: 100%; border-radius: inherit; background: var(--warn); }
+.meter-ok > span { background: var(--ok); }
 
 .legend { display: flex; gap: 1rem; margin: 0; padding: 0; list-style: none; font-size: 0.875rem; color: var(--text-2); }
 .legend li { display: flex; align-items: center; gap: 0.4rem; }
@@ -521,6 +526,18 @@ dialog p { overflow-wrap: anywhere; color: var(--text-2); }
 .file-label > .icon.folder { color: var(--warn); }
 .file-size { color: var(--text-3); font-size: 0.875rem; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .file-actions { display: flex; justify-content: flex-end; min-width: 40px; }
+.readiness-name { font-weight: 600; overflow-wrap: anywhere; }
+.readiness > p { margin: 0 0 0.75rem; }
+.readiness > .hint { margin: 0.75rem 0 0 !important; }
+/* the three buttons stay on one row, sharing it, down to a 320px phone */
+.readiness .actions { flex-wrap: nowrap; }
+.readiness .actions > form { display: flex; min-width: 0; }
+@media (max-width: 479.98px) {
+  .readiness .actions { gap: 0.375rem; }
+  .readiness .actions > form { flex: 1 1 auto; }
+  .readiness .actions .btn { width: 100%; padding: 0.5rem 0.5rem; font-size: 0.875rem; }
+  .readiness .actions .btn .icon { display: none; }
+}
 
 @media (max-width: 767.98px) {
   .file { grid-template-columns: minmax(0, 1fr) auto; padding-left: 1rem; }

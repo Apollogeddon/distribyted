@@ -65,7 +65,7 @@ Every route but `/login`, `/api/v2/auth/login`, `/healthz` and `/readyz` needs a
 | `GET /api/links` | The links: each with its `oldPath`, `newPath`, `isDir` and the `route` its target falls under. |
 | `POST /api/links` | Shows a file or folder at a second path, from `{"old_path": "...", "new_path": "..."}`. |
 | `DELETE /api/links/*path` | Removes a link. |
-| `GET /api/fs/*path` | Lists a folder of the virtual filesystem. |
+| `GET /api/fs/*path` | Lists a folder of the virtual filesystem; a torrent's file has `ready`, set when its start and end are cached. |
 | `DELETE /api/fs/*path` | Deletes a file or folder. |
 | `POST /api/fs/mkdir` | Creates a folder, from `{"path": "..."}`. |
 | `POST /api/fs/rename` | Renames or moves an entry, from `{"old_path": "...", "new_path": "..."}`. |

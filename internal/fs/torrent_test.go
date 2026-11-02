@@ -434,7 +434,7 @@ func TestTorrentFileHandle_Load_SetsReadahead(t *testing.T) {
 
 	r := h.load()
 	require.NotNil(t, r)
-	require.Equal(t, int64(readahead), fake.readaheadSet)
+	require.Equal(t, int64(minReadahead), fake.readaheadSet)
 	require.False(t, fake.responsiveSet, "responsive must default off")
 
 	// A second load() call must reuse the existing reader, not create (and
@@ -1266,4 +1266,11 @@ func TestReadAtWrapper_SlowNetworkReadsArentWarnings(t *testing.T) {
 	buf.Reset()
 	rw.logSlow(0, 1, slowRead-time.Millisecond, true)
 	require.Empty(t, buf.String())
+}
+
+// A reader asks for a piece ahead of where it reads, from minReadahead to maxReadahead.
+func TestReadaheadFor(t *testing.T) {
+	require.Equal(t, int64(minReadahead), readaheadFor(256*1024))
+	require.Equal(t, int64(16*1024*1024), readaheadFor(16*1024*1024))
+	require.Equal(t, int64(maxReadahead), readaheadFor(128*1024*1024))
 }

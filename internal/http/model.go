@@ -33,6 +33,9 @@ type FSEntry struct {
 	// file browser (a link, or a Mkdir/Create'd path) as opposed to being
 	// route-mounted torrent content, which must be managed from Routes.
 	Owned bool `json:"owned"`
+	// Ready, for a torrent's file, reports whether its start and end are in the piece cache,
+	// so a player can open it and start playing without waiting on a peer.
+	Ready *bool `json:"ready,omitempty"`
 }
 
 type MkdirRequest struct {

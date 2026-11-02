@@ -97,6 +97,20 @@ routes:
 | `name` | The name of the virtual folder in the filesystem. |
 | `torrents` | A list of specific torrents, each a `magnet_uri` or a `torrent_path` to a local `.torrent` file. |
 | `torrent_folder` | A local directory to watch for `.torrent` files to add automatically. |
+| `previous_names` | Names the route had before. At each start, the torrents added to them, and the links, folders and files made in them or showing a file in them, move to this route. |
+
+To rename a route, change its `name` and list the old one in `previous_names`:
+
+```yaml
+routes:
+  - name: "radarr"
+    previous_names: ["torrents-movies"]
+```
+
+Without it, the torrents added to the old route stay under it, and it comes back beside the
+new one. Change the category in Radarr or Sonarr at the same time, once nothing is downloading:
+they find a download by its category, and lose track of one still under the old name. Leave
+`previous_names` in place for as long as you like; once everything has moved, it does nothing.
 
 ### `servers`
 Servers turn a local folder into a live torrent.

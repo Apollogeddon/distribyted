@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -281,4 +283,43 @@ func TestLinks_LinkWhosePathIsTakenIsGivenUp(t *testing.T) {
 	f, err := cfs.Open("/movies/late.mkv")
 	require.NoError(t, err)
 	require.True(t, f.IsDir())
+}
+
+// preparingFile is a file that records what it was asked to prepare.
+type preparingFile struct {
+	*fs.MemoryFile
+	mu    sync.Mutex
+	asked []fs.Preparation
+}
+
+func (p *preparingFile) Prepare(a fs.Preparation) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.asked = append(p.asked, a)
+	return true
+}
+
+func (p *preparingFile) prepared() []fs.Preparation {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.asked)
+}
+func (p *preparingFile) Readiness() (fs.Readiness, bool) { return fs.Readiness{}, true }
+func (p *preparingFile) StartReady() (bool, bool)        { return false, true }
+
+// A file linked into a library has its start and end downloaded, so its first play starts at
+// once; the same link restored after a start isn't prepared again.
+func TestLinks_NewLinkIsPreparedRestoredIsNot(t *testing.T) {
+	e := newLinkEnv(t)
+	f := &preparingFile{MemoryFile: fs.NewMemoryFile([]byte("film"))}
+	require.NoError(t, e.route.Storage.Add(f, "/Film.2025/film.mkv"))
+	cfs, _ := e.boot()
+	require.NoError(t, cfs.Link("/torrents/Film.2025/film.mkv", "/movies/film.mkv"))
+	require.Eventually(t, func() bool { return len(f.prepared()) == 1 }, time.Second, 5*time.Millisecond)
+	require.Equal(t, []fs.Preparation{fs.PrepareStart}, f.prepared())
+
+	_, r := e.boot()
+	require.Zero(t, r.Pending())
+	time.Sleep(50 * time.Millisecond) // a prepare would have run by now
+	require.Len(t, f.prepared(), 1)
 }

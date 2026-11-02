@@ -72,14 +72,20 @@ func listDir(cfs containerFS, p string) ([]FSEntry, error) {
 	out := make([]FSEntry, 0, len(children))
 	for name, f := range children {
 		childPath := path.Join(p, name)
-		out = append(out, FSEntry{
+		e := FSEntry{
 			Name:  name,
 			Path:  childPath,
 			IsDir: f.IsDir(),
 			Size:  f.Size(),
 			Hash:  f.Hash(),
 			Owned: cfs.IsOwned(childPath),
-		})
+		}
+		if pf, ok := f.(dfs.Preparer); ok && !e.IsDir {
+			if ready, ok := pf.StartReady(); ok {
+				e.Ready = &ready
+			}
+		}
+		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].IsDir != out[j].IsDir {
