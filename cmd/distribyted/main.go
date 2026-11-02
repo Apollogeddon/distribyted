@@ -334,6 +334,18 @@ func load(configPath string, o overrides) error {
 	if err != nil {
 		return fmt.Errorf("error starting magnet database: %w", err)
 	}
+	for _, r := range conf.Routes {
+		for _, prev := range r.PreviousNames {
+			torrents, links, err := dbl.RenameRoute(prev, r.Name)
+			if err != nil {
+				return fmt.Errorf("moving route %q to %q: %w", prev, r.Name, err)
+			}
+			if torrents+links > 0 {
+				log.Info().Str("from", prev).Str("to", r.Name).Int("torrents", torrents).Int("links", links).
+					Msg("moved a renamed route's torrents and links")
+			}
+		}
+	}
 
 	tm := torrent.NewTimings()
 	ts := torrent.NewService([]loader.Loader{cl, fl}, dbl, ss, torrent.ClientWrapper{Client: c},

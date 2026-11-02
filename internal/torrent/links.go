@@ -134,8 +134,14 @@ func (s *Service) sourceOf(p string) (string, bool, error) {
 func PersistLinks(s *Service, cfs *fs.ContainerFs) {
 	l := dlog.Logger("links")
 	cfs.OnLinkAdded(func(oldpath, newpath string) {
+		// a link restored after a start was recorded before; only a new one is prepared
+		_, restored, _ := s.db.GetLink(cleanRoute(newpath))
 		if err := s.AddLink(oldpath, newpath); err != nil {
 			l.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem saving link to database")
+		}
+		if !restored {
+			// off the import's link call, which waits on it, as the client's lock may be busy
+			go prepareLinked(cfs, newpath, l)
 		}
 	})
 	cfs.OnEntryMade(func(p string, dir bool) {
@@ -153,6 +159,20 @@ func PersistLinks(s *Service, cfs *fs.ContainerFs) {
 			l.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem persisting renamed link to database")
 		}
 	})
+}
+
+// prepareLinked downloads the start and end of a file just linked into a library, as an *arr
+// app's import does, so the first play starts at once: a player reads both before it shows a
+// frame. A folder, or a file with no torrent, has nothing to prepare.
+func prepareLinked(cfs *fs.ContainerFs, p string, l zerolog.Logger) {
+	f, err := cfs.Open(p)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+	if pf, ok := f.(fs.Preparer); ok && pf.Prepare(fs.PrepareStart) {
+		l.Debug().Str(dlog.KeyPath, p).Msg("preparing the linked file's start and end")
+	}
 }
 
 const (

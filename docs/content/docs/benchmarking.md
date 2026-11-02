@@ -149,8 +149,13 @@ returned value for piece-priority scheduling, changed request ordering
 under throttled conditions in a way that measurably hurt time-to-first-byte
 even though the returned readahead *value* was identical at cold start.
 
-Reverted in full; `internal/fs/torrent.go` still uses the static
-`SetReadahead(4MB)`. See the code comment there for the same summary.
+Reverted in full; `internal/fs/torrent.go` still uses a static
+`SetReadahead`, set once per reader. See the code comment there for the same summary.
+
+The static value is now the torrent's piece length, from 4 MiB to 64 MiB: below a piece, a
+read asked for the next piece only once it was within 4 MiB of it, so with 16 MiB pieces a
+player waited at each boundary for a whole piece. The benchmark fixtures' pieces are
+smaller than 4 MiB, so they still read with 4 MiB and don't measure this.
 
 ### Fixed, not benchmarked: storage capacity not declared to the client
 

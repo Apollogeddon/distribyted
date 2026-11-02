@@ -115,6 +115,8 @@ sequenceDiagram
 2.  **Piece Mapping**: The VFS identifies exactly which BitTorrent pieces contain that data range.
 3.  **Swarm Request**: The Torrent Engine requests those pieces with the highest priority from connected peers.
 4.  **Streaming**: As data arrives, it is passed back through the VFS to the requesting application.
+5.  **Readahead**: Each reader asks for one piece's length past where it reads, from 4 MiB to 64 MiB, so the next piece is on its way before a player reaches it.
+6.  **Preparing**: A file just linked into a library has its first 32 MiB and last 8 MiB downloaded with nothing reading it, and the Files page can do the same, or download a whole file, on demand.
 
 ---
 

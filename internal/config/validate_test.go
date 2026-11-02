@@ -116,3 +116,24 @@ func TestExposed(t *testing.T) {
 	require.Equal(t, []string{"http", "webdav"}, Exposed(r))
 	require.Equal(t, []string{"http"}, Exposed(&Root{HTTPGlobal: &HTTPGlobal{IP: "::"}}))
 }
+
+func TestValidate_PreviousNames(t *testing.T) {
+	conf := func(routes ...*Route) *Root {
+		return AddDefaults(&Root{HTTPGlobal: &HTTPGlobal{DisableAuth: true}, Routes: routes})
+	}
+	require.NoError(t, Validate(conf(
+		&Route{Name: "radarr", PreviousNames: []string{"torrents-movies"}},
+		&Route{Name: "sonarr", PreviousNames: []string{"torrents-series"}},
+	)))
+	require.ErrorContains(t, Validate(conf(
+		&Route{Name: "radarr", PreviousNames: []string{"sonarr"}},
+		&Route{Name: "sonarr"},
+	)), "is a route's name now")
+	require.ErrorContains(t, Validate(conf(
+		&Route{Name: "radarr", PreviousNames: []string{"old"}},
+		&Route{Name: "sonarr", PreviousNames: []string{"old"}},
+	)), "both list")
+	require.ErrorContains(t, Validate(conf(
+		&Route{Name: "radarr", PreviousNames: []string{"a/b"}},
+	)), "previous_names")
+}
