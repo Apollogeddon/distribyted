@@ -529,7 +529,15 @@ dialog p { overflow-wrap: anywhere; color: var(--text-2); }
 .readiness-name { font-weight: 600; overflow-wrap: anywhere; }
 .readiness > p { margin: 0 0 0.75rem; }
 .readiness > .hint { margin: 0.75rem 0 0 !important; }
-.readiness .actions { flex-wrap: wrap; }
+/* the three buttons stay on one row, sharing it, down to a 320px phone */
+.readiness .actions { flex-wrap: nowrap; }
+.readiness .actions > form { display: flex; min-width: 0; }
+@media (max-width: 479.98px) {
+  .readiness .actions { gap: 0.375rem; }
+  .readiness .actions > form { flex: 1 1 auto; }
+  .readiness .actions .btn { width: 100%; padding: 0.5rem 0.5rem; font-size: 0.875rem; }
+  .readiness .actions .btn .icon { display: none; }
+}
 
 @media (max-width: 767.98px) {
   .file { grid-template-columns: minmax(0, 1fr) auto; padding-left: 1rem; }
