@@ -1,5 +1,10 @@
 package http
 
+import (
+	"strconv"
+	"strings"
+)
+
 templ linksView(p linksPage) {
 	@page("Links", "links") {
 		@pageHeader("Links", "A link shows a file at a second path, such as a film filed the way your library names it.") {
@@ -37,6 +42,8 @@ templ linksList(p linksPage) {
 								<p class="link-source">
 									if l.IsDir {
 										A folder made here
+									} else if l.IsFile {
+										A file made here
 									} else {
 										<span>shows <a href={ templ.SafeURL(l.SourceHref) }>{ l.OldPath }</a></span>
 									}
@@ -69,7 +76,13 @@ templ linkFormView(f linkForm) {
 		}
 		<div class="field">
 			<label for="link-source">File</label>
-			<input type="text" id="link-source" name="source" value={ f.Source } class="input mono" placeholder="/movies/Some Film/film.mkv" autocomplete="off" spellcheck="false" required autofocus?={ !f.InDialog }/>
+			<div class="combo">
+				<input type="text" id="link-source" name="source" value={ f.Source } class="input mono" placeholder="Search, or /movies/Some Film/film.mkv" autocomplete="off" spellcheck="false" required autofocus?={ !f.InDialog }
+					role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="link-source-results" aria-describedby="link-source-hint"
+					hx-get="/links/search" hx-trigger="input changed delay:300ms" hx-target="#link-source-results" hx-swap="innerHTML" hx-sync="this:replace"/>
+				<div id="link-source-results" class="combo-menu" hidden></div>
+			</div>
+			<p class="hint" id="link-source-hint">Type part of a name to search the mount, or the file's whole path.</p>
 		</div>
 		<div class="field">
 			<label for="link-target">Also show it at</label>
@@ -88,4 +101,28 @@ templ linkFormView(f linkForm) {
 			<button type="submit" class="btn btn-primary"><span class="spinner" aria-hidden="true"></span> Link</button>
 		</div>
 	</form>
+}
+
+// linkSearchView is the dropdown of files matching what was typed in the Add link form's File
+// field. Picking one fills in the form (app.js, data-pick-source).
+templ linkSearchView(r searchResults) {
+	if len(r.Matches) > 0 {
+		<ul class="combo-list" id="link-source-list" role="listbox" aria-label="Matching files">
+			for i, m := range r.Matches {
+				<li class="combo-option" id={ "link-source-option-" + strconv.Itoa(i) } role="option" aria-selected="false" data-pick-source={ m.Path } title={ m.Path }>
+					@icon("file")
+					<span class="combo-text">
+						<span class="combo-name">{ m.Name }</span>
+						<span class="combo-dir mono">{ m.Dir }</span>
+					</span>
+					<span class="combo-size">{ m.Size }</span>
+				</li>
+			}
+		</ul>
+		if r.More {
+			<p class="combo-note">Showing the best { strconv.Itoa(len(r.Matches)) }. Type more of the name to narrow it down.</p>
+		}
+	} else if len(strings.TrimSpace(r.Query)) >= searchMinLen {
+		<p class="combo-note">No files match “{ r.Query }”.</p>
+	}
 }

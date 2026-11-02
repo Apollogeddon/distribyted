@@ -89,6 +89,15 @@ func TestDB_Links(t *testing.T) {
 	require.Equal("old/path1", links["new/path1"])
 	require.Equal("old/path2", links["new/path2"])
 
+	// Get one link, with or without its leading /
+	v, ok, err := s.GetLink("/new/path1")
+	require.NoError(err)
+	require.True(ok)
+	require.Equal("old/path1", v)
+	_, ok, err = s.GetLink("new/none")
+	require.NoError(err)
+	require.False(ok)
+
 	// Remove link
 	err = s.RemoveLink("new/path1") // The targetPath is the NEW path (the key)
 	require.NoError(err)

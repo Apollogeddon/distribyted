@@ -81,20 +81,31 @@ func (s *storage) Has(path string) bool {
 	return f != nil
 }
 
-// IsOwned reports whether p is a plain entry held directly in s.files (a
-// link, a Mkdir/Create'd directory or file) — the only kind Remove/Rename
-// can safely act on. It deliberately excludes s.filesystems: an entry there
-// is either a route mount point or a transparently-mounted archive, and
-// while removeLocked *will* delete an s.filesystems entry without error
-// (nothing guards against it), doing so silently unmounts it rather than
-// going through proper route teardown, so callers must never treat that as
-// a safe, "ownable" delete target.
+// IsOwned reports whether p is an entry this storage holds itself (a link, a
+// Mkdir/Create'd directory or file, or a linked archive) — the only kind
+// Remove/Rename can safely act on. It deliberately excludes route mount
+// points: while removeLocked *will* delete one without error (nothing guards
+// against it), doing so silently unmounts it rather than going through proper
+// route teardown, so callers must never treat that as a safe, "ownable"
+// delete target.
 func (s *storage) IsOwned(p string) bool {
+	_, ok := s.Owned(p)
+	return ok
+}
+
+// Owned returns the entry at p if it's one of this storage's own: a file or folder held
+// in s.files, or an archive that was linked here, which is mounted as a folder but held as
+// the archive file in s.sources. A route's mount has no source, so it's never owned.
+func (s *storage) Owned(p string) (File, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	_, ok := s.files[clean(p)]
-	return ok
+	p = clean(p)
+	if f, ok := s.files[p]; ok {
+		return f, true
+	}
+	f, ok := s.sources[p]
+	return f, ok
 }
 
 // mounted holds what the filesystems mounted over a path and its parents have there, looked
@@ -254,6 +265,9 @@ func (s *storage) removeLocked(p string, removed *[]string) error {
 		if _, ok := s.filesystems[p]; !ok {
 			return os.ErrNotExist
 		}
+		if src, ok := s.sources[p]; ok {
+			src.DecNlink()
+		}
 	} else {
 		f.DecNlink()
 	}
@@ -307,12 +321,30 @@ func (s *storage) HasHash(h string) bool {
 	return false
 }
 
-// Source returns the file the archive mounted at p was opened from.
+// sourcer is a filesystem that can say which file an archive it opened as a folder was
+// opened from.
+type sourcer interface {
+	Source(p string) (File, bool)
+}
+
+// Source returns the file the archive mounted at p was opened from, here or in the
+// filesystem mounted over p: an archive inside a torrent is opened by the torrent's route.
 func (s *storage) Source(p string) (File, bool) {
+	p = clean(p)
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-	f, ok := s.sources[clean(p)]
-	return f, ok
+	f, ok := s.sources[p]
+	fsp, mfs, mounted := s.matchFilesystemLocked(p)
+	s.mu.RUnlock()
+	if ok {
+		return f, true
+	}
+	if !mounted || fsp == p {
+		return nil, false
+	}
+	if src, ok := mfs.(sourcer); ok {
+		return src.Source(separator + strings.TrimPrefix(p, fsp))
+	}
+	return nil, false
 }
 
 // RemoveByHash removes entries matching hash h held directly by this

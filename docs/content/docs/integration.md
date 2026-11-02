@@ -96,7 +96,7 @@ The HTTP server answers two endpoints for health checks, without logging in and 
 | Endpoint | Answers `200 ok` when | Otherwise |
 | :--- | :--- | :--- |
 | `GET /healthz` | The process is up and the HTTP server is serving. | No answer |
-| `GET /readyz` | The torrent client has started, the configured routes have loaded and, when `fuse` is configured, the FUSE filesystem is mounted. | `503 not ready` |
+| `GET /readyz` | The torrent client has started, the configured routes have loaded, the links, folders and files made in the mount are back (or `torrent.add_timeout` plus 30 seconds has passed, so one torrent with no peers can't hold it up) and, when `fuse` is configured, the FUSE filesystem is mounted. | `503 not ready` |
 
 The HTTP server starts only once the torrent client has started and the routes have loaded, so until then neither endpoint answers. Loading many torrents can take minutes, so give a liveness check a long enough start period (or a Kubernetes startup probe) not to restart distribyted while it loads. `/readyz` turns `503` again if the FUSE filesystem is unmounted.
 

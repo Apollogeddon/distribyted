@@ -536,6 +536,32 @@ dialog p { overflow-wrap: anywhere; color: var(--text-2); }
 .link-target .icon { color: var(--accent-text); }
 .link-source { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin-top: 0.25rem !important; color: var(--text-3); font-size: 0.875rem; overflow-wrap: anywhere; }
 
+/* the Add link form's File field: a dropdown of the files matching what's typed */
+.combo { position: relative; }
+/* the menu floats past the bottom of the dialog it's in, rather than being cut off by it */
+dialog:has(.combo) { overflow: visible; }
+.combo-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+  max-height: min(18rem, 45vh); overflow-y: auto;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: var(--shadow-lg);
+}
+.combo-menu:empty { display: none; }
+.combo-list { margin: 0; padding: 0.25rem 0; list-style: none; }
+.combo-option {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.6rem;
+  min-height: 44px; padding: 0.4rem 0.75rem; cursor: pointer;
+}
+.combo-option:hover { background: var(--surface-2); }
+.combo-option[aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.combo-option .icon { color: var(--text-3); }
+.combo-text { display: flex; flex-direction: column; min-width: 0; }
+.combo-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-dir { color: var(--text-3); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-size { color: var(--text-3); font-size: 0.8125rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.combo-note { margin: 0; padding: 0.6rem 0.75rem; color: var(--text-3); font-size: 0.85rem; }
+.combo-list + .combo-note { border-top: 1px solid var(--border); }
+
 /* ---- Logs ---- */
 
 .filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }

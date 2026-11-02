@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -111,6 +110,7 @@ type Service struct {
 
 	routeAddedListeners     []func(string, fs.Filesystem)
 	torrentRemovedListeners []func(string)
+	torrentAddedListeners   []func(string)
 	onLinkAdded             func(string, string)
 	onLinkRemoved           func(string)
 
@@ -269,20 +269,6 @@ func (s *Service) Load() (map[string]fs.Filesystem, error) {
 		s.forgetUnloaded(loaded)
 	}
 
-	links, err := s.db.ListLinks()
-	if err != nil {
-		s.log.Error().Err(err).Msg("error listing links from database")
-		return nil, err
-	}
-	s.log.Debug().Int("count", len(links)).Msg("found links in database")
-	for n, o := range links {
-		s.log.Debug().Str("old", o).Str("new", n).Msg("restoring link")
-		// Don't call AddLink as it writes back to DB. Call onLinkAdded directly.
-		if s.onLinkAdded != nil {
-			s.onLinkAdded(o, n)
-		}
-	}
-
 	// Return a snapshot, not the live map: every route key above was already
 	// inserted synchronously (addRoute runs in load()'s loop, before any of
 	// its magnets' background goroutines are spawned), but those goroutines
@@ -394,16 +380,6 @@ func (s *Service) ListLinks() (map[string]string, error) {
 	return s.db.ListLinks()
 }
 
-func (s *Service) AddLink(oldpath, newpath string) error {
-	oldpath = cleanRoute(oldpath)
-	newpath = cleanRoute(newpath)
-
-	if s.onLinkAdded != nil {
-		s.onLinkAdded(oldpath, newpath)
-	}
-	return s.db.AddLink(oldpath, newpath)
-}
-
 func (s *Service) RemoveLink(path string) error {
 	path = cleanRoute(path)
 
@@ -411,31 +387,6 @@ func (s *Service) RemoveLink(path string) error {
 		s.onLinkRemoved(path)
 	}
 	return s.db.RemoveLink(path)
-}
-
-// RenameLink persists a ContainerFs rename of a container-owned entry from
-// oldpath to newpath. If oldpath was itself a persisted link, newpath's
-// record must point to whatever oldpath's own source was — not oldpath
-// itself, which stops existing the moment the rename completes and so
-// can't be used to reconstruct the link on the next restart.
-func (s *Service) RenameLink(oldpath, newpath string) error {
-	oldpath = cleanRoute(oldpath)
-	newpath = cleanRoute(newpath)
-
-	links, err := s.db.ListLinks()
-	if err != nil {
-		return err
-	}
-
-	source, ok := links[strings.TrimPrefix(oldpath, "/")]
-	if !ok {
-		source = oldpath
-	}
-
-	if err := s.db.AddLink(source, newpath); err != nil {
-		return err
-	}
-	return s.db.RemoveLink(oldpath)
 }
 
 func (s *Service) OnLinkAdded(f func(string, string)) {
@@ -546,6 +497,14 @@ func (s *Service) OnRouteAdded(f func(string, fs.Filesystem)) {
 	s.routeAddedListeners = append(s.routeAddedListeners, f)
 }
 
+// OnTorrentAdded registers a callback fired with a torrent's hash once it's in its route's
+// files, with no lock held.
+func (s *Service) OnTorrentAdded(f func(string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.torrentAddedListeners = append(s.torrentAddedListeners, f)
+}
+
 func (s *Service) OnTorrentRemoved(f func(string)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -637,19 +596,22 @@ func (s *Service) addTorrent(r string, add func() (fs.Torrent, error)) error {
 	s.addRoute(r)
 	folder := path.Join("/", r)
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	fsEntry, exists := s.fss[folder]
 	if !exists {
+		s.mu.Unlock()
 		return fmt.Errorf("error adding torrent to filesystem: route %s not found in map", folder)
 	}
 
 	tfs, ok := fsEntry.(*fs.TorrentFS)
 	if !ok {
+		s.mu.Unlock()
 		return fmt.Errorf("error adding torrent to filesystem: route %s has unexpected type %T", folder, fsEntry)
 	}
 
 	tfs.AddTorrent(t)
+	listeners := append([]func(string){}, s.torrentAddedListeners...)
+	s.mu.Unlock()
 
 	name := "unknown"
 	if t.Info() != nil {
@@ -657,6 +619,9 @@ func (s *Service) addTorrent(r string, add func() (fs.Torrent, error)) error {
 	}
 	s.log.Info().Str(dlog.KeyName, name).Str(dlog.KeyRoute, r).Msg("torrent added")
 
+	for _, l := range listeners {
+		l(hash)
+	}
 	return nil
 }
 

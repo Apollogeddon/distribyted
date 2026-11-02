@@ -218,6 +218,14 @@ func (fs *archive) Open(filename string) (File, error) {
 	return f, nil
 }
 
+// Source returns the file a nested archive at filename was opened from.
+func (fs *archive) Source(filename string) (File, bool) {
+	if err := fs.loadOnce(); err != nil {
+		return nil, false
+	}
+	return fs.s.Source(filename)
+}
+
 func (fs *archive) ReadDir(path string) (map[string]File, error) {
 	if err := fs.loadOnce(); err != nil {
 		return nil, err

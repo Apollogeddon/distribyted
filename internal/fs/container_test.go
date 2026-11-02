@@ -286,7 +286,7 @@ func TestContainer_Mkdir_CallbackReentry(t *testing.T) {
 	c, err := NewContainerFs(nil)
 	require.NoError(err)
 
-	c.OnLinkAdded(func(oldpath, newpath string) {
+	c.OnEntryMade(func(path string, dir bool) {
 		_, _ = c.ReadDir("/")
 	})
 
@@ -337,7 +337,7 @@ func TestContainer_Create_CallbackReentry(t *testing.T) {
 	c, err := NewContainerFs(nil)
 	require.NoError(err)
 
-	c.OnLinkAdded(func(oldpath, newpath string) {
+	c.OnEntryMade(func(path string, dir bool) {
 		_, _ = c.ReadDir("/")
 	})
 
@@ -509,4 +509,97 @@ func TestContainer_SlowArchiveListingDoesNotBlockOtherPaths(t *testing.T) {
 	files, err := c.ReadDir("/route/slow.zip")
 	require.NoError(t, err)
 	require.Contains(t, files, "inside.txt")
+}
+
+// archiveRoute is a route whose archives open as folders, as a torrent's route's do.
+func archiveRoute(t *testing.T, files map[string]File) *Memory {
+	t.Helper()
+	route := &Memory{Storage: newStorage(GetSupportedFactories())}
+	for p, f := range files {
+		require.NoError(t, route.Storage.Add(f, p))
+	}
+	return route
+}
+
+// Linking an archive inside a torrent linked the empty folder the route shows it as, so
+// the link listed nothing and failed with "not a valid zip file".
+func TestContainer_LinkToArchiveInARoute(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	route := archiveRoute(t, map[string]File{"/T/a.zip": NewMemoryFile(zipOf(t, "inside.txt", "hello"))})
+	c, err := NewContainerFs(map[string]Filesystem{"/route": route})
+	require.NoError(err)
+
+	require.NoError(c.Link("/route/T/a.zip", "/lib/a.zip"))
+	entries, err := c.ReadDir("/lib/a.zip")
+	require.NoError(err)
+	require.Contains(entries, "inside.txt")
+}
+
+// A linked archive is the user's, like any link: it can be renamed and deleted, through
+// rmdir too as FUSE shows it as a folder, and deleting the last link to a torrent removes
+// the torrent.
+func TestContainer_LinkedArchiveCanBeRenamedAndDeleted(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	zipped := &hashedFile{MemoryFile: NewMemoryFile(zipOf(t, "inside.txt", "hello")), hash: "archive-hash"}
+	route := archiveRoute(t, map[string]File{"/T/a.zip": zipped})
+	c, err := NewContainerFs(map[string]Filesystem{"/route": route})
+	require.NoError(err)
+	var lastRef []string
+	c.OnLastReferenceRemoved(func(h string) { lastRef = append(lastRef, h) })
+
+	require.NoError(c.Link("/route/T/a.zip", "/lib/a.zip"))
+	require.True(c.IsOwned("/lib/a.zip"))
+	require.NoError(c.Rename("/lib/a.zip", "/lib/b.zip"))
+	entries, err := c.ReadDir("/lib/b.zip")
+	require.NoError(err)
+	require.Contains(entries, "inside.txt")
+
+	require.NoError(c.Rmdir("/lib/b.zip"))
+	_, err = c.Open("/lib/b.zip")
+	require.ErrorIs(err, os.ErrNotExist)
+	require.Equal([]string{"archive-hash"}, lastRef)
+
+	// the route's own archive is still the route's
+	require.ErrorIs(c.Remove("/route/T/a.zip"), os.ErrPermission)
+	require.ErrorIs(c.Rmdir("/route/T/a.zip"), os.ErrPermission)
+}
+
+// Linking onto a path that's taken reported success for a folder, which stayed a folder
+// while the link was recorded, so the tree and the record disagreed.
+func TestContainer_LinkOntoATakenPathIsRefused(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	route := NewMemory()
+	require.NoError(route.Storage.Add(NewMemoryFile([]byte("film")), "/film.mkv"))
+	c, err := NewContainerFs(map[string]Filesystem{"/route": route})
+	require.NoError(err)
+	added := 0
+	c.OnLinkAdded(func(string, string) { added++ })
+
+	require.NoError(c.Mkdir("/lib/folder"))
+	require.ErrorIs(c.Link("/route/film.mkv", "/lib/folder"), os.ErrExist)
+	require.NoError(c.Link("/route/film.mkv", "/lib/film.mkv"))
+	require.ErrorIs(c.Link("/route/film.mkv", "/lib/film.mkv"), os.ErrExist)
+	require.Equal(1, added)
+}
+
+// Mkdir and Create report what they made as a folder or a file, apart from links.
+func TestContainer_MadeEntriesAreReportedAsFoldersOrFiles(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+
+	c, err := NewContainerFs(nil)
+	require.NoError(err)
+	made := map[string]bool{}
+	c.OnEntryMade(func(p string, dir bool) { made[p] = dir })
+	c.OnLinkAdded(func(string, string) { t.Error("a made entry was reported as a link") })
+
+	require.NoError(c.Mkdir("/lib"))
+	require.NoError(c.Create("/lib/a.nfo"))
+	require.Equal(map[string]bool{"/lib": true, "/lib/a.nfo": false}, made)
 }
