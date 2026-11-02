@@ -3,6 +3,7 @@ package torrent
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -114,6 +115,11 @@ func (m *MockLoaderAdder) AddMagnet(r, magnet string) error {
 
 func (m *MockLoaderAdder) ListLinks() (map[string]string, error) {
 	return m.Links, nil
+}
+
+func (m *MockLoaderAdder) GetLink(newpath string) (string, bool, error) {
+	v, ok := m.Links[strings.TrimPrefix(newpath, "/")]
+	return v, ok, nil
 }
 
 func (m *MockLoaderAdder) AddLink(oldpath, newpath string) error {

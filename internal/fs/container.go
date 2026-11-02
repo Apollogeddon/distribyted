@@ -10,6 +10,7 @@ type ContainerFs struct {
 	s  *storage
 
 	onLinkAdded      func(oldpath, newpath string)
+	onEntryMade      func(path string, dir bool)
 	onLinkRemoved    func(path string)
 	onLinkRenamed    func(oldpath, newpath string)
 	onLastRefRemoved func(hash string)
@@ -19,6 +20,14 @@ func (fs *ContainerFs) OnLinkAdded(f func(oldpath, newpath string)) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	fs.onLinkAdded = f
+}
+
+// OnEntryMade registers a callback fired when Mkdir or Create makes a folder or an empty
+// file, which has no source to restore it from, so it's kept apart from a link.
+func (fs *ContainerFs) OnEntryMade(f func(path string, dir bool)) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.onEntryMade = f
 }
 
 func (fs *ContainerFs) OnLinkRemoved(f func(path string)) {
@@ -96,6 +105,11 @@ func (fs *ContainerFs) ReadDir(path string) (map[string]File, error) {
 // IsOwned reports whether path can safely be removed or renamed through
 // this ContainerFs, as opposed to being route-mounted content that must be
 // managed through its route instead. See storage.IsOwned.
+// Source returns the file the archive opened as a folder at path was opened from.
+func (fs *ContainerFs) Source(path string) (File, bool) {
+	return fs.s.Source(path)
+}
+
 func (fs *ContainerFs) IsOwned(path string) bool {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
@@ -112,6 +126,12 @@ func (fs *ContainerFs) Link(oldpath, newpath string) error {
 	// an archive opens as a folder; the link is to the archive file it was opened from
 	if src, ok := fs.s.Source(oldpath); ok {
 		f = src
+	}
+	// storage.Add keeps a folder already at newpath and reports success, which left the
+	// link recorded but not shown
+	if _, err := fs.s.Get(newpath); err == nil {
+		fs.mu.Unlock()
+		return os.ErrExist
 	}
 
 	if err := fs.s.Add(f, newpath); err != nil {
@@ -145,6 +165,10 @@ func (fs *ContainerFs) Rename(oldpath, newpath string) error {
 	if !fs.s.IsOwned(oldpath) {
 		fs.mu.Unlock()
 		return os.ErrPermission
+	}
+	// a linked archive opens as a folder; what moves is the archive file
+	if src, ok := fs.s.Source(oldpath); ok {
+		f = src
 	}
 	// moving a folder's contents would mean moving every link under it; refuse rather than
 	// leave them behind at the old path
@@ -190,18 +214,23 @@ func (fs *ContainerFs) Mkdir(path string) error {
 		return err
 	}
 
-	onLinkAdded := fs.onLinkAdded
+	onEntryMade := fs.onEntryMade
 	fs.mu.Unlock()
 
 	// Callback runs with the lock released — see Remove/Link for why.
-	if onLinkAdded != nil {
-		onLinkAdded("", path) // Empty oldpath signifies a directory creation
+	if onEntryMade != nil {
+		onEntryMade(path, true)
 	}
 
 	return nil
 }
 
 func (fs *ContainerFs) Rmdir(path string) error {
+	// a linked archive shows as a folder, so rmdir is how FUSE deletes it; delete it as the
+	// file it is, so its torrent goes once nothing else points at it
+	if _, ok := fs.s.Source(path); ok && fs.s.IsOwned(path) {
+		return fs.Remove(path)
+	}
 	fs.mu.Lock()
 	if _, err := fs.s.Get(path); err == nil && !fs.s.IsOwned(path) {
 		fs.mu.Unlock()
@@ -230,12 +259,12 @@ func (fs *ContainerFs) Create(path string) error {
 		return err
 	}
 
-	onLinkAdded := fs.onLinkAdded
+	onEntryMade := fs.onEntryMade
 	fs.mu.Unlock()
 
 	// Callback runs with the lock released — see Remove/Link for why.
-	if onLinkAdded != nil {
-		onLinkAdded("", path)
+	if onEntryMade != nil {
+		onEntryMade(path, false)
 	}
 
 	return nil
@@ -249,7 +278,7 @@ func (fs *ContainerFs) Remove(path string) error {
 	}
 
 	hash := ""
-	if f, err := fs.s.Get(path); err == nil {
+	if f, ok := fs.s.Owned(path); ok {
 		hash = f.Hash()
 	}
 
