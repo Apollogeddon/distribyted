@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"errors"
 	"path"
 	"slices"
 	"strings"
@@ -184,6 +185,26 @@ func (l *DB) AddLink(oldpath, newpath string) error {
 		return err
 	}
 	return l.db.Sync()
+}
+
+// GetLink returns what the link record at newpath holds, if there is one.
+func (l *DB) GetLink(newpath string) (string, bool, error) {
+	var val []byte
+	err := l.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(path.Join(linkRootKey, newpath)))
+		if err != nil {
+			return err
+		}
+		val, err = item.ValueCopy(nil)
+		return err
+	})
+	if errors.Is(err, badger.ErrKeyNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return string(val), true, nil
 }
 
 func (l *DB) RemoveLink(targetPath string) error {

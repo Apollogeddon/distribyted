@@ -21,6 +21,11 @@ func (fs *Memory) Open(filename string) (File, error) {
 	return fs.Storage.Get(filename)
 }
 
+// Source returns the file the archive opened as a folder at filename was opened from.
+func (fs *Memory) Source(filename string) (File, bool) {
+	return fs.Storage.Source(filename)
+}
+
 func (fs *Memory) ReadDir(path string) (map[string]File, error) {
 	return fs.Storage.Children(path)
 }

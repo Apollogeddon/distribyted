@@ -13,6 +13,9 @@ type Link struct {
 	OldPath string `json:"oldPath"`
 	NewPath string `json:"newPath"`
 	IsDir   bool   `json:"isDir"`
+	// IsFile marks an empty file made through the mount, which, like a folder, shows
+	// nothing else and has no OldPath.
+	IsFile bool `json:"isFile"`
 	// Route is the name of the route OldPath falls under, resolved by
 	// longest-prefix match against live route names, or "" if OldPath
 	// doesn't fall under any known route (e.g. a link pointing at another

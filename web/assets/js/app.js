@@ -1,6 +1,6 @@
 // Shared by every page, which Go renders: dialogs, the confirm dialog, toasts, the sidebar
-// on narrow screens, the theme button, the offline banner, and the glue between htmx
-// responses and them. Pages need no other script.
+// on narrow screens, the theme button, the offline banner, the Add link form's file dropdown, and
+// the glue between htmx responses and them. Pages need no other script.
 (function () {
     "use strict";
 
@@ -140,6 +140,99 @@
             field.focus();
             field.select();
         });
+    });
+
+    // the Add link form's File field is a combobox: what's typed is searched (htmx fills the
+    // menu), arrow keys move through the matches, Enter or a click picks one, and Escape or a
+    // click elsewhere closes the menu. Picking fills in the file, and suggests showing it under
+    // its own name until another place is typed.
+    function comboParts(el) {
+        var combo = el && el.closest(".combo");
+        if (!combo) return null;
+        return { combo: combo, input: combo.querySelector("[role=combobox]"), menu: combo.querySelector(".combo-menu") };
+    }
+    function comboOptions(c) {
+        return Array.prototype.slice.call(c.menu.querySelectorAll("[role=option]"));
+    }
+    function comboSetActive(c, option) {
+        comboOptions(c).forEach(function (o) { o.setAttribute("aria-selected", String(o === option)); });
+        if (option) {
+            c.input.setAttribute("aria-activedescendant", option.id);
+            option.scrollIntoView({ block: "nearest" });
+        } else {
+            c.input.removeAttribute("aria-activedescendant");
+        }
+    }
+    function comboOpen(c, open) {
+        open = open && c.menu.innerHTML.trim() !== "";
+        c.menu.hidden = !open;
+        c.input.setAttribute("aria-expanded", String(open));
+        if (!open) comboSetActive(c, null);
+    }
+    function comboPick(c, option) {
+        var form = c.combo.closest("form");
+        var target = form && form.querySelector("[name=target]");
+        var p = option.dataset.pickSource;
+        c.input.value = p;
+        c.menu.innerHTML = "";
+        comboOpen(c, false);
+        if (!target) return;
+        if (!target.value.trim() || target.value === target.dataset.suggested) {
+            target.value = "/" + p.split("/").pop();
+            target.dataset.suggested = target.value;
+        }
+        target.focus();
+        // the cursor after the leading /, ready for the folder to file it in
+        target.setSelectionRange(1, 1);
+    }
+    document.addEventListener("keydown", function (e) {
+        if (!e.target.matches || !e.target.matches(".combo [role=combobox]")) return;
+        var c = comboParts(e.target);
+        var options = comboOptions(c);
+        var active = c.menu.querySelector("[aria-selected=true]");
+        var at = options.indexOf(active);
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            if (!options.length) return;
+            e.preventDefault();
+            if (c.menu.hidden) { comboOpen(c, true); at = -1; }
+            var next = e.key === "ArrowDown" ? Math.min(at + 1, options.length - 1) : Math.max(at - 1, 0);
+            comboSetActive(c, options[next]);
+        } else if (e.key === "Enter" && !c.menu.hidden && active) {
+            e.preventDefault(); // pick, rather than submit the form
+            comboPick(c, active);
+        } else if (e.key === "Escape" && !c.menu.hidden) {
+            e.preventDefault(); // close the menu, not the dialog
+            e.stopPropagation();
+            comboOpen(c, false);
+        }
+    });
+    // mousedown keeps the focus in the field, so the menu isn't closed before the click lands
+    document.addEventListener("mousedown", function (e) {
+        if (e.target.closest(".combo-menu")) e.preventDefault();
+    });
+    document.addEventListener("click", function (e) {
+        var option = e.target.closest(".combo [data-pick-source]");
+        if (option) {
+            comboPick(comboParts(option), option);
+            return;
+        }
+        document.querySelectorAll(".combo").forEach(function (combo) {
+            if (!combo.contains(e.target)) comboOpen(comboParts(combo), false);
+        });
+    });
+    document.addEventListener("focusin", function (e) {
+        if (e.target.matches && e.target.matches(".combo [role=combobox]")) {
+            comboOpen(comboParts(e.target), true);
+            return;
+        }
+        document.querySelectorAll(".combo").forEach(function (combo) {
+            if (!combo.contains(e.target)) comboOpen(comboParts(combo), false);
+        });
+    });
+    document.addEventListener("htmx:afterSwap", function (e) {
+        if (!e.target.classList || !e.target.classList.contains("combo-menu")) return;
+        var c = comboParts(e.target);
+        comboOpen(c, document.activeElement === c.input);
     });
 
     if (!window.htmx) return;

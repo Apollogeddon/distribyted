@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -36,13 +37,10 @@ const (
 	webDAVPortFlag = "webdav-port"
 	ipFlag         = "http-ip"
 	webDAVIPFlag   = "webdav-ip"
-
-	linkRetryMaxIter = 300 // 10 minutes at 2s per attempt
 )
 
 var (
-	linkRetryInterval = 2 * time.Second
-	itemStoreTTL      = 2 * time.Hour
+	itemStoreTTL = 2 * time.Hour
 	// how long a cached piece may keep failing reads before it's downloaded again
 	readGiveUpAfter = time.Minute
 )
@@ -356,13 +354,16 @@ func load(configPath string, o overrides) error {
 
 	var linkRetryWg sync.WaitGroup
 	done := make(chan struct{})
+	restoreCtx, stopRestore := context.WithCancel(context.Background())
+	defer stopRestore()
 
 	go func() {
 		<-sigChan
-		// Signal link-retry goroutines to stop and wait for them to actually
-		// exit before closing the databases below — a retry firing after
-		// close would panic inside badger with a nil-pointer dereference.
+		// Stop restoring links and wait for it to actually exit before closing
+		// the databases below — a retry firing after close would panic inside
+		// badger with a nil-pointer dereference.
 		close(done)
+		stopRestore()
 		linkRetryWg.Wait()
 
 		shutdownPlan{
@@ -410,52 +411,19 @@ func load(configPath string, o overrides) error {
 		return fmt.Errorf("error creating container filesystem: %w", err)
 	}
 
-	links, err := ts.ListLinks()
-	if err != nil {
+	// recorded as they're restored, so an older record of a link made from another link is
+	// rewritten to what that link shows
+	torrent.PersistLinks(ts, cfs)
+	// a link waits for its torrent, which, without saved metadata, waits up to add_timeout
+	restorer := torrent.NewLinkRestorer(ts, cfs, time.Duration(conf.Torrent.AddTimeout)*time.Second+30*time.Second)
+	if err := restorer.Start(); err != nil {
 		log.Warn().Err(err).Msg("problem loading links from database")
 	}
-
-	for np, op := range links {
-		if op == "" {
-			_ = cfs.Mkdir(np) // link dir may already exist
-		} else {
-			linkRetryWg.Add(1)
-			go func(op, np string) {
-				defer linkRetryWg.Done()
-				ticker := time.NewTicker(linkRetryInterval)
-				defer ticker.Stop()
-				for i := 0; i < linkRetryMaxIter; i++ {
-					select {
-					case <-done:
-						return
-					case <-ticker.C:
-						if err := cfs.Link(op, np); err == nil {
-							return
-						}
-					}
-				}
-				log.Warn().Str("old", op).Str("new", np).Msg("giving up creating virtual link after max retries")
-			}(op, np)
-		}
-	}
-
-	cfs.OnLinkAdded(func(oldpath, newpath string) {
-		if err := ts.AddLink(oldpath, newpath); err != nil {
-			log.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem saving link to database")
-		}
-	})
-
-	cfs.OnLinkRemoved(func(path string) {
-		if err := ts.RemoveLink(path); err != nil {
-			log.Warn().Err(err).Str(dlog.KeyPath, path).Msg("problem removing link from database")
-		}
-	})
-
-	cfs.OnLinkRenamed(func(oldpath, newpath string) {
-		if err := ts.RenameLink(oldpath, newpath); err != nil {
-			log.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem persisting renamed link to database")
-		}
-	})
+	linkRetryWg.Add(1)
+	go func() {
+		defer linkRetryWg.Done()
+		restorer.Run(restoreCtx)
+	}()
 
 	cfs.OnLastReferenceRemoved(func(hash string) {
 		if err := ts.RemoveFromHashOnly(hash); err != nil {
@@ -487,8 +455,9 @@ func load(configPath string, o overrides) error {
 	logFilename := filepath.Join(conf.Log.Path, dlog.FileName)
 
 	// the HTTP server starts once the torrent client is up and the routes have loaded, so what's
-	// left to wait for is the FUSE mount, when there is one
-	ready := func() bool { return mh == nil || mh.Mounted() }
+	// left to wait for is the FUSE mount, when there is one, and the links, so a library
+	// scanning the mount once it's ready doesn't find them missing
+	ready := func() bool { return (mh == nil || mh.Mounted()) && restorer.Ready() }
 
 	err = http.New(sl.fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath, cfs, http.WithReadiness(ready))
 	if err != nil {

@@ -54,6 +54,7 @@ type TestApp struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	linkRetryWg  sync.WaitGroup
+	Restorer     *dtorrent.LinkRestorer
 	httpClient   *http.Client
 }
 
@@ -361,15 +362,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 	ts.OnRouteAdded(func(p string, fss fs.Filesystem) {
 		_ = cfs.AddFS(p, fss)
 	})
-	cfs.OnLinkAdded(func(oldpath, newpath string) {
-		_ = ts.AddLink(oldpath, newpath)
-	})
-	cfs.OnLinkRemoved(func(path string) {
-		_ = ts.RemoveLink(path)
-	})
-	cfs.OnLinkRenamed(func(oldpath, newpath string) {
-		_ = ts.RenameLink(oldpath, newpath)
-	})
+	dtorrent.PersistLinks(ts, cfs)
 	cfs.OnLastReferenceRemoved(func(hash string) {
 		_ = ts.RemoveFromHashOnly(hash)
 	})
@@ -400,32 +393,17 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		cancel:       cancel,
 	}
 
-	// Tracked by app.linkRetryWg so Close() can wait for these to actually
-	// observe ctx.Done() and return before closing db out from under them.
-	// Without that wait, cancel() racing the 1s ticker (select doesn't
-	// prefer an already-ready ctx.Done() over an also-ready ticker.C) could
-	// let a goroutine proceed into cfs.Link -> ts.AddLink -> db.AddLink ->
-	// db.Sync() after Close() had already closed db, panicking inside
-	// badger with a nil-pointer dereference.
-	links, _ := ts.ListLinks()
-	for n, o := range links {
-		app.linkRetryWg.Add(1)
-		go func(oldpath, newpath string) {
-			defer app.linkRetryWg.Done()
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
-			for i := 0; i < 30; i++ { // 30 seconds max for tests
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					if err := cfs.Link(oldpath, newpath); err == nil {
-						return
-					}
-				}
-			}
-		}(o, n)
+	// The same restore main.go runs. Tracked by app.linkRetryWg so Close() can wait for it
+	// to observe ctx.Done() before closing db: a retry after that would panic inside badger.
+	app.Restorer = dtorrent.NewLinkRestorer(ts, cfs, 30*time.Second)
+	if err = app.Restorer.Start(); err != nil {
+		return nil, err
 	}
+	app.linkRetryWg.Add(1)
+	go func() {
+		defer app.linkRetryWg.Done()
+		app.Restorer.Run(ctx)
+	}()
 
 	// Start servers
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")

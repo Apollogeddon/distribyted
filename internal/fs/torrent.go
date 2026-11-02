@@ -161,6 +161,12 @@ func (fs *TorrentFS) Open(filename string) (File, error) {
 	return f, nil
 }
 
+// Source returns the torrent's file that the archive opened as a folder at filename was
+// opened from.
+func (fs *TorrentFS) Source(filename string) (File, bool) {
+	return fs.s.Source(filename)
+}
+
 func (fs *TorrentFS) ReadDir(path string) (map[string]File, error) {
 	return fs.s.Children(path)
 }

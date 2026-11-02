@@ -1,3 +1,4 @@
+// Pinned by forgego, 7f89f867231e369f
 module github.com/apollogeddon/forgego/tools/govulncheck
 
 go 1.26.0
