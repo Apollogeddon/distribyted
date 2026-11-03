@@ -214,7 +214,8 @@ button, input, select { font: inherit; color: inherit; }
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
   gap: 1rem;
 }
-.page-header h1 { font-size: 1.6rem; }
+.page-header > div { min-width: 0; }
+.page-header h1 { font-size: 1.6rem; overflow-wrap: anywhere; }
 .page-header p { margin-top: 0.3rem; color: var(--text-2); }
 
 @media (max-width: 599.98px) {
@@ -268,7 +269,7 @@ button, input, select { font: inherit; color: inherit; }
   box-shadow: var(--shadow);
 }
 .card-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem;
   padding: 0.9rem 1.25rem;
   border-bottom: 1px solid var(--border);
 }
@@ -700,16 +701,30 @@ a.status-item:first-of-type { border-radius: 0; }
   .status-line > :last-child { border-radius: 0 0 var(--radius) 0; }
 }
 @media (max-width: 599.98px) {
-  .status-line { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
-  .status-item { flex: 0 0 9.5rem; scroll-snap-align: start; border-top: 0 !important; border-left: 1px solid var(--border) !important; }
-  .status-item:first-child { border-left: 0 !important; }
+  /* six figures in a 2 by 3 grid, all in view */
+  .status-line { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .status-item:nth-child(n) { border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
+  .status-item:nth-child(odd) { border-left: 0; }
+  .status-item:nth-child(-n + 2) { border-top: 0; }
+  .status-line > :last-child { border-radius: 0 0 var(--radius) 0; }
+  .status-value { font-size: 1.2rem; }
+  .spark { height: 18px; }
   .dash-top h1 { font-size: 1.35rem; }
+  .verdict strong { display: block; margin-left: 0; }
+  /* where play is and what's buffered side by side, what's coming in under them */
+  .stream { padding: 0.9rem 1rem 1rem; }
+  .stream-facts { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 1rem; }
+  .stream-facts > :nth-child(3) { grid-column: 1 / -1; }
+  /* level filters on one row */
+  nav.filters { flex-wrap: nowrap; gap: 0.35rem; }
+  nav.filters .filter { flex: 1 1 auto; justify-content: center; padding: 0 0.5rem; font-size: 0.8125rem; }
 }
 
 /* a page's search box and sort, above its list */
 form.filters { margin-bottom: 1rem; }
-.filters input[type="search"] { flex: 1 1 14rem; min-width: 0; }
-.filters select { flex: 0 1 auto; width: auto; }
+form.filters { flex-wrap: nowrap; }
+.filters input[type="search"] { flex: 1 1 auto; min-width: 0; }
+.filters select { flex: 0 1 auto; width: auto; min-width: 0; max-width: 50%; }
 .filter-count { margin: 0; color: var(--text-3); font-size: 0.875rem; }
 
 /* ---- A torrent's page ---- */
@@ -753,4 +768,25 @@ form.filters { margin-bottom: 1rem; }
 .peer-table .num { text-align: right; }
 @media (max-width: 767.98px) {
   .header-actions { justify-content: flex-start; }
+}
+/* after the rules above, which it overrides */
+@media (max-width: 599.98px) {
+  /* a torrent's buttons: preparing on its own row, freeing and deleting sharing the next */
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1 1 0; padding: 0.5rem 0.75rem; }
+  .header-actions .btn:first-child { flex-basis: 100%; }
+  .torrent-summary .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* a peer per block: address and what it has, then its client and how it was found, then speeds */
+  .peer-table thead { display: none; }
+  .peer-table, .peer-table tbody { display: block; }
+  .peer-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 1rem; padding: 0.7rem 1rem; border-top: 1px solid var(--border); }
+  .peer-table td { padding: 0; border: 0; white-space: normal; overflow-wrap: anywhere; }
+  .peer-table td:nth-child(2), .peer-table td:nth-child(3) { color: var(--text-2); font-size: 0.8125rem; }
+  .peer-table td:nth-child(3) { text-align: right; }
+  .peer-table td:nth-child(4) { grid-column: 2; grid-row: 1; text-align: right; }
+  .peer-table td.num { font-size: 0.8125rem; }
+  .peer-table td:nth-child(5) { text-align: left; }
+  .peer-table td.num::before { content: attr(data-label) " "; color: var(--text-3); }
+  .tfile { padding: 0.6rem 1rem; }
+  .tfile-links { padding-left: 0; }
 }

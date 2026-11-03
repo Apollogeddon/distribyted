@@ -413,7 +413,7 @@ func logsView(p logsPage) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" class=\"input\" placeholder=\"Search the log, such as a film's name or a hash\" autocomplete=\"off\" spellcheck=\"false\"></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" class=\"input\" placeholder=\"Search the log\" autocomplete=\"off\" spellcheck=\"false\"></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

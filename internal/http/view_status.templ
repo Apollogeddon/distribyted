@@ -63,7 +63,7 @@ templ logsView(p logsPage) {
 		<form class="filters" role="search" hx-get="/logs/list" hx-include="#logs-level" hx-target="#logs" hx-swap="outerHTML" hx-trigger="input delay:300ms, submit" hx-sync="this:replace">
 			<input type="hidden" name="push" value="1"/>
 			<label class="sr-only" for="logs-q">Search the log</label>
-			<input type="search" id="logs-q" name="q" value={ p.Query } class="input" placeholder="Search the log, such as a film's name or a hash" autocomplete="off" spellcheck="false"/>
+			<input type="search" id="logs-q" name="q" value={ p.Query } class="input" placeholder="Search the log" autocomplete="off" spellcheck="false"/>
 		</form>
 		@logsList(p)
 	}
