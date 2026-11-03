@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.3.0](https://github.com/Apollogeddon/distribyted/compare/v1.2.0...v1.3.0) (2026-11-03)
+
+
+### Features
+
+* A redesigned dashboard with playback times, next-episode prepare, torrent and cache pages, a health banner, a colour scheme, and search on Routes, Links and Logs ([9c85125](https://github.com/Apollogeddon/distribyted/commit/9c851256ea7a683f3f64c5b9039659a0931d484a))
+* **fs:** Read how long a video or audio file plays from its header, and which parts of a playing file are cached ([65cbad4](https://github.com/Apollogeddon/distribyted/commit/65cbad486981b7795dd72b5b2d8f8f0e61690e5e))
+* **http:** Add a Cache page showing what the piece cache holds by torrent, and free one torrent's share ([47fe4ea](https://github.com/Apollogeddon/distribyted/commit/47fe4eaaa4c11db5c523289bbbf0ece312ec55d1))
+* **http:** Follow the system's light or dark setting without a theme button, and drop the sidebar's HTTP browse link for the Files page ([f5eae11](https://github.com/Apollogeddon/distribyted/commit/f5eae113df6e0c80038077b8d084b715b487b511))
+* **http:** Give each colour one meaning: indigo for what you can press, cyan for cached data, and green, amber and red for health ([f8bbe87](https://github.com/Apollogeddon/distribyted/commit/f8bbe871e56eedeaed2c03915b26743b8544049a))
+* **http:** Give each torrent a page listing its files, how ready each is to play, and the library links that show it ([590e8b1](https://github.com/Apollogeddon/distribyted/commit/590e8b173121ad7ed6b1eeed0db4f57aa24aaf63))
+* **http:** List a torrent's peers on its page, with buttons to prepare every file, free its cache, delete it or copy its magnet ([8075956](https://github.com/Apollogeddon/distribyted/commit/8075956f556b7f283e206a8a2eb9455d16a3d35e))
+* **http:** List what was linked into the library in the last two days on the dashboard, with whether each is ready to play ([6ef69c8](https://github.com/Apollogeddon/distribyted/commit/6ef69c82bf4898285b341c41682829eba53ac64d))
+* **http:** Make the background and greys neutral, keeping the surfaces cream ([2dfc8d2](https://github.com/Apollogeddon/distribyted/commit/2dfc8d231067599560dd20b10d77c3af922365b5))
+* **http:** Mark the links still waiting for their torrents or missing from the mount, and search and filter the Links page ([31c3a1e](https://github.com/Apollogeddon/distribyted/commit/31c3a1e7eea1c830d1900bc80b73492afd7391ff))
+* **http:** Move the background and surfaces to a slate tone, in light and dark ([0e3661d](https://github.com/Apollogeddon/distribyted/commit/0e3661d4453e67d21c9dfffbe25f09a58d368f80))
+* **http:** Redesign the dashboard around a status line and a player-style rail for each stream, with playback times for video and audio ([ba8cf82](https://github.com/Apollogeddon/distribyted/commit/ba8cf824d158581822fb24f70ef2aae66d6ea4a5))
+* **http:** Search the Logs page's entries by message and fields, alongside the level filters ([a90dc57](https://github.com/Apollogeddon/distribyted/commit/a90dc57e0b83c6babc0df670b6538ea7e22067d4))
+* **http:** Search the Routes page's torrents by name, and sort them by activity, health or age ([64e125c](https://github.com/Apollogeddon/distribyted/commit/64e125ca90b9aaac75c157f8bbe9fe431a1fe2e3))
+* **http:** Show a banner on every page when a read is stuck, a playing torrent has no peers, reads gave up lately or links are still waiting ([f1ef965](https://github.com/Apollogeddon/distribyted/commit/f1ef965609db042670606edbb820dc019ecfb033))
+* **http:** Show what's playing on the dashboard, with each file's read rate, cached data ahead and any read waiting for data ([76d45a7](https://github.com/Apollogeddon/distribyted/commit/76d45a7aaa212cb632e8df05b08571a4f3549928))
+* **http:** Warm the background to grey and the surfaces to cream, with warm greys for text and borders ([0ab78bd](https://github.com/Apollogeddon/distribyted/commit/0ab78bd2c005b2dba0edeb386a6f92336a8fa55d))
+* **torrent:** When an episode is 95% through, download the first 5% and the end of the next one so it starts at once ([d752898](https://github.com/Apollogeddon/distribyted/commit/d7528985973d3d669a6822a1e086b9e4bd80fa7f))
+
+
+### Bug Fixes
+
+* **http:** Keep the phone layout from wrapping awkwardly and stack the peers table ([241047f](https://github.com/Apollogeddon/distribyted/commit/241047fa6a476d97623bb50b9e2b160c5ecfea55))
+* **http:** Note a torrent's large pieces without flagging it as needing attention ([b8ff287](https://github.com/Apollogeddon/distribyted/commit/b8ff287eb31c24f8d24941cda11151eff6f1bb42))
+* **http:** Say one link is waiting for its torrent, not their torrents ([60b5451](https://github.com/Apollogeddon/distribyted/commit/60b54518e47482d664acf43b5c99b213b9406a0d))
+
+
+### Reverts
+
+* **http:** Drop the dashboard's Recently added list, and the link times it was built on ([b5caa88](https://github.com/Apollogeddon/distribyted/commit/b5caa8857ffd48845e11c2ad87a9bb25fa01fabe))
+
 ## [1.2.0](https://github.com/Apollogeddon/distribyted/compare/v1.1.0...v1.2.0) (2026-11-02)
 
 
