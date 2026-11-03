@@ -86,3 +86,12 @@ func TestActiveReads_ClosedHandleIsNotListed(t *testing.T) {
 	_, ok := activeFor("Film/closed.mkv")
 	require.False(t, ok)
 }
+
+func TestAbandonedSince(t *testing.T) {
+	start := time.Now()
+	before := AbandonedSince(start)
+	recordAbandoned(start.Add(time.Second))
+	recordAbandoned(start.Add(2 * time.Second))
+	require.Equal(t, before+2, AbandonedSince(start))
+	require.Equal(t, 1, AbandonedSince(start.Add(1500*time.Millisecond)))
+}

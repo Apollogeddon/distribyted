@@ -193,3 +193,35 @@ func (s *pieceSync) cachedAhead(off int64) int64 {
 	}
 	return stop - off
 }
+
+// abandonedReads keeps when reads gave up on their deadline, the latest maxAbandonedKept, so
+// the web interface can say a stream has been failing lately.
+var abandonedReads = struct {
+	sync.Mutex
+	at []time.Time
+}{}
+
+const maxAbandonedKept = 256
+
+func recordAbandoned(now time.Time) {
+	abandonedReads.Lock()
+	defer abandonedReads.Unlock()
+	abandonedReads.at = append(abandonedReads.at, now)
+	if n := len(abandonedReads.at); n > maxAbandonedKept {
+		abandonedReads.at = abandonedReads.at[n-maxAbandonedKept:]
+	}
+}
+
+// AbandonedSince is how many reads gave up on their deadline since t, counting at most the
+// latest maxAbandonedKept.
+func AbandonedSince(t time.Time) int {
+	abandonedReads.Lock()
+	defer abandonedReads.Unlock()
+	n := 0
+	for _, at := range abandonedReads.at {
+		if at.After(t) {
+			n++
+		}
+	}
+	return n
+}

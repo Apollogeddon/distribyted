@@ -707,3 +707,12 @@ dialog:has(.combo) { overflow: visible; }
 .cached .meter > span { background: var(--accent); }
 .cached-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.45rem 0 0; color: var(--text-2); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .kpi-link { margin: 0.6rem 0 0 !important; font-size: 0.875rem; }
+
+/* the banner every page carries when streaming is in trouble */
+.banner-stack:empty { display: none; }
+.banner-stack { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+.alert-warn { border-left-color: var(--warn); }
+.alert-warn .icon { color: var(--warn); }
+.alert-wait { border-left-color: var(--info); }
+.alert-wait .icon { color: var(--info); }
+.alert a { margin-left: 0.35rem; white-space: nowrap; }

@@ -556,6 +556,7 @@ func (rw *readAtWrapper) markDead(off int64, length int, elapsed time.Duration) 
 	rw.deadFlag.Store(true)
 	close(rw.deadCh)
 	rw.stats.abandoned.Add(1)
+	recordAbandoned(time.Now())
 	rw.log.Error().
 		Int64("off", off).
 		Int("len", length).

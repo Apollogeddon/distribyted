@@ -8,6 +8,11 @@ The web interface is at `http://localhost:4444` by default (`http.port` in the
 your system's light or dark setting, and the button at the foot of the sidebar switches
 between them.
 
+A banner at the top of every page says when streaming is in trouble: a read that has waited
+more than ten seconds for data, a file playing from a torrent with no peers left, reads
+that gave up in the last hour, or links still waiting for their torrents a couple of minutes
+after a start. Each has a link to where to look next.
+
 ## Dashboard
 
 Download and upload speed, the cache in use, and a chart of the last minute's speeds.

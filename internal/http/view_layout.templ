@@ -112,6 +112,7 @@ templ page(title, active string) {
 							@icon("wifi-off")
 							<span><strong>Can't reach distribyted.</strong> What you see may be out of date. Retrying…</span>
 						</div>
+						@healthBanner(nil)
 						{ children... }
 					</main>
 				</div>
@@ -214,4 +215,21 @@ templ loginPage(next string, failed, tooMany bool) {
 			</main>
 		</body>
 	</html>
+}
+
+// healthBanner is what's going wrong with streaming now, on every page; empty when nothing is.
+templ healthBanner(items []bannerItem) {
+	<div id="health-banner" class="banner-stack" role="status" hx-get="/banner" hx-trigger="load, every 10s [document.visibilityState === 'visible']" hx-swap="morph:outerHTML" hx-ext="morph">
+		for _, it := range items {
+			<div class={ "alert", "alert-" + it.Level }>
+				@icon("triangle-alert")
+				<span>
+					{ it.Message }
+					if it.Href != "" {
+						<a href={ templ.SafeURL(it.Href) }>{ it.Action }</a>
+					}
+				</span>
+			</div>
+		}
+	</div>
 }
