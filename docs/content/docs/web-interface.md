@@ -22,6 +22,10 @@ how fast it's read, how much of what comes next is cached, and its torrent's pee
 whose read has waited more than two seconds for data, or whose torrent has no peers left
 with little cached ahead, is flagged, so a buffering stream shows why.
 
+**Recently added** lists what was linked into the library in the last two days, as Radarr's
+and Sonarr's imports are, newest first, each with its torrent's health and whether it's
+ready to play.
+
 {{< screenshot name="dashboard" alt="The dashboard" >}}
 
 ## Routes

@@ -716,3 +716,15 @@ form.filters { margin-bottom: 1rem; }
 .alert-wait { border-left-color: var(--info); }
 .alert-wait .icon { color: var(--info); }
 .alert a { margin-left: 0.35rem; white-space: nowrap; }
+
+/* ---- Recently added ---- */
+
+.recent { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.5rem 1rem; padding: 0.75rem 1.25rem; }
+.recent-name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.recent-meta { margin: 0.15rem 0 0; color: var(--text-3); font-size: 0.85rem; overflow-wrap: anywhere; }
+.recent-state { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; }
+a.pill { text-decoration: none; }
+@media (max-width: 767.98px) {
+  .recent { grid-template-columns: 1fr; }
+  .recent-state { justify-content: flex-start; }
+}
