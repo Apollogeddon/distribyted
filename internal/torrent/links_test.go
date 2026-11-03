@@ -325,35 +325,3 @@ func TestLinks_NewLinkIsPreparedRestoredIsNot(t *testing.T) {
 	time.Sleep(50 * time.Millisecond) // a prepare would have run by now
 	require.Len(t, f.prepared(), 1)
 }
-
-// A link made through the mount records when it was made; restored, it keeps that time;
-// deleted, its time goes with it.
-func TestLinks_AddedTimes(t *testing.T) {
-	e := newLinkEnv(t)
-	cfs, _ := e.boot()
-	before := time.Now().Add(-time.Second)
-	require.NoError(t, cfs.Link("/torrents/Film.2024/film.mkv", "/movies/film.mkv"))
-	added, err := e.svc.LinksAddedSince(before)
-	require.NoError(t, err)
-	at, ok := added["/movies/film.mkv"]
-	require.True(t, ok)
-
-	cfs, _ = e.boot()
-	added, err = e.svc.LinksAddedSince(before)
-	require.NoError(t, err)
-	require.Equal(t, at, added["/movies/film.mkv"], "a restore keeps the first time")
-
-	require.NoError(t, cfs.Rename("/movies/film.mkv", "/movies/renamed.mkv"))
-	added, _ = e.svc.LinksAddedSince(before)
-	require.Equal(t, at, added["/movies/renamed.mkv"])
-	require.NotContains(t, added, "/movies/film.mkv")
-
-	require.NoError(t, cfs.Remove("/movies/renamed.mkv"))
-	added, _ = e.svc.LinksAddedSince(before)
-	require.Empty(t, added)
-
-	require.NoError(t, cfs.Link("/torrents/Film.2024/film.mkv", "/movies/again.mkv"))
-	e.svc.ForgetLinksAddedBefore(time.Now().Add(time.Hour))
-	added, _ = e.svc.LinksAddedSince(before)
-	require.Empty(t, added)
-}

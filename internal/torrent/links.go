@@ -140,7 +140,6 @@ func PersistLinks(s *Service, cfs *fs.ContainerFs) {
 			l.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem saving link to database")
 		}
 		if !restored {
-			s.linkAdded(cleanRoute(newpath), time.Now())
 			// off the import's link call, which waits on it, as the client's lock may be busy
 			go prepareLinked(cfs, newpath, l)
 		}
@@ -154,13 +153,11 @@ func PersistLinks(s *Service, cfs *fs.ContainerFs) {
 		if err := s.RemoveLink(p); err != nil {
 			l.Warn().Err(err).Str(dlog.KeyPath, p).Msg("problem removing link from database")
 		}
-		s.forgetLinkAdded(cleanRoute(p))
 	})
 	cfs.OnLinkRenamed(func(oldpath, newpath string) {
 		if err := s.RenameLink(oldpath, newpath); err != nil {
 			l.Warn().Err(err).Str("old", oldpath).Str("new", newpath).Msg("problem persisting renamed link to database")
 		}
-		s.moveLinkAdded(cleanRoute(oldpath), cleanRoute(newpath))
 	})
 }
 

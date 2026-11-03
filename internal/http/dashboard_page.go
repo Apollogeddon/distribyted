@@ -34,7 +34,6 @@ type dashboardStats struct {
 	HasCache      bool
 	Chart         chartView
 	Playing       []playingView
-	Recent        []recentView
 }
 
 type speedSample struct {
@@ -130,7 +129,7 @@ func niceRate(peak int64) int64 {
 	return max(peak, 1024)
 }
 
-func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, svc torrentService, cfs containerFS) dashboardStats {
+func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) dashboardStats {
 	s := speedSample{at: time.Now()}
 	if ss != nil {
 		g := ss.GlobalStats()
@@ -139,7 +138,7 @@ func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, 
 			s.up = int64(float64(g.UploadedBytes) / g.TimePassed)
 		}
 	}
-	st := dashboardStats{Down: rate(s.down, 1), Up: rate(s.up, 1), Playing: newPlayingViews(ss, s.at), Recent: newRecentViews(svc, ss, cfs, s.at)}
+	st := dashboardStats{Down: rate(s.down, 1), Up: rate(s.up, 1), Playing: newPlayingViews(ss, s.at)}
 	if h != nil {
 		st.Chart = newChartView(h.add(s))
 	}
@@ -159,14 +158,14 @@ func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, 
 
 func (s dashboardStats) CacheWidth() string { return fmt.Sprintf("width: %d%%", s.CachePercent) }
 
-var dashboardHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS) gin.HandlerFunc {
+var dashboardHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, dashboardView(newDashboardStats(fc, ss, h, s, cfs)))
+		render(c, http.StatusOK, dashboardView(newDashboardStats(fc, ss, h)))
 	}
 }
 
-var dashboardStatsHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS) gin.HandlerFunc {
+var dashboardStatsHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, dashboardStatsView(newDashboardStats(fc, ss, h, s, cfs)))
+		render(c, http.StatusOK, dashboardStatsView(newDashboardStats(fc, ss, h)))
 	}
 }
