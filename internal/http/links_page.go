@@ -211,7 +211,11 @@ var linksDeleteHandler = func(lfs linkFs, s torrentService) gin.HandlerFunc {
 func linkAttention(p linksPage) string {
 	var parts []string
 	if p.Waiting > 0 {
-		parts = append(parts, countOf(p.Waiting, "link")+" waiting for their torrents")
+		if p.Waiting == 1 {
+			parts = append(parts, "1 link waiting for its torrent")
+		} else {
+			parts = append(parts, countOf(p.Waiting, "link")+" waiting for their torrents")
+		}
 	}
 	if p.Missing > 0 {
 		parts = append(parts, fmt.Sprintf("%d missing from the mount", p.Missing))

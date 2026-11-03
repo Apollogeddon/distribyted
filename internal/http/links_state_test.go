@@ -37,7 +37,7 @@ func linkStateTree(t *testing.T) (http.Handler, []string) {
 func TestLinksPage_States(t *testing.T) {
 	r, _ := linkStateTree(t)
 	body := get(r, "/links").Body.String()
-	require.Contains(t, body, "1 link waiting for their torrents · 1 missing from the mount.")
+	require.Contains(t, body, "1 link waiting for its torrent · 1 missing from the mount.")
 	require.Contains(t, body, "Waiting for its torrent")
 	require.Contains(t, body, ">Missing<")
 	require.Contains(t, body, "/movies/Dune.mkv")
