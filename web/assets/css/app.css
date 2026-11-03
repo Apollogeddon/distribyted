@@ -684,3 +684,16 @@ dialog:has(.combo) { overflow: visible; }
 .filters input[type="search"] { flex: 1 1 14rem; min-width: 0; }
 .filters select { flex: 0 1 auto; width: auto; }
 .filter-count { margin: 0; color: var(--text-3); font-size: 0.875rem; }
+
+/* ---- A torrent's page ---- */
+
+.torrent-name a { color: inherit; }
+.torrent-summary { padding: 1rem 1.25rem; }
+.torrent-summary .facts { margin: 1rem 0 0; }
+.tfile {
+  display: grid; grid-template-columns: minmax(0, 1fr) 6rem; align-items: center; gap: 0.35rem 1rem;
+  padding: 0.6rem 1.25rem;
+}
+.tfile-links { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; padding-left: 1.85rem; }
+.link-target.small { font-size: 0.85rem; font-weight: 500; }
+.muted-inline { color: var(--text-3); font-size: 0.85rem; }

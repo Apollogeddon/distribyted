@@ -72,6 +72,7 @@ var healthRank = map[string]int{"warn": 0, "wait": 1, "ok": 2}
 type torrentView struct {
 	// ID keeps each row's element the same from one refresh to the next.
 	ID, DeleteURL     string
+	Href              string // the torrent's own page
 	Route, Name, Hash string
 	Down, Up          string
 	Peers, Seeders    int
@@ -215,7 +216,8 @@ func (p routesPage) Form() addMagnetForm {
 
 func newTorrentView(route string, ts *torrent.TorrentStats) torrentView {
 	tv := torrentView{
-		DeleteURL: "/routes/" + url.PathEscape(route) + "/torrents/" + url.PathEscape(ts.Hash),
+		DeleteURL: torrentHref(route, ts.Hash),
+		Href:      torrentHref(route, ts.Hash),
 		Route:     route,
 		Name:      ts.Name,
 		Hash:      ts.Hash,

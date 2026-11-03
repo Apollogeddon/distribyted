@@ -75,7 +75,7 @@ templ routesTable(p routesPage) {
 templ torrentRow(t torrentView) {
 	<li class="torrent" id={ t.ID }>
 		<div class="torrent-main">
-			<p class="torrent-name">{ t.Name }</p>
+			<p class="torrent-name"><a href={ templ.SafeURL(t.Href) }>{ t.Name }</a></p>
 			if len(t.Pieces) > 0 {
 				<div class="pieces" role="img" aria-label={ t.Progress }>
 					for _, s := range t.Pieces {

@@ -30,6 +30,9 @@ menu beside it orders them by name, by how much they're moving, with those needi
 attention first, or newest first. Both are part of the page's address, so a reload or a
 bookmark keeps them.
 
+A torrent's name opens its own page: its files, whether each is ready to play, and the
+links that show each one, so you can see what a library would lose before deleting it.
+
 {{< screenshot name="routes" alt="The Routes page" >}}
 
 A magnet link that can't be added says why, without closing the dialog.

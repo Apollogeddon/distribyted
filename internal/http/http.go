@@ -118,6 +118,8 @@ func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *co
 		pages.GET("/routes/table", routesTableHandler(conf, ss))
 		pages.POST("/routes/torrents", routesAddHandler(conf, ss, s))
 		pages.DELETE("/routes/:route/torrents/:hash", routesDeleteHandler(s))
+		pages.GET("/routes/:route/torrents/:hash", torrentPageHandler(ss, s, lfs))
+		pages.GET("/routes/:route/torrents/:hash/body", torrentBodyHandler(ss, s, lfs))
 		pages.GET("/logs", logsHandler(logPath))
 		pages.GET("/logs/list", logsListHandler(logPath))
 		pages.GET("/servers", serversHandler(tss))
