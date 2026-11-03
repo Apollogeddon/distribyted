@@ -62,6 +62,10 @@ can't be downloaded whole, as it would push everything else out.
 A file linked into a library, as Radarr's and Sonarr's imports do, has its start and end
 downloaded straight away, so its first play starts at once.
 
+When an episode is 95% through, the next one, the next file in the folder it's linked into
+(or in its torrent's own folder, for a season pack), has its first 5% and its end
+downloaded, so it starts at once and plays while the rest arrives.
+
 {{< screenshot name="files" alt="The Files page" >}}
 
 ## Links

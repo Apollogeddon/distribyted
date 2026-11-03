@@ -29,6 +29,8 @@ type activityBucket struct {
 type handleActivity struct {
 	file     *torrentFile
 	openedAt time.Time
+	// nearEnd is set once the handle has read past nearEndPercent of its file
+	nearEnd atomic.Bool
 	// waitingSince is when the read in progress started, in Unix nanoseconds, or 0
 	waitingSince atomic.Int64
 
@@ -89,7 +91,21 @@ func (a *handleActivity) done(off int64, n int) {
 	a.pos = off + int64(n)
 	a.lastRead = now
 	a.mu.Unlock()
+
+	f := a.file
+	if f.onNearEnd != nil && f.len >= minNearEndFile && (off+int64(n))*100 >= f.len*nearEndPercent &&
+		a.nearEnd.CompareAndSwap(false, true) {
+		go f.onNearEnd(f.hash, f.path)
+	}
 }
+
+const (
+	// nearEndPercent is how far into a file a read has to be to count as nearly finished.
+	nearEndPercent = 95
+	// minNearEndFile is the smallest file whose end is watched for: an episode, not a
+	// subtitle or a sample.
+	minNearEndFile = 100 << 20
+)
 
 // ReadActivity is a file being read now, from every handle reading it.
 type ReadActivity struct {

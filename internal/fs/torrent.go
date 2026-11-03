@@ -31,6 +31,16 @@ type TorrentFS struct {
 	onFirstRead     func(hash, path string, sinceOpen time.Duration)
 	onReadStart     func(hash string)
 	onEvicted       func(hash string)
+	onNearEnd       func(hash, path string)
+}
+
+// OnNearEnd registers a callback fired, once per handle, when a read reaches nearEndPercent
+// of a file of at least minNearEndFile: an episode that's nearly over, whose next one should
+// be got ready. Like OnReadStart, it must be called before AddTorrent.
+func (fs *TorrentFS) OnNearEnd(f func(hash, path string)) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.onNearEnd = f
 }
 
 // OnFirstRead registers a callback fired at most once per file, the first
@@ -124,6 +134,7 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			onFirstRead: fs.onFirstRead,
 			onReadStart: fs.onReadStart,
 			onEvicted:   fs.onEvicted,
+			onNearEnd:   fs.onNearEnd,
 			pieces:      newPieceSync(file),
 			log:         fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
@@ -677,6 +688,7 @@ type torrentFile struct {
 	onFirstRead func(hash, path string, sinceOpen time.Duration)
 	onReadStart func(hash string)
 	onEvicted   func(hash string)
+	onNearEnd   func(hash, path string)
 	pieces      *pieceSync // nil when the file has no real torrent, as in tests
 	// readahead is how far ahead of a read the client downloads (readaheadFor)
 	readahead int64

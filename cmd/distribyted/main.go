@@ -426,6 +426,7 @@ func load(configPath string, o overrides) error {
 	// recorded as they're restored, so an older record of a link made from another link is
 	// rewritten to what that link shows
 	torrent.PersistLinks(ts, cfs)
+	torrent.PrepareNextEpisodes(ts, cfs)
 	// the dashboard lists the last couple of days; older times aren't needed
 	ts.ForgetLinksAddedBefore(time.Now().Add(-30 * 24 * time.Hour))
 	// a link waits for its torrent, which, without saved metadata, waits up to add_timeout

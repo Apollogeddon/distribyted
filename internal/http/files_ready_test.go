@@ -113,3 +113,12 @@ func TestFilesPrepare_WholeFileTooBig(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	require.Empty(t, f.asked)
 }
+
+// A file got ready as the next episode says so in its dialog.
+func TestFilesReadinessDialog_NextEpisode(t *testing.T) {
+	r, f := readyTree(t, 1000)
+	f.r.Asked, f.r.Cached = dfs.PrepareLead, 20
+	body := get(r, "/files/readiness?path="+url.QueryEscape(filmPath)).Body.String()
+	require.Contains(t, body, "Next episode: first 5% and end")
+	require.Contains(t, body, "Downloading ahead")
+}

@@ -106,3 +106,16 @@ func TestTorrentFile_PrepareWithoutTorrent(t *testing.T) {
 	_, ok = f.StartReady()
 	require.False(t, ok)
 }
+
+func TestPieceSync_LeadRanges(t *testing.T) {
+	const mib = 1024 * 1024
+	// a 3 GiB episode of 16 MiB pieces: its first 5% is 153.6 MiB, pieces 0 to 9
+	s := &pieceSync{offset: 0, length: 3072 * mib, pieceLen: 16 * mib}
+	r := s.leadRanges()
+	require.Equal(t, [2]int{0, 10}, r[0])
+	require.Equal(t, [2]int{191, 192}, r[1])
+
+	// a tiny file still gets its first piece
+	s = &pieceSync{offset: 0, length: 10, pieceLen: 16 * mib}
+	require.Equal(t, [2][2]int{{0, 1}, {0, 1}}, s.leadRanges())
+}
