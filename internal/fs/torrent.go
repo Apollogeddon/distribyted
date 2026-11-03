@@ -735,6 +735,8 @@ type torrentFileHandle struct {
 	// syncedPiece is the piece the last read started in, whose readahead was checked for
 	// evicted pieces (see pieceSync)
 	syncedPiece int
+	// act is what the dashboard shows of the handle's reads (activity.go), made on its first
+	act *handleActivity
 }
 
 // syncAhead checks the pieces a read at off and its readahead will need for ones the piece cache
@@ -899,12 +901,15 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	off := h.pos
 	h.mu.Unlock()
 	h.syncAhead(off, len(p))
+	act := h.activity()
+	act.start()
 	n, err = r.readFrom(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
 			n, err = r2.readFrom(p, off)
 		}
 	}
+	act.done(off, n)
 	if n > 0 {
 		h.mu.Lock()
 		h.pos = off + int64(n)
@@ -926,12 +931,15 @@ func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 		return 0, io.EOF
 	}
 	h.syncAhead(off, len(p))
+	act := h.activity()
+	act.start()
 	n, err = r.ReadAt(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
 			n, err = r2.ReadAt(p, off)
 		}
 	}
+	act.done(off, n)
 	if n > 0 {
 		h.reportFirstRead()
 	}
@@ -942,6 +950,7 @@ func (h *torrentFileHandle) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.closed = true
+	h.forgetActivity()
 	if h.reader != nil {
 		err := h.reader.Close()
 		h.reader = nil

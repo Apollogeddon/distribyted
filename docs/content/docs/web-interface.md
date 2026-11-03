@@ -12,6 +12,11 @@ between them.
 
 Download and upload speed, the cache in use, and a chart of the last minute's speeds.
 
+**Now playing** lists the files being read, as a player streams them: how far in each is,
+how fast it's read, how much of what comes next is cached, and its torrent's peers. A file
+whose read has waited more than two seconds for data, or whose torrent has no peers left
+with little cached ahead, is flagged, so a buffering stream shows why.
+
 {{< screenshot name="dashboard" alt="The dashboard" >}}
 
 ## Routes

@@ -33,6 +33,7 @@ type dashboardStats struct {
 	CacheItems    string
 	HasCache      bool
 	Chart         chartView
+	Playing       []playingView
 }
 
 type speedSample struct {
@@ -137,7 +138,7 @@ func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) 
 			s.up = int64(float64(g.UploadedBytes) / g.TimePassed)
 		}
 	}
-	st := dashboardStats{Down: rate(s.down, 1), Up: rate(s.up, 1)}
+	st := dashboardStats{Down: rate(s.down, 1), Up: rate(s.up, 1), Playing: newPlayingViews(ss, s.at)}
 	if h != nil {
 		st.Chart = newChartView(h.add(s))
 	}

@@ -1,5 +1,7 @@
 package http
 
+import "fmt"
+
 templ dashboardView(st dashboardStats) {
 	@page("Dashboard", "dashboard") {
 		@pageHeader("Dashboard", "Transfer across every torrent, and how full the piece cache is.")
@@ -40,6 +42,7 @@ templ dashboardStatsView(st dashboardStats) {
 				}
 			</div>
 		</section>
+		@nowPlaying(st.Playing)
 		<section class="card" aria-labelledby="speed-title">
 			<div class="card-header">
 				<h2 id="speed-title">Speed, last minute</h2>
@@ -51,6 +54,46 @@ templ dashboardStatsView(st dashboardStats) {
 			@speedChart(st.Chart)
 		</section>
 	</div>
+}
+
+// nowPlaying is the files being read now, as a player streams them.
+templ nowPlaying(ps []playingView) {
+	<section class="card" aria-labelledby="playing-title">
+		<div class="card-header">
+			<h2 id="playing-title">Now playing</h2>
+		</div>
+		if len(ps) == 0 {
+			<p class="muted">Nothing is being read. A file shows here while a player streams it.</p>
+		} else {
+			<ul class="list playing">
+				for _, p := range ps {
+					<li class="playing-item" id={ p.ID }>
+						<div class="playing-head">
+							<div class="playing-title">
+								<p class="playing-name">{ p.Name }</p>
+								if p.Torrent != "" {
+									<p class="playing-torrent">{ p.Torrent }</p>
+								}
+							</div>
+							<span class={ "pill", "tone-" + p.Status.Level }>{ p.Status.Label }</span>
+						</div>
+						<div class="meter meter-ok" role="progressbar" aria-label={ "Position in " + p.Name } aria-valuemin="0" aria-valuemax="100" aria-valuenow={ fmt.Sprint(p.Percent) }>
+							<span style={ p.Width() }></span>
+						</div>
+						<p class="playing-meta">
+							<span>{ p.Position }</span>
+							<span>{ p.Rate }</span>
+							<span>{ p.Ahead }</span>
+							<span>{ fmt.Sprint(p.Peers) } peer{ plural(p.Peers) }</span>
+						</p>
+						if p.Status.Reason != "" {
+							<p class="health-text">{ p.Status.Reason }</p>
+						}
+					</li>
+				}
+			</ul>
+		}
+	</section>
 }
 
 templ speedChart(cv chartView) {
