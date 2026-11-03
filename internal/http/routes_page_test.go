@@ -180,7 +180,8 @@ func TestTorrentHealth(t *testing.T) {
 		{"still connecting", dtorrent.TorrentStats{AgeSeconds: 5, PieceSize: 1 << 20}, "wait", "Finding peers"},
 		{"no peers", dtorrent.TorrentStats{AgeSeconds: 60, PieceSize: 1 << 20}, "warn", "No peers are connected"},
 		{"one seeder", dtorrent.TorrentStats{Peers: 3, Seeders: 1, AgeSeconds: 60, PieceSize: 1 << 20}, "warn", "Only 1 seeder connected"},
-		{"large pieces", dtorrent.TorrentStats{Peers: 8, Seeders: 5, AgeSeconds: 60, PieceSize: 16 << 20}, "warn", "Pieces are 16 MiB"},
+		{"large pieces are said, but healthy", dtorrent.TorrentStats{Peers: 8, Seeders: 5, AgeSeconds: 60, PieceSize: 16 << 20}, "ok", "Pieces are 16 MiB"},
+		{"no peers and large pieces", dtorrent.TorrentStats{AgeSeconds: 60, PieceSize: 16 << 20}, "warn", "No peers are connected, so nothing more can be downloaded. Pieces are 16 MiB"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

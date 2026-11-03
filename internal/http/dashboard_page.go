@@ -26,13 +26,23 @@ const (
 )
 
 type dashboardStats struct {
-	Down, Up      string
-	CacheUsed     string
-	CacheCapacity string
-	CachePercent  int
-	CacheItems    string
-	HasCache      bool
-	Chart         chartView
+	// Verdict sums up the streams in a sentence; Problem, when there is one, names the first
+	// stream in trouble.
+	Verdict, Problem string
+	Down, Up         string
+	// DownSpark and UpSpark are the last minute of speeds as sparkline points.
+	DownSpark, UpSpark string
+	Streams, Waiting   int
+	// Torrents counts every torrent; ShortOfPeers those settled with fewer than two seeders.
+	Torrents, ShortOfPeers int
+	// Links counts the links to files; LinksWaiting and LinksMissing those that need a look.
+	Links, LinksWaiting, LinksMissing int
+	CacheUsed                         string
+	CacheCapacity                     string
+	CachePercent                      int
+	HasCache                          bool
+	Chart                             chartView
+	Playing                           []playingView
 }
 
 type speedSample struct {
@@ -128,7 +138,7 @@ func niceRate(peak int64) int64 {
 	return max(peak, 1024)
 }
 
-func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) dashboardStats {
+func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, svc torrentService, cfs containerFS, waiting func() []string) dashboardStats {
 	s := speedSample{at: time.Now()}
 	if ss != nil {
 		g := ss.GlobalStats()
@@ -137,9 +147,41 @@ func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) 
 			s.up = int64(float64(g.UploadedBytes) / g.TimePassed)
 		}
 	}
-	st := dashboardStats{Down: rate(s.down, 1), Up: rate(s.up, 1)}
+	st := dashboardStats{Down: rate(s.down, 1), Up: rate(s.up, 1), Playing: newPlayingViews(ss, svc, s.at)}
 	if h != nil {
-		st.Chart = newChartView(h.add(s))
+		samples := h.add(s)
+		st.Chart = newChartView(samples)
+		st.DownSpark, st.UpSpark = sparkline(samples, func(x speedSample) int64 { return x.down }), sparkline(samples, func(x speedSample) int64 { return x.up })
+	}
+
+	st.Streams = len(st.Playing)
+	for _, p := range st.Playing {
+		if p.Status.Level == "warn" {
+			st.Waiting++
+			if st.Problem == "" {
+				st.Problem = p.Title + map[string]string{"Waiting for data": " is waiting for data.", "No peers": " has no peers left."}[p.Status.Label]
+			}
+		}
+	}
+	st.Verdict = verdict(st.Streams)
+
+	if ss != nil {
+		for _, ts := range ss.Brief() {
+			st.Torrents++
+			settled := time.Duration(ts.AgeSeconds*float64(time.Second)) >= seederGrace
+			if settled && ts.Seeders < 2 {
+				st.ShortOfPeers++
+			}
+		}
+	}
+	if svc != nil {
+		lp := newLinksPageFor(svc, ss, cfs, waiting, "", "")
+		for _, l := range lp.Links {
+			if !l.IsDir && !l.IsFile {
+				st.Links++
+			}
+		}
+		st.LinksWaiting, st.LinksMissing = lp.Waiting, lp.Missing
 	}
 
 	if fc != nil {
@@ -150,21 +192,63 @@ func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) 
 		if info.Capacity > 0 {
 			st.CachePercent = int(min(info.Filled*100/info.Capacity, 100))
 		}
-		st.CacheItems = humanize.Comma(int64(info.NumItems))
 	}
 	return st
 }
 
+var numberWords = []string{"No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"}
+
+// verdict is the sentence the dashboard opens with.
+func verdict(streams int) string {
+	switch {
+	case streams == 0:
+		return "Nothing is playing."
+	case streams < len(numberWords):
+		return numberWords[streams] + " stream" + plural(streams) + " playing."
+	}
+	return fmt.Sprintf("%d streams playing.", streams)
+}
+
+// sparkline is the samples' values as polyline points on a 100 by 22 box, scaled to their
+// own peak.
+func sparkline(samples []speedSample, value func(speedSample) int64) string {
+	if len(samples) < 2 {
+		return ""
+	}
+	var peak int64 = 1
+	for _, x := range samples {
+		peak = max(peak, value(x))
+	}
+	pts := make([]string, len(samples))
+	for i, x := range samples {
+		pts[i] = fmt.Sprintf("%.1f,%.1f", float64(i)*100/float64(len(samples)-1), 20-float64(value(x))*18/float64(peak))
+	}
+	return strings.Join(pts, " ")
+}
+
+// LinksNote says which links need a look, or that none do.
+func (s dashboardStats) LinksNote() string {
+	switch {
+	case s.LinksWaiting > 0 && s.LinksMissing > 0:
+		return fmt.Sprintf("%d waiting, %d missing", s.LinksWaiting, s.LinksMissing)
+	case s.LinksWaiting > 0:
+		return fmt.Sprintf("%d waiting", s.LinksWaiting)
+	case s.LinksMissing > 0:
+		return fmt.Sprintf("%d missing", s.LinksMissing)
+	}
+	return "All in place"
+}
+
 func (s dashboardStats) CacheWidth() string { return fmt.Sprintf("width: %d%%", s.CachePercent) }
 
-var dashboardHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) gin.HandlerFunc {
+var dashboardHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS, waiting func() []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, dashboardView(newDashboardStats(fc, ss, h)))
+		render(c, http.StatusOK, dashboardView(newDashboardStats(fc, ss, h, s, cfs, waiting)))
 	}
 }
 
-var dashboardStatsHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory) gin.HandlerFunc {
+var dashboardStatsHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS, waiting func() []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, dashboardStatsView(newDashboardStats(fc, ss, h)))
+		render(c, http.StatusOK, dashboardStatsView(newDashboardStats(fc, ss, h, s, cfs, waiting)))
 	}
 }

@@ -60,12 +60,18 @@ templ serversList(p serversPage) {
 templ logsView(p logsPage) {
 	@page("Logs", "logs") {
 		@pageHeader("Logs", "The newest entries first. New ones appear as they're written.")
+		<form class="filters" role="search" hx-get="/logs/list" hx-include="#logs-level" hx-target="#logs" hx-swap="outerHTML" hx-trigger="input delay:300ms, submit" hx-sync="this:replace">
+			<input type="hidden" name="push" value="1"/>
+			<label class="sr-only" for="logs-q">Search the log</label>
+			<input type="search" id="logs-q" name="q" value={ p.Query } class="input" placeholder="Search the log" autocomplete="off" spellcheck="false"/>
+		</form>
 		@logsList(p)
 	}
 }
 
 templ logsList(p logsPage) {
 	<section id="logs" class="stack" aria-label="Log entries" hx-get={ p.ListURL } hx-trigger="every 3s [document.visibilityState === 'visible']" hx-swap="morph:outerHTML" hx-ext="morph">
+		<input type="hidden" id="logs-level" name="level" value={ p.Level }/>
 		<nav class="filters" aria-label="Show">
 			for _, f := range p.Filters {
 				<a href={ templ.SafeURL(f.Href) } class="filter" hx-get={ f.ListURL } hx-target="#logs" hx-swap="outerHTML" hx-push-url={ f.Href }
@@ -113,7 +119,9 @@ templ logsList(p logsPage) {
 			</div>
 		} else if p.Error == "" {
 			@emptyState("scroll-text") {
-				if p.Level == "all" {
+				if p.Query != "" {
+					No entry in the latest ones has every word of “{ p.Query }”.
+				} else if p.Level == "all" {
 					The log is empty.
 				} else {
 					Nothing at this level in the latest entries.

@@ -11,6 +11,16 @@ type HandlerOption func(*handlerOptions)
 
 type handlerOptions struct {
 	ready func() bool
+	// waitingLinks lists the links still waiting for their torrents after a start
+	waitingLinks func() []string
+}
+
+// WithWaitingLinks sets where the Links page learns which links are still waiting for their
+// torrents to load.
+func WithWaitingLinks(waiting func() []string) HandlerOption {
+	return func(o *handlerOptions) {
+		o.waitingLinks = waiting
+	}
 }
 
 // WithReadiness sets what /readyz reports. Without it the handler is ready as soon as it serves,

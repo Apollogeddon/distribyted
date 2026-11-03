@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"path"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	dfs "github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
 )
 
@@ -19,7 +21,23 @@ type linksPage struct {
 	Links []linkView
 	Error string
 	Form  linkForm
+	// Query and Show narrow the list (show "attention" keeps the links that need it);
+	// ListURL keeps them when it refreshes.
+	Query, Show string
+	ListURL     string
+	// Total counts every link; Waiting and Missing the ones that need attention.
+	Total, Waiting, Missing int
 }
+
+// Filtered reports whether the list is narrowed.
+func (p linksPage) Filtered() bool { return p.Query != "" || p.Show == "attention" }
+
+// The states a link's file can be in.
+const (
+	linkOK      = ""
+	linkWaiting = "waiting"
+	linkMissing = "missing"
+)
 
 type linkView struct {
 	Link
@@ -27,6 +45,9 @@ type linkView struct {
 	SourceHref     string
 	DeleteURL      string
 	DeleteQuestion string
+	// State is linkWaiting while the link waits for its torrent after a start, or linkMissing
+	// when it isn't in the mount and isn't waiting for anything.
+	State string
 }
 
 type linkForm struct {
@@ -36,8 +57,15 @@ type linkForm struct {
 	InDialog bool
 }
 
-func newLinksPage(s torrentService, ss *torrent.Stats) linksPage {
-	page := linksPage{Title: "Links"}
+// newLinksPageFor lists the links whose paths hold every word of query, ignoring case, and
+// with show "attention", only those waiting for their torrent or missing from cfs.
+func newLinksPageFor(s torrentService, ss *torrent.Stats, cfs containerFS, waiting func() []string, query, show string) linksPage {
+	query = strings.TrimSpace(query)
+	if show != "attention" {
+		show = "all"
+	}
+	page := linksPage{Title: "Links", Query: query, Show: show}
+	page.ListURL = "/links/list?" + url.Values{"q": {query}, "show": {show}}.Encode()
 	if s == nil {
 		return page
 	}
@@ -46,7 +74,16 @@ func newLinksPage(s torrentService, ss *torrent.Stats) linksPage {
 		page.Error = sentence(err)
 		return page
 	}
+	isWaiting := map[string]bool{}
+	if waiting != nil {
+		for _, p := range waiting() {
+			isWaiting[path.Clean("/"+p)] = true
+		}
+	}
+	exists := existsIn(cfs)
+	words := strings.Fields(strings.ToLower(query))
 	for _, l := range links {
+		page.Total++
 		v := linkView{
 			Link:           l,
 			ID:             "link-" + url.QueryEscape(l.NewPath),
@@ -55,21 +92,60 @@ func newLinksPage(s torrentService, ss *torrent.Stats) linksPage {
 		}
 		if !l.IsDir && !l.IsFile {
 			v.SourceHref = filesHref(path.Dir(l.OldPath))
+			switch {
+			case isWaiting[l.NewPath]:
+				v.State = linkWaiting
+				page.Waiting++
+			case cfs != nil && !exists(l.NewPath):
+				v.State = linkMissing
+				page.Missing++
+			}
+		}
+		if show == "attention" && v.State == linkOK || !matchesWords(l.NewPath+" "+l.OldPath, words) {
+			continue
 		}
 		page.Links = append(page.Links, v)
 	}
 	return page
 }
 
-var linksPageHandler = func(s torrentService, ss *torrent.Stats) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		render(c, http.StatusOK, linksView(newLinksPage(s, ss)))
+// existsIn reports whether a path is in cfs, reading each folder once.
+func existsIn(cfs containerFS) func(string) bool {
+	dirs := map[string]map[string]dfs.File{}
+	return func(p string) bool {
+		if cfs == nil {
+			return true
+		}
+		dir := path.Dir(p)
+		children, ok := dirs[dir]
+		if !ok {
+			children, _ = cfs.ReadDir(dir)
+			dirs[dir] = children
+		}
+		_, ok = children[path.Base(p)]
+		return ok
 	}
 }
 
-var linksListHandler = func(s torrentService, ss *torrent.Stats) gin.HandlerFunc {
+func linksPageFrom(c *gin.Context, s torrentService, ss *torrent.Stats, cfs containerFS, waiting func() []string) linksPage {
+	return newLinksPageFor(s, ss, cfs, waiting, c.Query("q"), c.Query("show"))
+}
+
+var linksPageHandler = func(s torrentService, ss *torrent.Stats, cfs containerFS, waiting func() []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, linksList(newLinksPage(s, ss)))
+		render(c, http.StatusOK, linksView(linksPageFrom(c, s, ss, cfs, waiting)))
+	}
+}
+
+// linksListHandler renders the list the page refreshes. The search form asks with push set,
+// and gets the page's own address back for the address bar.
+var linksListHandler = func(s torrentService, ss *torrent.Stats, cfs containerFS, waiting func() []string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		page := linksPageFrom(c, s, ss, cfs, waiting)
+		if c.Query("push") != "" {
+			c.Header("HX-Push-Url", "/links?"+url.Values{"q": {page.Query}, "show": {page.Show}}.Encode())
+		}
+		render(c, http.StatusOK, linksList(page))
 	}
 }
 
@@ -128,4 +204,21 @@ var linksDeleteHandler = func(lfs linkFs, s torrentService) gin.HandlerFunc {
 		})
 		c.Status(http.StatusOK)
 	}
+}
+
+// linkAttention says how many links need attention, as "2 links waiting for their torrents ·
+// 1 missing".
+func linkAttention(p linksPage) string {
+	var parts []string
+	if p.Waiting > 0 {
+		if p.Waiting == 1 {
+			parts = append(parts, "1 link waiting for its torrent")
+		} else {
+			parts = append(parts, countOf(p.Waiting, "link")+" waiting for their torrents")
+		}
+	}
+	if p.Missing > 0 {
+		parts = append(parts, fmt.Sprintf("%d missing from the mount", p.Missing))
+	}
+	return strings.Join(parts, " · ") + "."
 }

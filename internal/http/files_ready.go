@@ -96,6 +96,9 @@ func newReadinessView(cfs containerFS, conf *config.Root, p string) readinessVie
 		v.Asked, v.Preparing = "Start and end", !r.Ready()
 	case dfs.PrepareAll:
 		v.Asked, v.Preparing = "Whole file", r.Cached < r.Size
+	case dfs.PrepareLead:
+		// the start is pieces of 5%, so a little more is cached than asked for
+		v.Asked, v.Preparing = "Next episode: first 5% and end", !r.End || r.Cached*100 < r.Size*5
 	}
 	if limit := wholeFileLimit(conf); limit >= 0 && r.Size > limit {
 		v.WholeTooBig = fmt.Sprintf("At %s it's over half the %s piece cache, so it can't be kept whole.",

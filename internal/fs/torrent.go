@@ -31,6 +31,16 @@ type TorrentFS struct {
 	onFirstRead     func(hash, path string, sinceOpen time.Duration)
 	onReadStart     func(hash string)
 	onEvicted       func(hash string)
+	onNearEnd       func(hash, path string)
+}
+
+// OnNearEnd registers a callback fired, once per handle, when a read reaches nearEndPercent
+// of a file of at least minNearEndFile: an episode that's nearly over, whose next one should
+// be got ready. Like OnReadStart, it must be called before AddTorrent.
+func (fs *TorrentFS) OnNearEnd(f func(hash, path string)) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.onNearEnd = f
 }
 
 // OnFirstRead registers a callback fired at most once per file, the first
@@ -124,6 +134,7 @@ func (fs *TorrentFS) addFiles(t Torrent) {
 			onFirstRead: fs.onFirstRead,
 			onReadStart: fs.onReadStart,
 			onEvicted:   fs.onEvicted,
+			onNearEnd:   fs.onNearEnd,
 			pieces:      newPieceSync(file),
 			log:         fs.log.With().Str(dlog.KeyPath, file.Path()).Logger(),
 		}
@@ -556,6 +567,7 @@ func (rw *readAtWrapper) markDead(off int64, length int, elapsed time.Duration) 
 	rw.deadFlag.Store(true)
 	close(rw.deadCh)
 	rw.stats.abandoned.Add(1)
+	recordAbandoned(time.Now())
 	rw.log.Error().
 		Int64("off", off).
 		Int("len", length).
@@ -676,6 +688,7 @@ type torrentFile struct {
 	onFirstRead func(hash, path string, sinceOpen time.Duration)
 	onReadStart func(hash string)
 	onEvicted   func(hash string)
+	onNearEnd   func(hash, path string)
 	pieces      *pieceSync // nil when the file has no real torrent, as in tests
 	// readahead is how far ahead of a read the client downloads (readaheadFor)
 	readahead int64
@@ -735,6 +748,10 @@ type torrentFileHandle struct {
 	// syncedPiece is the piece the last read started in, whose readahead was checked for
 	// evicted pieces (see pieceSync)
 	syncedPiece int
+	// act is what the dashboard shows of the handle's reads (activity.go), made on its first
+	act *handleActivity
+	// quiet marks a handle distribyted reads through itself, whose reads aren't playing
+	quiet bool
 }
 
 // syncAhead checks the pieces a read at off and its readahead will need for ones the piece cache
@@ -899,12 +916,15 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 	off := h.pos
 	h.mu.Unlock()
 	h.syncAhead(off, len(p))
+	act := h.activity()
+	act.start()
 	n, err = r.readFrom(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
 			n, err = r2.readFrom(p, off)
 		}
 	}
+	act.done(off, n)
 	if n > 0 {
 		h.mu.Lock()
 		h.pos = off + int64(n)
@@ -926,12 +946,15 @@ func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 		return 0, io.EOF
 	}
 	h.syncAhead(off, len(p))
+	act := h.activity()
+	act.start()
 	n, err = r.ReadAt(p, off)
 	if errors.Is(err, errReaderAbandoned) {
 		if r2 := h.load(); r2 != nil && r2 != r {
 			n, err = r2.ReadAt(p, off)
 		}
 	}
+	act.done(off, n)
 	if n > 0 {
 		h.reportFirstRead()
 	}
@@ -942,6 +965,7 @@ func (h *torrentFileHandle) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.closed = true
+	h.forgetActivity()
 	if h.reader != nil {
 		err := h.reader.Close()
 		h.reader = nil

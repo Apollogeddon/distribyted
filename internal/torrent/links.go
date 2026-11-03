@@ -280,6 +280,18 @@ func (r *LinkRestorer) Pending() int {
 	return len(r.pending)
 }
 
+// Waiting lists the links still waiting for their torrents, by path.
+func (r *LinkRestorer) Waiting() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]string, 0, len(r.pending))
+	for p := range r.pending {
+		out = append(out, p)
+	}
+	slices.Sort(out)
+	return out
+}
+
 // Ready reports whether every link is back, or grace has passed since Start.
 func (r *LinkRestorer) Ready() bool {
 	return r.Pending() == 0 || time.Since(r.start) >= r.grace

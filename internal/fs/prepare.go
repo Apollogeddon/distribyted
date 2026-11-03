@@ -21,7 +21,13 @@ const (
 	PrepareStart
 	// PrepareAll is the whole file.
 	PrepareAll
+	// PrepareLead is its first leadPercent and its end: enough to start the next episode
+	// at once, and play its first minutes while the rest downloads.
+	PrepareLead
 )
+
+// leadPercent is how much of the next episode's start PrepareLead downloads.
+const leadPercent = 5
 
 // Readiness is how much of a torrent's file is in the piece cache, ready to read without
 // waiting on a peer.
@@ -74,6 +80,13 @@ func (s *pieceSync) startRanges() [2][2]int {
 	return [2][2]int{{b1, e1}, {b2, e2}}
 }
 
+// leadRanges are the pieces holding a file's first leadPercent, at least one piece, and its
+// last prepareEnd bytes.
+func (s *pieceSync) leadRanges() [2][2]int {
+	b1, e1 := s.pieceRange(0, max(s.length*leadPercent/100, 1))
+	return [2][2]int{{b1, e1}, s.startRanges()[1]}
+}
+
 // cached reports whether piece i is in the piece cache. The client counts a piece the cache
 // evicted complete (see pieceSync), so storage is asked, without the client's lock.
 func (s *pieceSync) cached(i int) bool {
@@ -121,10 +134,14 @@ func (d *torrentFile) Prepare(p Preparation) bool {
 	}
 
 	ranges := [][2]int{}
-	if p == PrepareAll {
+	switch p {
+	case PrepareAll:
 		begin, end := s.pieceRange(0, s.length)
 		ranges = append(ranges, [2]int{begin, end})
-	} else {
+	case PrepareLead:
+		r := s.leadRanges()
+		ranges = append(ranges, r[0], r[1])
+	default:
 		r := s.startRanges()
 		ranges = append(ranges, r[0], r[1])
 	}

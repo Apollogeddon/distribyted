@@ -14,6 +14,7 @@ var navItems = []navItem{
 	{"routes", "/routes", "Routes", "folders"},
 	{"files", "/files", "Files", "folder-tree"},
 	{"links", "/links", "Links", "link"},
+	{"cache", "/cache", "Cache", "hard-drive"},
 	{"servers", "/servers", "Servers", "share-2"},
 	{"logs", "/logs", "Logs", "scroll-text"},
 }
@@ -43,8 +44,6 @@ templ head(title string) {
 	<link rel="stylesheet" href="/assets/css/app.css"/>
 	// a form that fails validation answers 422 with the form and its errors, which htmx swaps in
 	<meta name="htmx-config" content={ htmxConfig }/>
-	// sets the chosen theme before the page draws, so it doesn't flash the other one
-	<script src="/assets/js/theme.js"></script>
 }
 
 // page is the shell: the sidebar, the top bar phones get, and the dialogs and toasts the
@@ -80,15 +79,6 @@ templ page(title, active string) {
 						</ul>
 					</nav>
 					<div class="sidebar-foot">
-						<a class="nav-link" href="/fs" target="_blank" rel="noopener">
-							@icon("external-link")
-							Browse over HTTP
-						</a>
-						<button type="button" class="nav-button" data-theme-toggle>
-							@icon("moon", "theme-dark")
-							@icon("sun", "theme-light")
-							<span data-theme-label>Theme</span>
-						</button>
 						// a POST form, so another site can't log you out with a link or an image
 						<form method="post" action="/logout">
 							<button type="submit" class="nav-button">
@@ -111,6 +101,10 @@ templ page(title, active string) {
 							@icon("wifi-off")
 							<span><strong>Can't reach distribyted.</strong> What you see may be out of date. Retrying…</span>
 						</div>
+						// the dashboard says the same itself
+						if active != "dashboard" {
+							@healthBanner(nil)
+						}
 						{ children... }
 					</main>
 				</div>
@@ -213,4 +207,21 @@ templ loginPage(next string, failed, tooMany bool) {
 			</main>
 		</body>
 	</html>
+}
+
+// healthBanner is what's going wrong with streaming now, on every page; empty when nothing is.
+templ healthBanner(items []bannerItem) {
+	<div id="health-banner" class="banner-stack" role="status" hx-get="/banner" hx-trigger="load, every 10s [document.visibilityState === 'visible']" hx-swap="morph:outerHTML" hx-ext="morph">
+		for _, it := range items {
+			<div class={ "alert", "alert-" + it.Level }>
+				@icon("triangle-alert")
+				<span>
+					{ it.Message }
+					if it.Href != "" {
+						<a href={ templ.SafeURL(it.Href) }>{ it.Action }</a>
+					}
+				</span>
+			</div>
+		}
+	</div>
 }

@@ -426,6 +426,7 @@ func load(configPath string, o overrides) error {
 	// recorded as they're restored, so an older record of a link made from another link is
 	// rewritten to what that link shows
 	torrent.PersistLinks(ts, cfs)
+	torrent.PrepareNextEpisodes(ts, cfs)
 	// a link waits for its torrent, which, without saved metadata, waits up to add_timeout
 	restorer := torrent.NewLinkRestorer(ts, cfs, time.Duration(conf.Torrent.AddTimeout)*time.Second+30*time.Second)
 	if err := restorer.Start(); err != nil {
@@ -471,7 +472,7 @@ func load(configPath string, o overrides) error {
 	// scanning the mount once it's ready doesn't find them missing
 	ready := func() bool { return (mh == nil || mh.Mounted()) && restorer.Ready() }
 
-	err = http.New(sl.fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath, cfs, http.WithReadiness(ready))
+	err = http.New(sl.fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath, cfs, http.WithReadiness(ready), http.WithWaitingLinks(restorer.Waiting))
 	if err != nil {
 		log.Error().Err(err).Msg("error initializing HTTP server")
 	}
