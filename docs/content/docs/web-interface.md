@@ -65,6 +65,10 @@ files, not searched inside.
 Links, and the folders and files made in the mount, come back after a restart. A link
 whose torrent is still loading appears as soon as the torrent does.
 
+Until then it's marked **Waiting for its torrent**; a link whose path isn't in the mount and
+isn't waiting for anything is marked **Missing**. The line above the list counts both, and
+**Needs attention** in the menu beside the search box shows only those links.
+
 {{< screenshot name="links" alt="The Links page" >}}
 
 ## Servers

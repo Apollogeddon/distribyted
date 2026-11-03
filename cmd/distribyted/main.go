@@ -471,7 +471,7 @@ func load(configPath string, o overrides) error {
 	// scanning the mount once it's ready doesn't find them missing
 	ready := func() bool { return (mh == nil || mh.Mounted()) && restorer.Ready() }
 
-	err = http.New(sl.fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath, cfs, http.WithReadiness(ready))
+	err = http.New(sl.fc, ss, ts, ch, servers, httpfs, logFilename, conf, fusePath, cfs, http.WithReadiness(ready), http.WithWaitingLinks(restorer.Waiting))
 	if err != nil {
 		log.Error().Err(err).Msg("error initializing HTTP server")
 	}

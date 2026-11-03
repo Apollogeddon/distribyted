@@ -219,6 +219,7 @@ func TestLinks_LinkWaitsForItsTorrent(t *testing.T) {
 
 	cfs, r := e.boot()
 	require.Equal(t, 1, r.Pending())
+	require.Equal(t, []string{"/movies/late.mkv"}, r.Waiting())
 	require.False(t, r.Ready())
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -232,6 +233,7 @@ func TestLinks_LinkWaitsForItsTorrent(t *testing.T) {
 	require.NoError(t, e.route.Storage.Add(fs.NewMemoryFile([]byte("late")), "/Late.2024/late.mkv"))
 	r.Nudge()
 	require.Eventually(t, func() bool { return r.Pending() == 0 }, 5*time.Second, 20*time.Millisecond)
+	require.Empty(t, r.Waiting())
 	require.True(t, r.Ready())
 	_, err := cfs.Open("/movies/late.mkv")
 	require.NoError(t, err)
