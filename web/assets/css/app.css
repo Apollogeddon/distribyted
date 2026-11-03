@@ -697,3 +697,13 @@ dialog:has(.combo) { overflow: visible; }
 .tfile-links { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; padding-left: 1.85rem; }
 .link-target.small { font-size: 0.85rem; font-weight: 500; }
 .muted-inline { color: var(--text-3); font-size: 0.85rem; }
+
+/* ---- Cache ---- */
+
+.cached { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: 0.85rem 1.25rem; }
+.cached-name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.cached-name a { color: inherit; }
+.cached .meter { margin-top: 0.5rem; }
+.cached .meter > span { background: var(--accent); }
+.cached-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.45rem 0 0; color: var(--text-2); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.kpi-link { margin: 0.6rem 0 0 !important; font-size: 0.875rem; }

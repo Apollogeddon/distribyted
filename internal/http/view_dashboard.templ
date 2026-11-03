@@ -37,6 +37,7 @@ templ dashboardStatsView(st dashboardStats) {
 					<div class="meter" role="meter" aria-label="Piece cache used" aria-valuemin="0" aria-valuemax="100" aria-valuenow={ st.CachePercent }>
 						<span style={ st.CacheWidth() }></span>
 					</div>
+					<p class="kpi-link"><a href="/cache">What's in it</a></p>
 				} else {
 					<p class="kpi-value kpi-sub">Not in use</p>
 				}

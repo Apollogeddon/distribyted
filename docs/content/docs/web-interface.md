@@ -71,6 +71,13 @@ isn't waiting for anything is marked **Missing**. The line above the list counts
 
 {{< screenshot name="links" alt="The Links page" >}}
 
+## Cache
+
+What the piece cache (`global_cache_size`) holds, torrent by torrent: how much of it each
+has, and when it was last read. The pieces read longest ago are evicted first as the cache
+fills, so a film that played yesterday may need downloading again today. **Free** removes a
+torrent's pieces now; they download again when it's next played.
+
 ## Servers
 
 Local folders shared as torrents, each with a magnet link that follows the folder's
