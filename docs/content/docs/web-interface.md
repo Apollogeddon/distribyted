@@ -40,7 +40,10 @@ attention first, or newest first. Both are part of the page's address, so a relo
 bookmark keeps them.
 
 A torrent's name opens its own page: its files, whether each is ready to play, and the
-links that show each one, so you can see what a library would lose before deleting it.
+links that show each one, so you can see what a library would lose before deleting it. Its
+**Peers** list shows each connected peer's address, client, how it was found, how much of the
+torrent it has, and its speeds, seeders first. Buttons at the top download the start and end
+of every file, free its cache, or delete it, and its magnet link can be copied.
 
 {{< screenshot name="routes" alt="The Routes page" >}}
 

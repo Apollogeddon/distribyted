@@ -728,3 +728,15 @@ a.pill { text-decoration: none; }
   .recent { grid-template-columns: 1fr; }
   .recent-state { justify-content: flex-start; }
 }
+
+/* a torrent's actions, magnet and peers */
+.header-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; }
+.torrent-magnet { margin-bottom: 1rem; }
+.table-scroll { overflow-x: auto; }
+.peer-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.peer-table th { padding: 0.6rem 1.25rem; text-align: left; color: var(--text-3); font-weight: 550; background: var(--surface-2); white-space: nowrap; }
+.peer-table td { padding: 0.55rem 1.25rem; border-top: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.peer-table .num { text-align: right; }
+@media (max-width: 767.98px) {
+  .header-actions { justify-content: flex-start; }
+}

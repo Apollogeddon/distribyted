@@ -365,6 +365,10 @@ var routesDeleteHandler = func(s torrentService) gin.HandlerFunc {
 			c.String(http.StatusInternalServerError, "Couldn't delete the torrent: %s", err)
 			return
 		}
+		// from the torrent's own page, which is gone now, back to Routes
+		if c.Query("redirect") != "" {
+			c.Header("HX-Redirect", "/routes")
+		}
 		triggerEvents(c, map[string]any{
 			"routes-changed": true,
 			"toast":          toast{Level: "success", Message: "Torrent deleted."},

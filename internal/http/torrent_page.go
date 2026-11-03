@@ -5,8 +5,10 @@ import (
 	"net/url"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 
@@ -26,6 +28,42 @@ type torrentPage struct {
 	Files   []torrentFileView
 	// Linked counts the files something links to.
 	Linked int
+	Peers  []peerView
+	// Magnet is a link to add the torrent elsewhere, by its hash and name.
+	Magnet string
+	// PrepareURL, FreeURL and DeleteURL act on the whole torrent.
+	PrepareURL, FreeURL, DeleteURL string
+	DeleteQuestion                 string
+}
+
+type peerView struct {
+	ID, Addr, Client, Source string
+	Down, Up                 string
+	Have                     string // "100%", or "" before the torrent's metadata arrives
+	Seed                     bool
+}
+
+// torrentPeers lists a torrent's peers; a var so tests can stand in for a real torrent.
+var torrentPeers = torrent.Peers
+
+func newPeerViews(t dfs.Torrent) []peerView {
+	var out []peerView
+	for i, p := range torrentPeers(t) {
+		v := peerView{
+			ID:     "peer-" + strconv.Itoa(i),
+			Addr:   p.Addr,
+			Client: p.Client,
+			Source: p.Source,
+			Down:   rate(int64(p.Down), 1),
+			Up:     rate(int64(p.Up), 1),
+			Seed:   p.Seed,
+		}
+		if p.Of > 0 {
+			v.Have = strconv.Itoa(min(p.Have*100/p.Of, 100)) + "%"
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 type torrentFileView struct {
@@ -67,6 +105,12 @@ func newTorrentPage(ss *torrent.Stats, s torrentService, cfs containerFS, route,
 		page.Missing = true
 		return page, http.StatusNotFound
 	}
+	base := torrentHref(route, hash)
+	page.PrepareURL, page.FreeURL = base+"/prepare", "/cache/torrents/"+hash
+	page.DeleteURL = base + "?redirect=1"
+	page.DeleteQuestion = "Delete “" + t.Name() + "” from " + route + "? Its files disappear from every mount, and links to them stop working."
+	page.Magnet = (&metainfo.Magnet{InfoHash: t.InfoHash(), DisplayName: t.Name()}).String()
+	page.Peers = newPeerViews(t)
 	if ts, err := ss.Stats(hash); err == nil {
 		page.Torrent = newTorrentView(route, ts)
 		page.Title = ts.Name
@@ -131,5 +175,32 @@ var torrentBodyHandler = func(ss *torrent.Stats, s torrentService, cfs container
 	return func(c *gin.Context) {
 		page, _ := newTorrentPage(ss, s, cfs, c.Param("route"), c.Param("hash"))
 		render(c, http.StatusOK, torrentDetailBody(page))
+	}
+}
+
+// torrentPrepareHandler downloads the start and end of each of the torrent's files, so any of
+// them starts at once.
+var torrentPrepareHandler = func(ss *torrent.Stats, cfs containerFS) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		route, hash := c.Param("route"), strings.ToLower(c.Param("hash"))
+		var t dfs.Torrent
+		if ss != nil {
+			t = ss.GetTorrentsInRoute(route)[hash]
+		}
+		if t == nil || cfs == nil {
+			c.String(http.StatusNotFound, "That torrent isn't in this route any more.")
+			return
+		}
+		n := 0
+		for _, f := range torrentFiles(t) {
+			if pf, ok := preparerAt(cfs, path.Join("/", route, f.Path)); ok && pf.Prepare(dfs.PrepareStart) {
+				n++
+			}
+		}
+		triggerEvents(c, map[string]any{
+			"torrent-changed": true,
+			"toast":           toast{Level: "success", Message: "Downloading the start and end of " + countOf(n, "file") + "."},
+		})
+		c.Status(http.StatusOK)
 	}
 }

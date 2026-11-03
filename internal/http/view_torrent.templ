@@ -18,7 +18,32 @@ templ torrentDetailView(p torrentPage) {
 				This torrent isn't in this route any more. <a href="/routes">Go to Routes</a>
 			}
 		} else {
-			@pageHeader(p.Torrent.Name, "Its files, how ready each is to play, and the links that show them.")
+			@pageHeader(p.Torrent.Name, "Its files, how ready each is to play, the links that show them, and its peers.") {
+				<div class="header-actions">
+					<button type="button" class="btn btn-secondary" hx-post={ p.PrepareURL } hx-swap="none">
+						@icon("download")
+						Start and end of every file
+					</button>
+					<button type="button" class="btn btn-secondary" hx-delete={ p.FreeURL } hx-swap="none" hx-confirm={ "Free what “" + p.Torrent.Name + "” has in the cache? Its pieces download again when it's next played." } data-confirm-title="Free cache" data-confirm-label="Free">
+						@icon("hard-drive")
+						Free cache
+					</button>
+					<button type="button" class="btn btn-danger" hx-delete={ p.DeleteURL } hx-swap="none" hx-confirm={ p.DeleteQuestion } data-confirm-title="Delete torrent" data-confirm-label="Delete">
+						@icon("trash-2")
+						Delete
+					</button>
+				</div>
+			}
+			<div class="field torrent-magnet">
+				<label for="torrent-magnet">Magnet link</label>
+				<div class="copy-row">
+					<input type="text" id="torrent-magnet" class="input mono" readonly value={ p.Magnet }/>
+					<button type="button" class="btn btn-secondary" data-copy="torrent-magnet">
+						@icon("copy")
+						<span>Copy</span>
+					</button>
+				</div>
+			</div>
 			@torrentDetailBody(p)
 			<dialog id="file-dialog" aria-labelledby="file-dialog-title">
 				<div id="file-dialog-body"></div>
@@ -29,7 +54,7 @@ templ torrentDetailView(p torrentPage) {
 
 // torrentDetailBody is the part of a torrent's page that refreshes.
 templ torrentDetailBody(p torrentPage) {
-	<div id="torrent-body" class="stack" hx-get={ p.BodyURL } hx-trigger="every 5s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')]" hx-swap="morph:outerHTML" hx-ext="morph">
+	<div id="torrent-body" class="stack" hx-get={ p.BodyURL } hx-trigger="every 5s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], torrent-changed from:body, cache-changed from:body" hx-swap="morph:outerHTML" hx-ext="morph">
 		if p.Missing {
 			@emptyState("folders") {
 				This torrent isn't in this route any more. <a href="/routes">Go to Routes</a>
@@ -100,6 +125,41 @@ templ torrentDetailBody(p torrentPage) {
 							</li>
 						}
 					</ul>
+				}
+			</section>
+			<section class="card" aria-labelledby="torrent-peers-title">
+				<div class="card-header">
+					<h2 id="torrent-peers-title">Peers</h2>
+					<span class="card-meta">{ countOf(len(p.Peers), "connected peer") }</span>
+				</div>
+				if len(p.Peers) == 0 {
+					<p class="muted">No peers are connected. A torrent being read finds them from its trackers, the DHT and the peers it saved.</p>
+				} else {
+					<div class="table-scroll">
+						<table class="peer-table">
+							<thead>
+								<tr><th scope="col">Address</th><th scope="col">Client</th><th scope="col">Found by</th><th scope="col">Has</th><th scope="col" class="num">Down</th><th scope="col" class="num">Up</th></tr>
+							</thead>
+							<tbody>
+								for _, pr := range p.Peers {
+									<tr id={ pr.ID }>
+										<td class="mono">{ pr.Addr }</td>
+										<td>{ pr.Client }</td>
+										<td>{ pr.Source }</td>
+										<td>
+											if pr.Seed {
+												<span class="pill tone-ok">Seeder</span>
+											} else {
+												{ pr.Have }
+											}
+										</td>
+										<td class="num">{ pr.Down }</td>
+										<td class="num">{ pr.Up }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
 				}
 			</section>
 		}
