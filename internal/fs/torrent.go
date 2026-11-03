@@ -750,6 +750,8 @@ type torrentFileHandle struct {
 	syncedPiece int
 	// act is what the dashboard shows of the handle's reads (activity.go), made on its first
 	act *handleActivity
+	// quiet marks a handle distribyted reads through itself, whose reads aren't playing
+	quiet bool
 }
 
 // syncAhead checks the pieces a read at off and its readahead will need for ones the piece cache

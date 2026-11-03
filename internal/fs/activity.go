@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Apollogeddon/distribyted/internal/media"
 )
 
 // Every handle that reads a torrent's file is tracked while it reads, so the dashboard can
@@ -31,6 +33,9 @@ type handleActivity struct {
 	openedAt time.Time
 	// nearEnd is set once the handle has read past nearEndPercent of its file
 	nearEnd atomic.Bool
+	// quiet is set for the handle distribyted reads a file's duration through: it isn't a
+	// player, so its reads don't count as playing
+	quiet bool
 	// waitingSince is when the read in progress started, in Unix nanoseconds, or 0
 	waitingSince atomic.Int64
 
@@ -52,8 +57,10 @@ func (h *torrentFileHandle) activity() *handleActivity {
 	if h.act != nil {
 		return h.act
 	}
-	a := &handleActivity{file: h.torrentFile, openedAt: h.openedAt}
-	if h.closed {
+	a := &handleActivity{file: h.torrentFile, openedAt: h.openedAt, quiet: h.quiet}
+	// a closed handle's reads aren't kept, nor those distribyted makes itself
+	if h.closed || h.quiet {
+		h.act = a
 		return a
 	}
 	h.act = a
@@ -77,7 +84,7 @@ func (a *handleActivity) start() { a.waitingSince.Store(time.Now().UnixNano()) }
 
 func (a *handleActivity) done(off int64, n int) {
 	a.waitingSince.Store(0)
-	if n <= 0 {
+	if n <= 0 || a.quiet {
 		return
 	}
 	now := time.Now()
@@ -121,9 +128,15 @@ type ReadActivity struct {
 	Waiting time.Duration
 	// Abandoned is how many reads of the file gave up on their deadline, ever.
 	Abandoned int64
-	Peers     int
-	Since     time.Time // when the first handle reading it was opened
-	LastRead  time.Time
+	// Duration is how long the file plays for, read from its header, or 0 when it isn't a
+	// video or audio file, or the header hasn't been read (yet).
+	Duration time.Duration
+	// Cached divides the file into cachedSegments parts, each set when all of its pieces are
+	// in the cache.
+	Cached   []bool
+	Peers    int
+	Since    time.Time // when the first handle reading it was opened
+	LastRead time.Time
 }
 
 // ActiveReads lists the files read in the last activityIdle, or waiting on a read now, the
@@ -188,6 +201,10 @@ func ActiveReads() []ReadActivity {
 		if f != nil && f.pieces != nil {
 			r.Ahead = f.pieces.cachedAhead(r.Pos)
 			r.Peers = f.pieces.t.Stats().ActivePeers
+			r.Cached = f.cachedSegments()
+		}
+		if f != nil {
+			r.Duration = f.duration()
 		}
 		out = append(out, *r)
 	}
@@ -240,4 +257,102 @@ func AbandonedSince(t time.Time) int {
 		}
 	}
 	return n
+}
+
+// cachedSegments is how many parts a file's cached map has.
+const cachedSegments = 80
+
+// segmentsTTL is how long a file's cached map is kept before it's read again: reading it
+// asks storage about every piece.
+const segmentsTTL = 10 * time.Second
+
+var segmentCache = struct {
+	sync.Mutex
+	m map[*torrentFile]segmentEntry
+}{m: map[*torrentFile]segmentEntry{}}
+
+type segmentEntry struct {
+	at   time.Time
+	segs []bool
+}
+
+func (f *torrentFile) cachedSegments() []bool {
+	now := time.Now()
+	segmentCache.Lock()
+	e, ok := segmentCache.m[f]
+	segmentCache.Unlock()
+	if ok && now.Sub(e.at) < segmentsTTL {
+		return e.segs
+	}
+	segs := f.pieces.segments(cachedSegments)
+	segmentCache.Lock()
+	for k, v := range segmentCache.m {
+		if now.Sub(v.at) > time.Minute {
+			delete(segmentCache.m, k)
+		}
+	}
+	segmentCache.m[f] = segmentEntry{at: now, segs: segs}
+	segmentCache.Unlock()
+	return segs
+}
+
+// segments divides the file into n parts and reports, for each, whether all of its pieces
+// are cached.
+func (s *pieceSync) segments(n int) []bool {
+	out := make([]bool, n)
+	if s.length <= 0 {
+		return out
+	}
+	begin, end := s.pieceRange(0, s.length)
+	cached := make([]bool, end-begin)
+	for i := range cached {
+		cached[i] = s.cached(begin + i)
+	}
+	for k := range out {
+		lo, hi := s.length*int64(k)/int64(n), s.length*int64(k+1)/int64(n)
+		b, e := s.pieceRange(lo, max(hi-lo, 1))
+		all := e > b
+		for i := b; i < e && all; i++ {
+			all = cached[i-begin]
+		}
+		out[k] = all
+	}
+	return out
+}
+
+// durations remembers each file's duration, read once from its header in the background.
+var durations = struct {
+	sync.Mutex
+	m map[*torrentFile]durationEntry
+}{m: map[*torrentFile]durationEntry{}}
+
+type durationEntry struct {
+	d time.Duration
+}
+
+// duration is how long f plays for, or 0 while its header is being read, or when it isn't
+// a video or audio file. The first ask starts the read.
+func (f *torrentFile) duration() time.Duration {
+	if !media.IsTimed(f.path) {
+		return 0
+	}
+	durations.Lock()
+	e, ok := durations.m[f]
+	if !ok {
+		durations.m[f] = durationEntry{}
+	}
+	durations.Unlock()
+	if ok {
+		return e.d
+	}
+	go func() {
+		h := f.NewHandle()
+		h.quiet = true
+		d, _ := media.Duration(h, f.len, f.path)
+		_ = h.Close()
+		durations.Lock()
+		durations.m[f] = durationEntry{d: d}
+		durations.Unlock()
+	}()
+	return 0
 }

@@ -90,6 +90,10 @@ func TestTorrentFile_PrepareStart(t *testing.T) {
 	require.True(t, r.Ready())
 	// the fixture's files are smaller than prepareStart, so all of it
 	require.Equal(t, r.Size, r.Cached)
+	tf := f.(*torrentFileHandle).torrentFile
+	for i, seg := range tf.pieces.segments(8) {
+		require.True(t, seg, "part %d is cached", i)
+	}
 	require.Equal(t, PrepareStart, r.Asked)
 
 	require.True(t, p.Prepare(PrepareNone))

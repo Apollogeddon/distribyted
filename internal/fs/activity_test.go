@@ -1,6 +1,10 @@
 package fs
 
 import (
+	"bytes"
+	"context"
+	"encoding/binary"
+	"math"
 	"testing"
 	"time"
 
@@ -132,4 +136,65 @@ func TestActivity_NearEndFiresOnce(t *testing.T) {
 		t.Fatal("a small file isn't an episode")
 	case <-time.After(50 * time.Millisecond):
 	}
+}
+
+// bytesReader is a torrent.Reader over a file's bytes.
+type bytesReader struct{ *bytes.Reader }
+
+func (bytesReader) SetContext(context.Context)             {}
+func (bytesReader) SetReadahead(int64)                     {}
+func (bytesReader) SetReadaheadFunc(torrent.ReadaheadFunc) {}
+func (bytesReader) SetResponsive()                         {}
+func (bytesReader) Close() error                           { return nil }
+func (b bytesReader) ReadContext(_ context.Context, p []byte) (int, error) {
+	return b.Read(p)
+}
+
+// mkvOf is a Matroska header saying the file plays for ms milliseconds.
+func mkvOf(ms float64) []byte {
+	el := func(id []byte, data ...[]byte) []byte {
+		body := bytes.Join(data, nil)
+		return append(append(append([]byte{}, id...), 0x80|byte(len(body))), body...)
+	}
+	d := make([]byte, 8)
+	binary.BigEndian.PutUint64(d, math.Float64bits(ms))
+	return append(el([]byte{0x1A, 0x45, 0xDF, 0xA3}),
+		el([]byte{0x18, 0x53, 0x80, 0x67}, el([]byte{0x15, 0x49, 0xA9, 0x66}, el([]byte{0x44, 0x89}, d)))...)
+}
+
+// A video's duration is read once, in the background, by reads that don't count as playing;
+// a book's never is.
+func TestActiveReads_Duration(t *testing.T) {
+	data := append(mkvOf(3_600_000), make([]byte, 1000)...)
+	f := activityFile(t, nil)
+	f.path, f.len = "Film/film.mkv", int64(len(data))
+	f.readerFunc = func() torrent.Reader { return bytesReader{bytes.NewReader(data)} }
+	h := f.NewHandle()
+	defer func() { _ = h.Close() }()
+	_, _ = h.ReadAt(make([]byte, 10), 500)
+
+	require.Eventually(t, func() bool {
+		r, ok := activeFor("Film/film.mkv")
+		return ok && r.Duration == time.Hour
+	}, 5*time.Second, 10*time.Millisecond)
+	n := 0
+	for _, r := range ActiveReads() {
+		if r.Path == "Film/film.mkv" {
+			n++
+		}
+	}
+	require.Equal(t, 1, n, "the header read isn't a second stream")
+
+	book := activityFile(t, &stubTorrentReader{data: make([]byte, 10)})
+	book.path = "Books/book.epub"
+	require.Zero(t, book.duration())
+	durations.Lock()
+	_, asked := durations.m[book]
+	durations.Unlock()
+	require.False(t, asked, "a book is never read for a duration")
+}
+
+func TestPieceSync_Segments(t *testing.T) {
+	s := &pieceSync{length: 0, pieceLen: 16}
+	require.Len(t, s.segments(4), 4)
 }
