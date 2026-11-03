@@ -41,13 +41,15 @@ func TestBanner(t *testing.T) {
 	require.Equal(t, "/links?show=attention", items[3].Href)
 }
 
-// Every page loads the banner, which comes from its own endpoint.
+// Every page but the dashboard loads the banner, which comes from its own endpoint.
 func TestBanner_OnEveryPage(t *testing.T) {
 	stubBanner(t, nil, 2)
 	r := filesRouter(t, newTree(t), nil)
-	for _, p := range []string{"/", "/routes", "/files", "/links", "/cache", "/logs", "/servers"} {
+	for _, p := range []string{"/routes", "/files", "/links", "/cache", "/logs", "/servers"} {
 		require.Contains(t, get(r, p).Body.String(), `id="health-banner"`, p)
 	}
+	// the dashboard says the same in its own words
+	require.NotContains(t, get(r, "/").Body.String(), `id="health-banner"`)
 	body := get(r, "/banner").Body.String()
 	require.Contains(t, body, "2 reads gave up waiting for data in the last hour.")
 	require.Contains(t, body, `href="/logs?level=error"`)

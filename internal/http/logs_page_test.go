@@ -90,7 +90,8 @@ func TestDashboard(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	body := w.Body.String()
 	require.Contains(t, body, `<svg viewBox="0 0 300 100"`, "the chart is drawn on the server")
-	require.Contains(t, body, "Not in use", "no cache configured")
+	require.Contains(t, body, ">Off<", "no cache configured")
+	require.Contains(t, body, "Nothing is playing.")
 	for _, gone := range []string{"jquery", "handlebars", "toastr", "bootstrap", "common.js", "Chart.min.js", "sleek", "materialdesignicons"} {
 		require.NotContains(t, body, gone)
 	}

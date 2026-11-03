@@ -15,12 +15,24 @@ after a start. Each has a link to where to look next.
 
 ## Dashboard
 
-Download and upload speed, the cache in use, and a chart of the last minute's speeds.
+The dashboard opens with a sentence on what's playing, and names the first stream in
+trouble. Below it, one line of figures: download and upload speed with the last minute's
+trend, how many streams are playing, how many torrents are short of seeders, how many links
+are waiting or missing, and how full the piece cache is. Each of the last three opens the
+page with the detail.
 
-**Now playing** lists the files being read, as a player streams them: how far in each is,
-how fast it's read, how much of what comes next is cached, and its torrent's peers. A file
-whose read has waited more than two seconds for data, or whose torrent has no peers left
-with little cached ahead, is flagged, so a buffering stream shows why.
+**Now playing** lists the files being read, as a player streams them. Each has a rail like
+a player's: what has played, in the text colour; what's cached ahead of it, in cyan; and,
+under it, which parts of the whole file are cached. For a video or audio file (MKV, WebM,
+MP4, MOV, M4A, FLAC or MP3), distribyted reads how long it plays from its header, once, and
+shows the position and what's buffered as times; for anything else, such as a book, a PDF
+or a ROM, they're in bytes. The position is estimated from how far into the file the player
+reads, so it's approximate for a file whose bitrate varies. A stream whose read has waited
+more than two seconds, or whose torrent has no peers left with little cached ahead, says why.
+
+Colours keep one meaning across the interface: indigo for what you can press or follow,
+cyan for cached data, and green, amber and red for health. Paused and connecting are grey,
+as they need nothing from you.
 
 {{< screenshot name="dashboard" alt="The dashboard" >}}
 

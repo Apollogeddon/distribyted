@@ -252,6 +252,19 @@ func (s *Stats) Stats(hash string) (*TorrentStats, error) {
 	return s.stats(now, t, true), nil
 }
 
+// Brief is every torrent's figures, without the piece map RoutesStats reads: cheap enough to
+// refresh every couple of seconds.
+func (s *Stats) Brief() []*TorrentStats {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	now := time.Now()
+	out := make([]*TorrentStats, 0, len(s.torrents))
+	for _, t := range s.torrents {
+		out = append(out, s.stats(now, t, false))
+	}
+	return out
+}
+
 func (s *Stats) RoutesStats() []*RouteStats {
 	s.mut.Lock()
 	defer s.mut.Unlock()

@@ -683,17 +683,69 @@ dialog:has(.combo) { overflow: visible; }
 .login-card .brand-mark { width: 38px; height: 38px; border-radius: 11px; }
 .login-card .brand-mark .icon { width: 22px; height: 22px; }
 
-/* ---- Now playing ---- */
+/* ---- Dashboard ---- */
 
+.dashboard > * + * { margin-top: 1.25rem; }
 .muted { margin: 0; padding: 1rem 1.25rem; color: var(--text-3); font-size: 0.9rem; }
-.playing-item { padding: 0.9rem 1.25rem; }
-.playing-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
-.playing-title { min-width: 0; }
-.playing-name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.playing-torrent { margin: 0.1rem 0 0; color: var(--text-3); font-size: 0.85rem; overflow-wrap: anywhere; }
-.playing-item .meter { margin-top: 0.6rem; }
-.playing-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.5rem 0 0; color: var(--text-2); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-.playing-item .health-text { display: block; margin: 0.35rem 0 0; }
+.dash-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem 1.5rem; }
+.dash-top h1 { font-size: 1.6rem; }
+.verdict { margin: 0; color: var(--text-2); }
+.verdict strong { color: var(--warn); font-weight: 600; margin-left: 0.25rem; }
+
+/* one ruled line of figures, each linking to where its detail is */
+.status-line {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.status-item { display: block; min-width: 0; padding: 0.85rem 1.1rem 0.95rem; border-left: 1px solid var(--border); color: var(--text); }
+.status-item:first-child { border-left: 0; }
+a.status-item:hover { background: var(--surface-2); text-decoration: none; }
+a.status-item:first-of-type { border-radius: 0; }
+.status-line > :last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.status-label { margin: 0; color: var(--text-3); font-size: 0.8125rem; }
+.status-value { margin: 0.15rem 0 0; font-size: 1.35rem; font-weight: 650; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.status-note { margin: 0.1rem 0 0; color: var(--text-2); font-size: 0.8125rem; }
+.status-note.go { color: var(--accent-text); }
+.status-note.warn { color: var(--warn); }
+.spark { display: block; width: 100%; height: 22px; margin-top: 0.35rem; }
+.spark polyline { fill: none; stroke-width: 1.5; }
+.spark.down polyline { stroke: var(--chart-down); }
+.spark.up polyline { stroke: var(--chart-up); }
+.status-gauge { height: 4px; margin-top: 0.55rem; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.status-gauge > span { display: block; height: 100%; background: var(--data); }
+
+/* a stream: its rail shows what has played, then what's cached ahead, then the rest */
+.stream { padding: 1rem 1.25rem 1.1rem; }
+.stream-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.stream-title { min-width: 0; }
+.stream-name { margin: 0; font-size: 1rem; font-weight: 650; overflow-wrap: anywhere; }
+.stream-source { margin: 0.1rem 0 0; color: var(--text-3); font-size: 0.8125rem; overflow-wrap: anywhere; }
+.rail { position: relative; height: 8px; margin-top: 0.85rem; border-radius: 999px; background: var(--surface-2); }
+.rail-buffer, .rail-played { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+.rail-buffer { background: var(--data); }
+.rail-played { background: var(--text); }
+.rail-head { position: absolute; top: -3px; width: 3px; height: 14px; margin-left: -1px; border-radius: 2px; background: var(--text); }
+.cached-map { display: flex; gap: 1px; height: 5px; margin-top: 4px; }
+.cached-map > i { flex: 1; border-radius: 1px; background: var(--surface-2); }
+.cached-map > i.on { background: var(--data); opacity: 0.75; }
+.stream-facts { display: flex; flex-wrap: wrap; gap: 0.2rem 1.4rem; margin: 0.6rem 0 0; color: var(--text-2); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.stream-facts > :first-child { color: var(--text); font-weight: 600; }
+.stream-why { margin: 0.35rem 0 0; color: var(--warn); font-size: 0.8125rem; }
+.stream-why a { margin-left: 0.25rem; }
+.chart-line.up { stroke-dasharray: 4 3; stroke-width: 1.75; }
+
+@media (max-width: 1099.98px) {
+  .status-line { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .status-item:nth-child(4) { border-left: 0; }
+  .status-item:nth-child(n + 4) { border-top: 1px solid var(--border); }
+  .status-line > :last-child { border-radius: 0 0 var(--radius) 0; }
+}
+@media (max-width: 599.98px) {
+  .status-line { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
+  .status-item { flex: 0 0 9.5rem; scroll-snap-align: start; border-top: 0 !important; border-left: 1px solid var(--border) !important; }
+  .status-item:first-child { border-left: 0 !important; }
+  .dash-top h1 { font-size: 1.35rem; }
+}
 
 /* a page's search box and sort, above its list */
 form.filters { margin-bottom: 1rem; }
@@ -722,7 +774,6 @@ form.filters { margin-bottom: 1rem; }
 .cached .meter { margin-top: 0.5rem; }
 .cached .meter > span { background: var(--data); }
 .cached-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.45rem 0 0; color: var(--text-2); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-.kpi-link { margin: 0.6rem 0 0 !important; font-size: 0.875rem; }
 
 /* the banner every page carries when streaming is in trouble */
 .banner-stack:empty { display: none; }

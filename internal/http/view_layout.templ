@@ -112,7 +112,10 @@ templ page(title, active string) {
 							@icon("wifi-off")
 							<span><strong>Can't reach distribyted.</strong> What you see may be out of date. Retrying…</span>
 						</div>
-						@healthBanner(nil)
+						// the dashboard says the same itself
+						if active != "dashboard" {
+							@healthBanner(nil)
+						}
 						{ children... }
 					</main>
 				</div>
