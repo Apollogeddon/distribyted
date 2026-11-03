@@ -4,14 +4,14 @@
 
 :root {
   color-scheme: light;
-  --bg: #f3f5f8;
+  --bg: #eaeff6;
   --surface: #ffffff;
-  --surface-2: #eef1f5;
-  --border: #dfe4ea;
-  --border-strong: #c8d0da;
+  --surface-2: #e9eef4;
+  --border: #d9e0e9;
+  --border-strong: #c3ccd8;
   --text: #0f1720;
   --text-2: #475266;
-  --text-3: #626d80;
+  --text-3: #5d6879;
   /* things to press or follow: links, buttons, the current page */
   --accent: #3b44d6;
   --accent-hover: #2f37b8;
@@ -31,7 +31,7 @@
   --danger-soft: #fde4e2;
   /* states that need nothing from you: paused, connecting */
   --idle: #556074;
-  --idle-soft: #eaedf2;
+  --idle-soft: #e4e9f0;
   --info: #2f5fd0;
   --info-soft: #e2eafb;
   --chart-down: var(--data);
@@ -51,17 +51,17 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #10141c;
-    --surface: #161b25;
-    --surface-2: #1c2230;
-    --border: #273041;
-    --border-strong: #364156;
+    --bg: #0f1726;
+    --surface: #152033;
+    --surface-2: #1b2638;
+    --border: #273347;
+    --border-strong: #35435a;
     --text: #e6e9ef;
     --text-2: #a9b1c0;
     --text-3: #8b94a5;
     --accent: #9aa2ff;
     --accent-hover: #b3b9ff;
-    --on-accent: #10141c;
+    --on-accent: #0f1726;
     --accent-soft: rgba(154, 162, 255, 0.13);
     --accent-text: #b3b9ff;
     --data: #3ccbe4;
@@ -89,17 +89,17 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #10141c;
-  --surface: #161b25;
-  --surface-2: #1c2230;
-  --border: #273041;
-  --border-strong: #364156;
+  --bg: #0f1726;
+  --surface: #152033;
+  --surface-2: #1b2638;
+  --border: #273347;
+  --border-strong: #35435a;
   --text: #e6e9ef;
   --text-2: #a9b1c0;
   --text-3: #8b94a5;
   --accent: #9aa2ff;
   --accent-hover: #b3b9ff;
-  --on-accent: #10141c;
+  --on-accent: #0f1726;
   --accent-soft: rgba(154, 162, 255, 0.13);
   --accent-text: #b3b9ff;
   --data: #3ccbe4;
