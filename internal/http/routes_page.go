@@ -260,25 +260,28 @@ func newTorrentView(route string, ts *torrent.TorrentStats) torrentView {
 	return tv
 }
 
+// torrentHealth is a torrent's swarm health. Large pieces are a fact about the torrent, not a
+// fault in its swarm: they're said, but don't make it need attention.
 func torrentHealth(ts *torrent.TorrentStats) health {
-	var reasons []string
+	var note string
 	if ts.PieceSize > largePiece {
-		reasons = append(reasons, fmt.Sprintf("Pieces are %s, so the first read of each part of a file waits longer. 1 MiB or less starts faster.", humanize.IBytes(uint64(ts.PieceSize))))
+		note = fmt.Sprintf("Pieces are %s, so the first read of each part of a file waits longer. 1 MiB or less starts faster.", humanize.IBytes(uint64(ts.PieceSize)))
 	}
 	settled := time.Duration(ts.AgeSeconds*float64(time.Second)) >= seederGrace
+	var problem string
 	switch {
 	case settled && ts.Peers == 0:
-		reasons = append(reasons, "No peers are connected, so nothing more can be downloaded.")
+		problem = "No peers are connected, so nothing more can be downloaded."
 	case settled && ts.Seeders < 2:
-		reasons = append(reasons, fmt.Sprintf("Only %d seeder%s connected, so reads may be slow.", ts.Seeders, plural(ts.Seeders)))
+		problem = fmt.Sprintf("Only %d seeder%s connected, so reads may be slow.", ts.Seeders, plural(ts.Seeders))
 	}
-	if len(reasons) == 0 {
-		if !settled && ts.Seeders < 2 {
-			return health{Level: "wait", Label: "Connecting", Reason: "Finding peers for this torrent."}
-		}
-		return health{Level: "ok", Label: "Healthy"}
+	switch {
+	case problem != "":
+		return health{Level: "warn", Label: "Needs attention", Reason: strings.TrimSpace(problem + " " + note)}
+	case !settled && ts.Seeders < 2:
+		return health{Level: "wait", Label: "Connecting", Reason: "Finding peers for this torrent."}
 	}
-	return health{Level: "warn", Label: "Needs attention", Reason: strings.Join(reasons, " ")}
+	return health{Level: "ok", Label: "Healthy", Reason: note}
 }
 
 func rate(bytes int64, seconds float64) string {
