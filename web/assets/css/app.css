@@ -678,3 +678,9 @@ dialog:has(.combo) { overflow: visible; }
 .playing-item .meter { margin-top: 0.6rem; }
 .playing-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.5rem 0 0; color: var(--text-2); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .playing-item .health-text { display: block; margin: 0.35rem 0 0; }
+
+/* a page's search box and sort, above its list */
+.filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.filters input[type="search"] { flex: 1 1 14rem; min-width: 0; }
+.filters select { flex: 0 1 auto; width: auto; }
+.filter-count { margin: 0; color: var(--text-3); font-size: 0.875rem; }

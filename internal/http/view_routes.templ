@@ -10,6 +10,17 @@ templ routesView(p routesPage) {
 				Add magnet
 			</button>
 		}
+		<form class="filters" role="search" hx-get="/routes/table" hx-target="#routes" hx-swap="outerHTML" hx-trigger="input delay:300ms, change, submit" hx-sync="this:replace">
+			<input type="hidden" name="push" value="1"/>
+			<label class="sr-only" for="routes-q">Search torrents</label>
+			<input type="search" id="routes-q" name="q" value={ p.Query } class="input" placeholder="Search torrents" autocomplete="off" spellcheck="false"/>
+			<label class="sr-only" for="routes-sort">Sort by</label>
+			<select id="routes-sort" name="sort" class="input">
+				for _, o := range p.Sorts {
+					<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+				}
+			</select>
+		</form>
 		@routesTable(p)
 		<dialog id="add-magnet" aria-labelledby="add-magnet-title">
 			@dialogHead("add-magnet-title", "Add a magnet")
@@ -21,7 +32,10 @@ templ routesView(p routesPage) {
 // routesTable is the part of the Routes page that refreshes. It waits while a dialog is open,
 // so a refresh can't move a button out from under a confirmation.
 templ routesTable(p routesPage) {
-	<section id="routes" class="stack" aria-label="Routes" hx-get="/routes/table" hx-trigger="every 2s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], routes-changed from:body" hx-swap="morph:outerHTML" hx-ext="morph">
+	<section id="routes" class="stack" aria-label="Routes" hx-get={ p.TableURL } hx-trigger="every 2s [document.visibilityState === 'visible' && !document.querySelector('dialog[open]')], routes-changed from:body" hx-swap="morph:outerHTML" hx-ext="morph">
+		if p.Filtered() {
+			<p class="filter-count" role="status">{ fmt.Sprintf("%d of %s match “%s”", p.Shown, countOf(p.Total, "torrent"), p.Query) }</p>
+		}
 		for _, r := range p.Routes {
 			<article class="card">
 				<header class="card-header">
@@ -29,7 +43,11 @@ templ routesTable(p routesPage) {
 						@icon("folder")
 						{ r.Name }
 					</h2>
-					<span class="card-meta">{ countOf(len(r.Torrents), "torrent") }</span>
+					if len(r.Torrents) != r.Total {
+						<span class="card-meta">{ fmt.Sprintf("%d of %s", len(r.Torrents), countOf(r.Total, "torrent")) }</span>
+					} else {
+						<span class="card-meta">{ countOf(r.Total, "torrent") }</span>
+					}
 				</header>
 				if len(r.Torrents) == 0 {
 					<p class="empty-inline">No torrents yet. Use <strong>Add magnet</strong> to add one.</p>
@@ -42,7 +60,11 @@ templ routesTable(p routesPage) {
 				}
 			</article>
 		}
-		if len(p.Routes) == 0 {
+		if len(p.Routes) == 0 && p.Filtered() {
+			@emptyState("folders") {
+				No torrent's name has every word of “{ p.Query }”.
+			}
+		} else if len(p.Routes) == 0 {
 			@emptyState("folders") {
 				No routes yet. Add one to the <code>routes</code> section of the configuration file.
 			}

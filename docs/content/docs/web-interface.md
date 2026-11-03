@@ -25,6 +25,11 @@ Each route is a folder of torrents. A torrent's row shows its health, how many o
 pieces are here, and its peers. **Add magnet** adds a torrent to a route, and the bin
 button removes one.
 
+The search box above the list keeps the torrents whose name has every word typed, and the
+menu beside it orders them by name, by how much they're moving, with those needing
+attention first, or newest first. Both are part of the page's address, so a reload or a
+bookmark keeps them.
+
 {{< screenshot name="routes" alt="The Routes page" >}}
 
 A magnet link that can't be added says why, without closing the dialog.

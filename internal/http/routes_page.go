@@ -1,10 +1,12 @@
 package http
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +34,13 @@ const (
 type routesPage struct {
 	Title  string
 	Routes []routeView
+	// Query and Sort narrow and order the torrents (routesSorts); TableURL keeps them when
+	// the list refreshes.
+	Query, Sort string
+	TableURL    string
+	Sorts       []sortOption
+	// Shown and Total count the torrents matching Query, and all of them.
+	Shown, Total int
 	// Names is every route a torrent can be added to: the configured ones and any that
 	// only exist because a torrent was added to them.
 	Names []string
@@ -40,7 +49,25 @@ type routesPage struct {
 type routeView struct {
 	Name     string
 	Torrents []torrentView
+	// Total is how many torrents the route has, matching Query or not.
+	Total int
 }
+
+type sortOption struct {
+	Value, Label string
+	Selected     bool
+}
+
+// routesSorts are the orders the Routes page offers, the first the default.
+var routesSorts = []sortOption{
+	{Value: "name", Label: "Name"},
+	{Value: "active", Label: "Most active"},
+	{Value: "attention", Label: "Needs attention first"},
+	{Value: "newest", Label: "Newest"},
+}
+
+// healthRank orders health for the attention sort: problems first.
+var healthRank = map[string]int{"warn": 0, "wait": 1, "ok": 2}
 
 type torrentView struct {
 	// ID keeps each row's element the same from one refresh to the next.
@@ -49,6 +76,9 @@ type torrentView struct {
 	Down, Up          string
 	Peers, Seeders    int
 	PieceSize         string
+	// for sorting: bytes a second moved, and seconds since added
+	activity float64
+	age      float64
 	// Pieces is empty until the torrent's metadata arrives.
 	Pieces   []pieceSegment
 	Progress string
@@ -78,6 +108,12 @@ var pieceClasses = map[torrent.PieceStatus][2]string{
 }
 
 func newRoutesPage(conf *config.Root, ss *torrent.Stats) routesPage {
+	return newRoutesPageFor(conf, ss, "", "")
+}
+
+// newRoutesPageFor lists the torrents whose name holds every word of query, ignoring case,
+// in the order sortBy names (routesSorts).
+func newRoutesPageFor(conf *config.Root, ss *torrent.Stats, query, sortBy string) routesPage {
 	byName := map[string]*routeView{}
 	var names []string
 	add := func(name string) *routeView {
@@ -105,15 +141,71 @@ func newRoutesPage(conf *config.Root, ss *torrent.Stats) routesPage {
 	}
 
 	sort.Strings(names)
-	page := routesPage{Title: "Routes", Names: names}
+	query = strings.TrimSpace(query)
+	if !slices.ContainsFunc(routesSorts, func(o sortOption) bool { return o.Value == sortBy }) {
+		sortBy = routesSorts[0].Value
+	}
+	page := routesPage{Title: "Routes", Names: names, Query: query, Sort: sortBy}
+	page.TableURL = "/routes/table?" + url.Values{"q": {query}, "sort": {sortBy}}.Encode()
+	for _, o := range routesSorts {
+		o.Selected = o.Value == sortBy
+		page.Sorts = append(page.Sorts, o)
+	}
+	words := strings.Fields(strings.ToLower(query))
 	for i, n := range names {
 		rv := *byName[n]
-		for j := range rv.Torrents {
-			rv.Torrents[j].ID = fmt.Sprintf("torrent-%d-%s", i, rv.Torrents[j].Hash)
+		rv.Total = len(rv.Torrents)
+		page.Total += rv.Total
+		var kept []torrentView
+		for _, t := range rv.Torrents {
+			if matchesWords(t.Name+" "+t.Hash, words) {
+				t.ID = fmt.Sprintf("torrent-%d-%s", i, t.Hash)
+				kept = append(kept, t)
+			}
+		}
+		sortTorrents(kept, sortBy)
+		rv.Torrents = kept
+		page.Shown += len(kept)
+		// a search shows only the routes it found something in
+		if len(words) > 0 && len(kept) == 0 {
+			continue
 		}
 		page.Routes = append(page.Routes, rv)
 	}
 	return page
+}
+
+// Filtered reports whether a search is narrowing the list.
+func (p routesPage) Filtered() bool { return p.Query != "" }
+
+func matchesWords(s string, words []string) bool {
+	s = strings.ToLower(s)
+	for _, w := range words {
+		if !strings.Contains(s, w) {
+			return false
+		}
+	}
+	return true
+}
+
+func sortTorrents(ts []torrentView, by string) {
+	slices.SortStableFunc(ts, func(a, b torrentView) int {
+		switch by {
+		case "active":
+			if c := cmp.Compare(b.activity, a.activity); c != 0 {
+				return c
+			}
+		case "attention":
+			if c := cmp.Compare(healthRank[a.Health.Level], healthRank[b.Health.Level]); c != 0 {
+				return c
+			}
+		case "newest":
+			if c := cmp.Compare(a.age, b.age); c != 0 {
+				return c
+			}
+		}
+		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
 }
 
 // Form is the empty add-magnet form the page starts with.
@@ -132,6 +224,10 @@ func newTorrentView(route string, ts *torrent.TorrentStats) torrentView {
 		Peers:     ts.Peers,
 		Seeders:   ts.Seeders,
 		PieceSize: humanize.IBytes(uint64(max(ts.PieceSize, 0))),
+		age:       ts.AgeSeconds,
+	}
+	if ts.TimePassed > 0 {
+		tv.activity = float64(ts.DownloadedBytes+ts.UploadedBytes) / ts.TimePassed
 	}
 
 	if ts.TotalPieces == 0 || len(ts.PieceChunks) == 0 {
@@ -199,14 +295,20 @@ func plural(n int) string {
 
 var routesHandler = func(conf *config.Root, ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, routesView(newRoutesPage(conf, ss)))
+		render(c, http.StatusOK, routesView(newRoutesPageFor(conf, ss, c.Query("q"), c.Query("sort"))))
 	}
 }
 
-// routesTableHandler renders just the routes, which the page polls.
+// routesTableHandler renders just the routes, which the page polls. The search form asks for
+// them with push set, and gets the page's own address back for the address bar, so a search
+// survives a reload.
 var routesTableHandler = func(conf *config.Root, ss *torrent.Stats) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, routesTable(newRoutesPage(conf, ss)))
+		page := newRoutesPageFor(conf, ss, c.Query("q"), c.Query("sort"))
+		if c.Query("push") != "" {
+			c.Header("HX-Push-Url", "/routes?"+url.Values{"q": {page.Query}, "sort": {page.Sort}}.Encode())
+		}
+		render(c, http.StatusOK, routesTable(page))
 	}
 }
 
