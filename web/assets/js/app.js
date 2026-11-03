@@ -92,22 +92,6 @@
         }
     };
 
-    // the theme button switches between light and dark, and remembers the choice
-    function themeLabel() {
-        var label = document.querySelector("[data-theme-label]");
-        if (label) label.textContent = document.documentElement.dataset.themeCurrent === "dark" ? "Light theme" : "Dark theme";
-    }
-    themeLabel();
-    document.addEventListener("click", function (e) {
-        if (!e.target.closest("[data-theme-toggle]")) return;
-        var root = document.documentElement;
-        var next = root.dataset.themeCurrent === "dark" ? "light" : "dark";
-        root.dataset.theme = next;
-        try { localStorage.setItem("theme", next); } catch (err) { /* storage blocked */ }
-        if (window.DistribytedTheme) window.DistribytedTheme.resolve();
-        themeLabel();
-    });
-
     // dialogs open and close from buttons with data-open-dialog="id" and data-close-dialog
     document.addEventListener("click", function (e) {
         var open = e.target.closest("[data-open-dialog]");

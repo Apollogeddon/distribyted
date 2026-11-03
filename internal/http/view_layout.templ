@@ -44,8 +44,6 @@ templ head(title string) {
 	<link rel="stylesheet" href="/assets/css/app.css"/>
 	// a form that fails validation answers 422 with the form and its errors, which htmx swaps in
 	<meta name="htmx-config" content={ htmxConfig }/>
-	// sets the chosen theme before the page draws, so it doesn't flash the other one
-	<script src="/assets/js/theme.js"></script>
 }
 
 // page is the shell: the sidebar, the top bar phones get, and the dialogs and toasts the
@@ -81,15 +79,6 @@ templ page(title, active string) {
 						</ul>
 					</nav>
 					<div class="sidebar-foot">
-						<a class="nav-link" href="/fs" target="_blank" rel="noopener">
-							@icon("external-link")
-							Browse over HTTP
-						</a>
-						<button type="button" class="nav-button" data-theme-toggle>
-							@icon("moon", "theme-dark")
-							@icon("sun", "theme-light")
-							<span data-theme-label>Theme</span>
-						</button>
 						// a POST form, so another site can't log you out with a link or an image
 						<form method="post" action="/logout">
 							<button type="submit" class="nav-button">

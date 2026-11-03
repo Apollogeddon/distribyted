@@ -1,6 +1,6 @@
 /* distribyted's interface. The pages are rendered in Go (internal/http/*.templ); this is
-   all the styling they use. Colours are tokens with a light and a dark set: the dark set
-   follows the system unless the theme button picks one (data-theme on <html>). */
+   all the styling they use. Colours are tokens with a light and a dark set; the dark set
+   follows the system's setting. */
 
 :root {
   color-scheme: light;
@@ -49,7 +49,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     color-scheme: dark;
     --bg: #161616;
     --surface: #1f1f1f;
@@ -85,43 +85,6 @@
     --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
     --focus: 0 0 0 3px rgba(129, 140, 248, 0.45);
   }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #161616;
-  --surface: #1f1f1f;
-  --surface-2: #282828;
-  --border: #343434;
-  --border-strong: #464646;
-  --text: #ebebeb;
-  --text-2: #bababa;
-  --text-3: #9b9b9b;
-  --accent: #9aa2ff;
-  --accent-hover: #b3b9ff;
-  --on-accent: #161616;
-  --accent-soft: rgba(154, 162, 255, 0.13);
-  --accent-text: #b3b9ff;
-  --data: #3ccbe4;
-  --data-soft: rgba(60, 203, 228, 0.16);
-  --ok: #4fd18b;
-  --ok-soft: rgba(79, 209, 139, 0.13);
-  --warn: #f2b443;
-  --warn-soft: rgba(242, 180, 67, 0.13);
-  --danger: #ff7a73;
-  --danger-hover: #ffa29d;
-  --danger-soft: rgba(255, 122, 115, 0.14);
-  --idle: #bababa;
-  --idle-soft: rgba(186, 186, 186, 0.12);
-  --info: #93b4ff;
-  --info-soft: rgba(147, 180, 255, 0.14);
-  --chart-down: var(--data);
-  --chart-up: var(--text-3);
-  --backdrop: rgba(0, 0, 0, 0.6);
-  --shadow-sm: none;
-  --shadow: 0 0 0 1px rgba(255, 255, 255, 0.02);
-  --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
-  --focus: 0 0 0 3px rgba(129, 140, 248, 0.45);
 }
 
 /* ---- Base ---- */
@@ -276,8 +239,7 @@ button, input, select { font: inherit; color: inherit; }
 .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
-:root[data-theme="dark"] .btn-danger { color: #1a0b0b; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-danger { color: #1a0b0b; } }
+@media (prefers-color-scheme: dark) { .btn-danger { color: #1a0b0b; } }
 
 .btn-icon {
   display: inline-flex; align-items: center; justify-content: center;
@@ -669,9 +631,6 @@ dialog:has(.combo) { overflow: visible; }
 
 .brand-row { display: flex; align-items: center; }
 /* the theme button shows what it switches to */
-.theme-light, .theme-dark { display: none; }
-:root[data-theme-current="dark"] .theme-light,
-:root[data-theme-current="light"] .theme-dark { display: inline; }
 
 .brand-mark {
   display: inline-grid; place-items: center; flex: none;
