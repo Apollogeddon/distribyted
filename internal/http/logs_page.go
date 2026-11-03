@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,8 +26,10 @@ const (
 var logLevels = []string{"all", "error", "warn", "info", "debug"}
 
 type logsPage struct {
-	Title   string
-	Level   string
+	Title string
+	Level string
+	// Query keeps the lines holding every word typed, in the message, component or fields.
+	Query   string
 	Filters []logFilter
 	ListURL string
 	Lines   []logLine
@@ -47,18 +50,27 @@ type logLine struct {
 
 type logField struct{ Key, Value string }
 
-func newLogsPage(logPath, level string) logsPage {
+func newLogsPage(logPath, level, query string) logsPage {
 	if level == "" || !contains(logLevels, level) {
 		level = "all"
 	}
-	page := logsPage{Title: "Logs", Level: level, ListURL: "/logs/list?level=" + url.QueryEscape(level)}
+	query = strings.TrimSpace(query)
+	params := func(l string) string {
+		v := url.Values{"level": {l}}
+		if query != "" {
+			v.Set("q", query)
+		}
+		return v.Encode()
+	}
+	page := logsPage{Title: "Logs", Level: level, Query: query, ListURL: "/logs/list?" + params(level)}
 	for _, l := range logLevels {
 		label := map[string]string{"all": "All", "error": "Errors", "warn": "Warnings", "info": "Info", "debug": "Debug"}[l]
 		page.Filters = append(page.Filters, logFilter{
 			Level: l, Label: label, Active: l == level,
-			Href: "/logs?level=" + l, ListURL: "/logs/list?level=" + l,
+			Href: "/logs?" + params(l), ListURL: "/logs/list?" + params(l),
 		})
 	}
+	words := strings.Fields(strings.ToLower(query))
 
 	lines, err := tailLog(logPath)
 	if err != nil {
@@ -67,7 +79,7 @@ func newLogsPage(logPath, level string) logsPage {
 	}
 	for i := len(lines) - 1; i >= 0 && len(page.Lines) < logMaxLines; i-- {
 		l := lines[i]
-		if level != "all" && l.Level != level {
+		if level != "all" && l.Level != level || !matchesWords(l.searchText(), words) {
 			continue
 		}
 		page.Lines = append(page.Lines, l)
@@ -151,6 +163,16 @@ func parseLogLine(b []byte) logLine {
 	return l
 }
 
+// searchText is what a search looks in.
+func (l logLine) searchText() string {
+	var b strings.Builder
+	b.WriteString(l.Message + " " + l.Component)
+	for _, f := range l.Fields {
+		b.WriteString(" " + f.Key + "=" + f.Value)
+	}
+	return b.String()
+}
+
 func contains(list []string, s string) bool {
 	for _, v := range list {
 		if v == s {
@@ -162,12 +184,17 @@ func contains(list []string, s string) bool {
 
 var logsHandler = func(logPath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, logsView(newLogsPage(logPath, c.Query("level"))))
+		render(c, http.StatusOK, logsView(newLogsPage(logPath, c.Query("level"), c.Query("q"))))
 	}
 }
 
 var logsListHandler = func(logPath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		render(c, http.StatusOK, logsList(newLogsPage(logPath, c.Query("level"))))
+		page := newLogsPage(logPath, c.Query("level"), c.Query("q"))
+		// the search box asks with push set, and gets the page's address for the address bar
+		if c.Query("push") != "" {
+			c.Header("HX-Push-Url", strings.Replace(page.ListURL, "/logs/list", "/logs", 1))
+		}
+		render(c, http.StatusOK, logsList(page))
 	}
 }

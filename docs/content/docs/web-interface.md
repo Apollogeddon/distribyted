@@ -92,7 +92,9 @@ contents.
 
 ## Logs
 
-The newest entries first, filtered by level. New entries appear as they're written.
+The newest entries first, filtered by level. New entries appear as they're written. The
+search box keeps the entries holding every word typed, in their message or fields, such as
+a film's name, a path or a torrent's hash.
 
 {{< screenshot name="logs" alt="The Logs page" >}}
 

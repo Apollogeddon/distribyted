@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -128,4 +129,32 @@ func TestSpeedChart(t *testing.T) {
 	require.Empty(t, newChartView(nil).DownLine, "one point isn't a line")
 	require.Equal(t, int64(1024), niceRate(0))
 	require.Equal(t, int64(5<<20), niceRate(3<<20))
+}
+
+// A search keeps the entries holding every word typed, in their message, component or fields,
+// and the level filters keep it.
+func TestLogsPage_Search(t *testing.T) {
+	logPath := writeLog(t,
+		`{"level":"info","component":"torrent-service","time":1791547356,"message":"torrent added","route":"radarr","name":"Dune.2021"}`,
+		`{"level":"warn","component":"fs","time":1791547357,"message":"slow read","path":"Dune/dune.mkv"}`,
+		`{"level":"warn","component":"fs","time":1791547358,"message":"slow read","path":"Heat/heat.mkv"}`,
+	)
+	r, err := NewHandler(nil, dtorrent.NewStats(), nil, nil, nil, nil, logPath, routesConf(), "", nil)
+	require.NoError(t, err)
+
+	body := get(r, "/logs?q=DUNE").Body.String()
+	require.Contains(t, body, "torrent added")
+	require.Contains(t, body, "Dune/dune.mkv")
+	require.NotContains(t, body, "Heat/heat.mkv")
+	require.Contains(t, body, `href="/logs?level=warn&amp;q=DUNE"`, "a level keeps the search")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/logs/list?level=warn&q=dune+slow&push=1", nil))
+	require.Equal(t, "/logs?level=warn&q=dune+slow", w.Header().Get("HX-Push-Url"))
+	body = w.Body.String()
+	require.Contains(t, body, "Dune/dune.mkv")
+	require.NotContains(t, body, "torrent added")
+	require.Contains(t, body, `id="logs-level" name="level" value="warn"`)
+
+	require.Contains(t, get(r, "/logs/list?q=nothing").Body.String(), "No entry in the latest ones has every word of “nothing”.")
 }
