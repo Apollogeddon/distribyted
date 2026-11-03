@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/anacrolix/missinggo/v2/filecache"
@@ -32,7 +33,7 @@ func newInfoTorrent(hash, name string, b byte) *infoTorrent {
 
 func cacheFile(t *testing.T, fc *filecache.Cache, b byte, size int) {
 	t.Helper()
-	f, err := fc.OpenFile("completed/"+hex.EncodeToString(bytes.Repeat([]byte{b}, 20)), 0o102)
+	f, err := fc.OpenFile("completed/"+hex.EncodeToString(bytes.Repeat([]byte{b}, 20)), os.O_CREATE|os.O_RDWR)
 	require.NoError(t, err)
 	_, err = f.Write(make([]byte, size))
 	require.NoError(t, err)
