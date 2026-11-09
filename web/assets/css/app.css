@@ -749,6 +749,20 @@ form.filters { flex-wrap: nowrap; }
 .cached .meter > span { background: var(--data); }
 .cached-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.45rem 0 0; color: var(--text-2); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
+/* what was downloaded, and why */
+.kpi-note { margin: 0.6rem 0 0; color: var(--text-2); font-size: 0.85rem; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.data-table th, .data-table td { padding: 0.55rem 1.25rem; text-align: left; border-top: 1px solid var(--border); }
+.data-table thead th { border-top: 0; color: var(--text-3); font-weight: 550; background: var(--surface-2); white-space: nowrap; }
+.data-table tbody th { font-weight: 500; }
+.data-table tfoot th, .data-table tfoot td { font-weight: 650; border-top: 1px solid var(--border-strong); }
+.data-table .num { text-align: right; white-space: nowrap; }
+.row-note { display: block; color: var(--warn); font-size: 0.8rem; font-weight: 450; }
+.card-foot { margin: 0; padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); color: var(--text-3); font-size: 0.8125rem; }
+@media (max-width: 599.98px) {
+  .data-table th, .data-table td { padding: 0.5rem 1rem; }
+}
+
 /* the banner every page carries when streaming is in trouble */
 .banner-stack:empty { display: none; }
 .banner-stack { display: grid; gap: 0.5rem; margin-bottom: 1rem; }

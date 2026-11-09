@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 
@@ -138,7 +137,7 @@ func niceRate(peak int64) int64 {
 	return max(peak, 1024)
 }
 
-func newDashboardStats(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, svc torrentService, cfs containerFS, waiting func() []string) dashboardStats {
+func newDashboardStats(fc *torrent.PieceCache, ss *torrent.Stats, h *speedHistory, svc torrentService, cfs containerFS, waiting func() []string) dashboardStats {
 	s := speedSample{at: time.Now()}
 	if ss != nil {
 		g := ss.GlobalStats()
@@ -241,13 +240,13 @@ func (s dashboardStats) LinksNote() string {
 
 func (s dashboardStats) CacheWidth() string { return fmt.Sprintf("width: %d%%", s.CachePercent) }
 
-var dashboardHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS, waiting func() []string) gin.HandlerFunc {
+var dashboardHandler = func(fc *torrent.PieceCache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS, waiting func() []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		render(c, http.StatusOK, dashboardView(newDashboardStats(fc, ss, h, s, cfs, waiting)))
 	}
 }
 
-var dashboardStatsHandler = func(fc *filecache.Cache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS, waiting func() []string) gin.HandlerFunc {
+var dashboardStatsHandler = func(fc *torrent.PieceCache, ss *torrent.Stats, h *speedHistory, s torrentService, cfs containerFS, waiting func() []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		render(c, http.StatusOK, dashboardStatsView(newDashboardStats(fc, ss, h, s, cfs, waiting)))
 	}

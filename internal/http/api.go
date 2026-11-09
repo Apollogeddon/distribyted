@@ -11,7 +11,6 @@ import (
 
 	dfs "github.com/Apollogeddon/distribyted/internal/fs"
 	"github.com/Apollogeddon/distribyted/internal/torrent"
-	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/gin-gonic/gin"
 )
@@ -90,7 +89,7 @@ var apiFsRenameHandler = func(cfs containerFS) gin.HandlerFunc {
 	}
 }
 
-var apiStatusHandler = func(fc *filecache.Cache, ss *torrent.Stats) gin.HandlerFunc {
+var apiStatusHandler = func(fc *torrent.PieceCache, ss *torrent.Stats) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		numItems := int64(0)
 		filled := int64(0)

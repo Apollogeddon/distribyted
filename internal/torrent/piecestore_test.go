@@ -42,7 +42,7 @@ func TestPieceStorage_EvictionKeepsPartialPieces(t *testing.T) {
 	require.NoError(t, err)
 	_ = partial.Info()
 
-	tor, err := storage.NewClient(PieceStorage(cache, partial, time.Minute)).OpenTorrent(t.Context(), &info, metainfo.Hash{1})
+	tor, err := storage.NewClient(PieceStorage(NewPieceCache(cache), partial, time.Minute)).OpenTorrent(t.Context(), &info, metainfo.Hash{1})
 	require.NoError(t, err)
 	piece := func(i int) storage.Piece { return tor.Piece(info.Piece(i)) }
 	write := func(i, from, to int) {

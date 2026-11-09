@@ -193,7 +193,7 @@ var torrentPrepareHandler = func(ss *torrent.Stats, cfs containerFS) gin.Handler
 		}
 		n := 0
 		for _, f := range torrentFiles(t) {
-			if pf, ok := preparerAt(cfs, path.Join("/", route, f.Path)); ok && pf.Prepare(dfs.PrepareStart) {
+			if pf, ok := preparerAt(cfs, path.Join("/", route, f.Path)); ok && pf.Prepare(dfs.Request{What: dfs.PrepareStart, Why: dfs.ReasonButton}) {
 				n++
 			}
 		}

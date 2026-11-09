@@ -9,7 +9,7 @@ templ cacheView(p cachePage) {
 
 // cacheList is the part of the Cache page that refreshes once a torrent's share is freed.
 templ cacheList(p cachePage) {
-	<section id="cache" class="stack" aria-label="Cache" hx-get="/cache/list" hx-trigger="cache-changed from:body" hx-swap="morph:outerHTML" hx-ext="morph">
+	<section id="cache" class="stack" aria-label="Cache" hx-get="/cache/list" hx-trigger="cache-changed from:body, every 30s" hx-swap="morph:outerHTML" hx-ext="morph">
 		if !p.HasCache {
 			@emptyState("hard-drive") {
 				The piece cache isn't in use.
@@ -24,6 +24,9 @@ templ cacheList(p cachePage) {
 				<div class="meter" role="meter" aria-label="Piece cache used" aria-valuemin="0" aria-valuemax="100" aria-valuenow={ p.Percent }>
 					<span style={ p.Width() }></span>
 				</div>
+				if p.Protected != "" {
+					<p class="kpi-note">{ p.Protected }.</p>
+				}
 			</div>
 			if len(p.Torrents) == 0 {
 				@emptyState("hard-drive") {
@@ -63,5 +66,55 @@ templ cacheList(p cachePage) {
 				<p class="filter-count">{ p.Other }</p>
 			}
 		}
+		@downloads(p)
 	</section>
+}
+
+// downloads says what was downloaded and why, so downloading with nothing playing can be
+// explained.
+templ downloads(p cachePage) {
+	<div class="card">
+		<div class="card-header">
+			<h2>Downloaded</h2>
+			<span class="card-meta">since distribyted started, { p.Downloads.Since }</span>
+		</div>
+		<div class="table-scroll">
+			<table class="data-table downloads-table">
+				<thead>
+					<tr>
+						<th scope="col">Why</th>
+						<th scope="col" class="num">Last day</th>
+						<th scope="col" class="num">In all</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, r := range p.Downloads.Rows {
+						<tr>
+							<th scope="row">
+								{ r.Reason }
+								if r.Again != "" {
+									<span class="row-note">{ r.Again }</span>
+								}
+							</th>
+							<td class="num">{ r.Day }</td>
+							<td class="num">{ r.Total }</td>
+						</tr>
+					}
+				</tbody>
+				<tfoot>
+					<tr>
+						<th scope="row">All</th>
+						<td class="num">{ p.Downloads.Day }</td>
+						<td class="num">{ p.Downloads.Total }</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+		<p class="card-foot">
+			Read is a player or another app reading through the mount, and what's downloaded ahead of it.
+			if p.FirstByte != "" {
+				{ " " + p.FirstByte }
+			}
+		</p>
+	</div>
 }

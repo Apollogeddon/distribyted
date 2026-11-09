@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/stretchr/testify/require"
 
+	dfs "github.com/Apollogeddon/distribyted/internal/fs"
 	dtorrent "github.com/Apollogeddon/distribyted/internal/torrent"
 )
 
@@ -50,7 +53,7 @@ func TestCachePage(t *testing.T) {
 	cacheFile(t, fc, 0x11, 1<<20)
 	cacheFile(t, fc, 0x77, 1000)
 
-	r, err := NewHandler(fc, ss, nil, nil, nil, nil, "", routesConf("radarr"), "", nil)
+	r, err := NewHandler(dtorrent.NewPieceCache(fc), ss, nil, nil, nil, nil, "", routesConf("radarr"), "", nil)
 	require.NoError(t, err)
 	body := get(r, "/cache").Body.String()
 	require.Contains(t, body, "Dune")
@@ -69,4 +72,40 @@ func TestCachePage(t *testing.T) {
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, "/cache/torrents/ffff", nil))
 	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// The Cache page says what was downloaded and why, how quickly opens got their first byte,
+// and how much is kept for files' starts.
+func TestCachePage_DownloadsAndProtected(t *testing.T) {
+	dir := t.TempDir()
+	pc, err := dtorrent.OpenPieceCache(filepath.Join(dir, "cache"), filepath.Join(dir, "protected"), 10)
+	require.NoError(t, err)
+	pc.SetCapacity(100 << 20)
+	dfs.PieceDownloaded("cafe", 1, 3<<20)
+
+	r, err := NewHandler(pc, dtorrent.NewStats(), nil, nil, nil, nil, "", routesConf("radarr"), "", nil)
+	require.NoError(t, err)
+	body := get(r, "/cache/list").Body.String()
+	require.Contains(t, body, "Downloaded")
+	for _, why := range []string{"Read", "Linked into the library", "Next episode", "Prepared by hand"} {
+		require.Contains(t, body, why)
+	}
+	require.Contains(t, body, "0 B of 10 MiB is kept for files&#39; first and last megabytes")
+
+	page := newCachePage(pc, nil, time.Now())
+	var read downloadRow
+	for _, row := range page.Downloads.Rows {
+		if row.Reason == "Read" {
+			read = row
+		}
+	}
+	require.NotEqual(t, "0 B", read.Day)
+}
+
+func TestFirstByteNote(t *testing.T) {
+	require.Empty(t, firstByteNote(dfs.FirstByteStats{}))
+	require.Equal(t, "Of the latest 40 files opened, half had their first byte within 120ms, and all but one in twenty within 2.5s.",
+		firstByteNote(dfs.FirstByteStats{Count: 40, Median: 120 * time.Millisecond, P95: 2480 * time.Millisecond}))
+	require.Equal(t, "The latest file opened had its first byte within 1s.",
+		firstByteNote(dfs.FirstByteStats{Count: 1, Median: time.Second, P95: time.Second}))
 }

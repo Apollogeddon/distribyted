@@ -55,7 +55,7 @@ func pieceHashes(t fs.Torrent) map[string]int {
 }
 
 // GetCacheUsage reads what fc holds, against the torrents in ts.
-func GetCacheUsage(fc *filecache.Cache, ts map[string]fs.Torrent) CacheUsage {
+func GetCacheUsage(fc *PieceCache, ts map[string]fs.Torrent) CacheUsage {
 	owner := map[string]string{}
 	byHash := map[string]*CachedTorrent{}
 	for h, t := range ts {
@@ -104,7 +104,7 @@ type pieceGetter interface {
 
 // EvictFromCache removes t's pieces from fc, and has the client forget them, so they're
 // downloaded again when next read. It returns how many it removed.
-func EvictFromCache(fc *filecache.Cache, t fs.Torrent) int {
+func EvictFromCache(fc *PieceCache, t fs.Torrent) int {
 	if fc == nil {
 		return 0
 	}

@@ -11,6 +11,8 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/rs/zerolog/log"
+
+	"github.com/Apollogeddon/distribyted/internal/fs"
 )
 
 const (
@@ -41,15 +43,15 @@ func (c readGuardClient) OpenTorrent(ctx context.Context, info *metainfo.Info, i
 	if err != nil {
 		return t, err
 	}
-	pieces := &pieceReadFailures{failed: make(map[int]*readFailures), giveUpAfter: c.giveUpAfter, now: time.Now}
+	pieces := &pieceReadFailures{failed: make(map[int]*readFailures), giveUpAfter: c.giveUpAfter, now: time.Now, hash: ih.HexString()}
 	if piece := t.Piece; piece != nil {
 		t.Piece = func(p metainfo.Piece) storage.PieceImpl {
-			return guardPiece(piece(p), p.Index(), pieces)
+			return guardPiece(piece(p), p.Index(), p.Length, pieces)
 		}
 	}
 	if piece := t.PieceWithHash; piece != nil {
 		t.PieceWithHash = func(p metainfo.Piece, hash g.Option[[]byte]) storage.PieceImpl {
-			return guardPiece(piece(p, hash), p.Index(), pieces)
+			return guardPiece(piece(p, hash), p.Index(), p.Length, pieces)
 		}
 	}
 	// whole-torrent and per-piece readers read the same data, so they count the same way
@@ -110,6 +112,8 @@ type pieceReadFailures struct {
 	failed      map[int]*readFailures
 	giveUpAfter time.Duration
 	now         func() time.Time
+	// hash is the torrent's, to count its downloads under (fs.PieceDownloaded)
+	hash string
 }
 
 type readFailures struct {
@@ -153,11 +157,11 @@ func (f *pieceReadFailures) distrusted(i int) bool {
 	return ok && r.distrusted
 }
 
-func guardPiece(p storage.PieceImpl, index int, f *pieceReadFailures) storage.PieceImpl {
+func guardPiece(p storage.PieceImpl, index int, size func() int64, f *pieceReadFailures) storage.PieceImpl {
 	if p == nil {
 		return nil
 	}
-	gp := &guardedPiece{PieceImpl: p, index: index, failures: f}
+	gp := &guardedPiece{PieceImpl: p, index: index, size: size, failures: f}
 	// keep the faster whole-piece copy the storage may offer
 	if _, ok := p.(io.WriterTo); ok {
 		return guardedPieceWriterTo{gp}
@@ -167,7 +171,9 @@ func guardPiece(p storage.PieceImpl, index int, f *pieceReadFailures) storage.Pi
 
 type guardedPiece struct {
 	storage.PieceImpl
-	index    int
+	index int
+	// size is the piece's length, looked up only once it's complete
+	size     func() int64
 	failures *pieceReadFailures
 }
 
@@ -206,10 +212,15 @@ func (p *guardedPiece) Completion() storage.Completion {
 	return c
 }
 
-// MarkComplete follows a download that passed its hash check, so the piece is trusted again.
+// MarkComplete follows a download that passed its hash check, so the piece is trusted again,
+// and its download is counted.
 func (p *guardedPiece) MarkComplete() error {
 	p.failures.reset(p.index)
-	return p.PieceImpl.MarkComplete()
+	err := p.PieceImpl.MarkComplete()
+	if err == nil {
+		fs.PieceDownloaded(p.failures.hash, p.index, p.size())
+	}
+	return err
 }
 
 // NewReader keeps the storage's own piece reader, counting its reads as ReadAt does.

@@ -31,13 +31,14 @@ type TorrentFS struct {
 	onFirstRead     func(hash, path string, sinceOpen time.Duration)
 	onReadStart     func(hash string)
 	onEvicted       func(hash string)
-	onNearEnd       func(hash, path string)
+	onNearEnd       func(hash, path string, lead int64)
 }
 
-// OnNearEnd registers a callback fired, once per handle, when a read reaches nearEndPercent
-// of a file of at least minNearEndFile: an episode that's nearly over, whose next one should
-// be got ready. Like OnReadStart, it must be called before AddTorrent.
-func (fs *TorrentFS) OnNearEnd(f func(hash, path string)) {
+// OnNearEnd registers a callback fired, once per run of play, when a read reaches nearEndPercent
+// of a file of at least minNearEndFile, having played through minPlayedPercent of it: an
+// episode that's nearly over, whose next one should be got ready, its first lead bytes
+// (LeadFor). Like OnReadStart, it must be called before AddTorrent.
+func (fs *TorrentFS) OnNearEnd(f func(hash, path string, lead int64)) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	fs.onNearEnd = f
@@ -688,21 +689,27 @@ type torrentFile struct {
 	onFirstRead func(hash, path string, sinceOpen time.Duration)
 	onReadStart func(hash string)
 	onEvicted   func(hash string)
-	onNearEnd   func(hash, path string)
+	onNearEnd   func(hash, path string, lead int64)
 	pieces      *pieceSync // nil when the file has no real torrent, as in tests
 	// readahead is how far ahead of a read the client downloads (readaheadFor)
 	readahead int64
 	// asked is the Preparation last asked for, shared by every handle and link to the file
 	asked atomic.Int32
-	log   zerolog.Logger
+	// askedLead is the Request.Lead last asked for
+	askedLead atomic.Int64
+	// run is the file's run of reads across its handles (activity.go)
+	run fileRun
+	log zerolog.Logger
 }
 
 func (d *torrentFile) NewHandle() *torrentFileHandle {
-	return &torrentFileHandle{
+	h := &torrentFileHandle{
 		torrentFile: d,
 		openedAt:    time.Now(),
 		syncedPiece: -1,
 	}
+	h.probing.Store(probeReadahead.Load())
+	return h
 }
 
 func (d *torrentFile) Size() int64 {
@@ -738,9 +745,14 @@ var _ File = &torrentFileHandle{}
 type torrentFileHandle struct {
 	*torrentFile
 	reader reader
-	mu     sync.Mutex
-	closed bool
-	pos    int64 // where the next Read starts
+	// ahead is the client's reader under reader, whose readahead widens (widen)
+	ahead torrent.Reader
+	// probing is set while the handle's readahead is held back, until its reads go on in
+	// order far enough to be played (probeReadahead)
+	probing atomic.Bool
+	mu      sync.Mutex
+	closed  bool
+	pos     int64 // where the next Read starts
 	// readMu holds pos through a whole Read, so two at once on the handle don't both start at
 	// pos and return the same bytes
 	readMu   sync.Mutex
@@ -769,7 +781,7 @@ func (h *torrentFileHandle) syncAhead(off int64, n int) {
 	}
 	h.syncedPiece = piece
 	h.mu.Unlock()
-	if h.pieces.sync(off, int64(n)+h.readaheadLen()) {
+	if h.pieces.sync(off, int64(n)+h.currentReadahead()) {
 		h.log.Debug().Int64("off", off).Msg("pieces ahead were evicted from the cache; downloading them again")
 		if h.onEvicted != nil {
 			h.onEvicted(h.hash)
@@ -852,6 +864,45 @@ func readaheadFor(pieceLen int64) int64 {
 	return min(max(pieceLen, minReadahead), maxReadahead)
 }
 
+// probeReadahead holds a handle's readahead back until its reads go on in order for
+// widenAfter: a library app reading a file's headers and seeking through it downloads only
+// the pieces it reads, while a player gets the whole window before its first piece runs out.
+// A piece is still downloaded whole, so before widening each read waits for the piece it's in.
+var probeReadahead atomic.Bool
+
+// widenAfter is how far a handle reads in order before its readahead widens: past what ffprobe
+// and a library scanner read of a file's start, and well inside the start a link prepares.
+const widenAfter = 8 << 20
+
+// SetProbeReadahead turns probeReadahead on or off for handles opened after.
+func SetProbeReadahead(on bool) { probeReadahead.Store(on) }
+
+// currentReadahead is the handle's readahead now: none past the piece being read while it's
+// probing, and the file's readahead otherwise.
+func (h *torrentFileHandle) currentReadahead() int64 {
+	if h.probing.Load() {
+		return 0
+	}
+	return h.readaheadLen()
+}
+
+// widenIfPlaying gives the handle its whole readahead once its reads have gone on in order
+// for widenAfter.
+func (h *torrentFileHandle) widenIfPlaying(a *handleActivity) {
+	if !h.probing.Load() || a.sequential() < widenAfter {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.probing.CompareAndSwap(true, false) {
+		return
+	}
+	// an abandoned reader's client reader belongs to the read it gave up on
+	if h.ahead != nil && h.reader != nil && !h.reader.abandoned() {
+		h.ahead.SetReadahead(h.readaheadLen())
+	}
+}
+
 func (d *torrentFile) readaheadLen() int64 {
 	if d.readahead > 0 {
 		return d.readahead
@@ -883,8 +934,9 @@ func (h *torrentFileHandle) load() reader {
 			h.onReadStart(h.hash)
 		}
 		r := h.readerFunc()
+		h.ahead = r
 		if r != nil {
-			r.SetReadahead(h.readaheadLen())
+			r.SetReadahead(h.currentReadahead())
 			if h.responsive {
 				r.SetResponsive()
 			}
@@ -925,6 +977,7 @@ func (h *torrentFileHandle) Read(p []byte) (n int, err error) {
 		}
 	}
 	act.done(off, n)
+	h.widenIfPlaying(act)
 	if n > 0 {
 		h.mu.Lock()
 		h.pos = off + int64(n)
@@ -955,6 +1008,7 @@ func (h *torrentFileHandle) ReadAt(p []byte, off int64) (n int, err error) {
 		}
 	}
 	act.done(off, n)
+	h.widenIfPlaying(act)
 	if n > 0 {
 		h.reportFirstRead()
 	}

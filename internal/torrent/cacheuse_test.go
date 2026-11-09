@@ -44,7 +44,7 @@ func TestCacheUsage(t *testing.T) {
 	cachePiece(t, fc, 0x40, 50)
 	cachePiece(t, fc, 0x99, 7) // a torrent that isn't loaded
 
-	u := GetCacheUsage(fc, ts)
+	u := GetCacheUsage(NewPieceCache(fc), ts)
 	require.Len(t, u.Torrents, 2)
 	require.Equal(t, "Dune", u.Torrents[0].Name)
 	require.Equal(t, int64(200), u.Torrents[0].Bytes)
@@ -54,8 +54,8 @@ func TestCacheUsage(t *testing.T) {
 	require.Equal(t, int64(7), u.OtherBytes)
 	require.Equal(t, 1, u.OtherPieces)
 
-	require.Equal(t, 2, EvictFromCache(fc, dune))
-	u = GetCacheUsage(fc, ts)
+	require.Equal(t, 2, EvictFromCache(NewPieceCache(fc), dune))
+	u = GetCacheUsage(NewPieceCache(fc), ts)
 	require.Len(t, u.Torrents, 1)
 	require.Equal(t, "Heat", u.Torrents[0].Name)
 	require.Zero(t, EvictFromCache(nil, dune))

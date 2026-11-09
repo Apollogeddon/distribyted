@@ -113,7 +113,7 @@ type Service struct {
 	torrentAddedListeners   []func(string)
 	onLinkAdded             func(string, string)
 	// nextEpisode gets the episode after a nearly finished one ready (PrepareNextEpisodes)
-	nextEpisode   func(route, path string)
+	nextEpisode   func(route, path string, lead int64)
 	onLinkRemoved func(string)
 
 	loaders []loader.Loader
@@ -527,7 +527,7 @@ func (s *Service) addRoute(r string) {
 		tfs.OnFirstRead(s.timings.FirstRead)
 		tfs.OnReadStart(s.offerPeersOnRead)
 		tfs.OnEvicted(s.offerPeersOnEviction)
-		tfs.OnNearEnd(func(hash, p string) { s.nearEnd(r, hash, p) })
+		tfs.OnNearEnd(func(hash, p string, lead int64) { s.nearEnd(r, hash, p, lead) })
 		s.fss[folder] = tfs
 		listeners = append(listeners, s.routeAddedListeners...)
 	}

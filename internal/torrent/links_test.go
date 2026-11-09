@@ -291,20 +291,28 @@ func TestLinks_LinkWhosePathIsTakenIsGivenUp(t *testing.T) {
 type preparingFile struct {
 	*fs.MemoryFile
 	mu    sync.Mutex
-	asked []fs.Preparation
+	asked []fs.Request
 }
 
-func (p *preparingFile) Prepare(a fs.Preparation) bool {
+func (p *preparingFile) Prepare(r fs.Request) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.asked = append(p.asked, a)
+	p.asked = append(p.asked, r)
 	return true
 }
 
-func (p *preparingFile) prepared() []fs.Preparation {
+func (p *preparingFile) requests() []fs.Request {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return slices.Clone(p.asked)
+}
+
+func (p *preparingFile) prepared() []fs.Preparation {
+	var out []fs.Preparation
+	for _, r := range p.requests() {
+		out = append(out, r.What)
+	}
+	return out
 }
 func (p *preparingFile) Readiness() (fs.Readiness, bool) { return fs.Readiness{}, true }
 func (p *preparingFile) StartReady() (bool, bool)        { return false, true }
@@ -319,6 +327,7 @@ func TestLinks_NewLinkIsPreparedRestoredIsNot(t *testing.T) {
 	require.NoError(t, cfs.Link("/torrents/Film.2025/film.mkv", "/movies/film.mkv"))
 	require.Eventually(t, func() bool { return len(f.prepared()) == 1 }, time.Second, 5*time.Millisecond)
 	require.Equal(t, []fs.Preparation{fs.PrepareStart}, f.prepared())
+	require.Equal(t, fs.ReasonLink, f.requests()[0].Why)
 
 	_, r := e.boot()
 	require.Zero(t, r.Pending())
