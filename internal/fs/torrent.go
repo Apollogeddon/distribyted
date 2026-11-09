@@ -699,7 +699,7 @@ type torrentFile struct {
 	askedLead atomic.Int64
 	// run is the file's run of reads across its handles (activity.go)
 	run fileRun
-	log   zerolog.Logger
+	log zerolog.Logger
 }
 
 func (d *torrentFile) NewHandle() *torrentFileHandle {
@@ -751,8 +751,8 @@ type torrentFileHandle struct {
 	// order far enough to be played (probeReadahead)
 	probing atomic.Bool
 	mu      sync.Mutex
-	closed bool
-	pos    int64 // where the next Read starts
+	closed  bool
+	pos     int64 // where the next Read starts
 	// readMu holds pos through a whole Read, so two at once on the handle don't both start at
 	// pos and return the same bytes
 	readMu   sync.Mutex

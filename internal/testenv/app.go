@@ -36,14 +36,14 @@ func (noopBEP44Store) Get(bep44.Target) (*bep44.Item, error) { return nil, bep44
 func (noopBEP44Store) Del(bep44.Target) error                { return nil }
 
 type TestApp struct {
-	Config       *config.Root
-	Client       *atorrent.Client
-	Service      *dtorrent.Service
-	Stats        *dtorrent.Stats
-	Timings      *dtorrent.Timings
-	FS           *fs.ContainerFs
-	TempDir      string
-	Cache        *filecache.Cache
+	Config  *config.Root
+	Client  *atorrent.Client
+	Service *dtorrent.Service
+	Stats   *dtorrent.Stats
+	Timings *dtorrent.Timings
+	FS      *fs.ContainerFs
+	TempDir string
+	Cache   *filecache.Cache
 	// Pieces is Cache as the app uses it, with the protected cache when there is one
 	Pieces       *dtorrent.PieceCache
 	LimitStorage *limitStorage

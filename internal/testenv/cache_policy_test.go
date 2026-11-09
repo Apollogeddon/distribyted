@@ -1,6 +1,7 @@
 package testenv
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
@@ -120,7 +121,7 @@ func readRange(t *testing.T, f dfs.File, from, to int64) {
 	for off := from; off < to; off += int64(len(buf)) {
 		n := min(int64(len(buf)), to-off)
 		_, err := f.ReadAt(buf[:n], off)
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			require.NoError(t, err, "read at %d", off)
 		}
 	}

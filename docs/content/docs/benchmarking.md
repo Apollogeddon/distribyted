@@ -157,6 +157,36 @@ read asked for the next piece only once it was within 4 MiB of it, so with 16 Mi
 player waited at each boundary for a whole piece. The benchmark fixtures' pieces are
 smaller than 4 MiB, so they still read with 4 MiB and don't measure this.
 
+### Accepted, off by default: probe readahead (`probe_readahead`, 2026-11)
+
+A library app or `ffprobe` reads a file's header, its end and a few frames through it; each
+read pulled in a whole piece, and the readahead one more after it. With `probe_readahead`, a
+handle reads with no readahead past the piece it's in until it has read 8 MiB in order, then
+gets the usual window with one `SetReadahead` call. Unlike the reverted `SetReadaheadFunc`,
+nothing runs under the client's lock on each read.
+
+`BenchmarkProbeReadahead`, cable profile (20ms RTT, 12MB/s), a 64 MiB file of 4 MiB pieces,
+`-count=6 -benchtime=3x`, off vs on (Mann-Whitney, n=6+6):
+
+| Benchmark | Off | On | Δ | p |
+| :--- | ---: | ---: | ---: | ---: |
+| probe: MiB downloaded per open | 39.98 | 24.00 | **-40.0%** | 0.002 |
+| probe: time | 3359.8ms | 2036.8ms | **-39.4%** | 0.002 |
+| first-read: time to first byte | 360.3ms | 360.8ms | +0.2% | 0.818 |
+| sequential: throughput | 12.48MB/s | 12.48MB/s | 0.0% | 0.965 |
+
+The off runs were their own noise floor: every probe run downloaded the same 39.98 MiB, and
+times varied under 3%. It passes the bar, but stays off by default until production
+start-up times, now on the Cache page, show no change on real swarms and piece lengths.
+
+### Not benchmarked here: protected starts and next-episode gating (2026-11)
+
+`protected_cache_percent` and the next-episode gate change what's downloaded, not how fast,
+and are covered by integration tests instead (`internal/testenv/cache_policy_test.go`):
+linking a file downloads exactly its start and end, counted as such; reading only an
+episode's end doesn't prepare the next; and a film read through more than the cache holds
+evicts a prepared file's start only without protection.
+
 ### Fixed, not benchmarked: storage capacity not declared to the client
 
 `cmd/distribyted/main.go` builds torrent storage via
