@@ -72,9 +72,14 @@ can't be downloaded whole, as it would push everything else out.
 A file linked into a library, as Radarr's and Sonarr's imports do, has its start and end
 downloaded straight away, so its first play starts at once.
 
-When an episode is 95% through, the next one, the next file in the folder it's linked into
-(or in its torrent's own folder, for a season pack), has its first 5% and its end
-downloaded, so it starts at once and plays while the rest arrives.
+When an episode that's been played is 95% through, the next one, the next file in the
+folder it's linked into (or in its torrent's own folder, for a season pack), has its first
+five minutes and its end downloaded, so it starts at once and plays while the rest arrives.
+Five minutes is worked out from the playing episode's size and duration, from 64 MB to
+1 GB; without a duration it's 5% of the file, up to 512 MB. Played means read on from
+where it was for at least 30% of the file, and, when its duration is known, no faster than
+twice real time: a library app reading the last minutes for the credits, or reading the
+whole file at full speed, doesn't get the next episode downloaded.
 
 {{< screenshot name="files" alt="The Files page" >}}
 
@@ -100,6 +105,17 @@ What the piece cache (`global_cache_size`) holds, torrent by torrent: how much o
 has, and when it was last read. The pieces read longest ago are evicted first as the cache
 fills, so a film that played yesterday may need downloading again today. **Free** removes a
 torrent's pieces now; they download again when it's next played.
+
+By default a tenth of the cache (`protected_cache_percent`) is kept for the start and end of
+every file large enough to play, which only other files' starts can evict, so a film played
+through doesn't make everything else wait for peers again. The figure under the cache's size
+says how much of that share is in use.
+
+**Downloaded** says what was downloaded in the last day and since distribyted started, and
+why: read by a player or another app through the mount, linked into a library, got ready as
+the next episode, or prepared by hand. A row notes how much of it was downloaded a second
+time because the cache had evicted it; much of that means the cache is too small. Under it,
+how long the latest files opened waited for their first byte.
 
 ## Servers
 

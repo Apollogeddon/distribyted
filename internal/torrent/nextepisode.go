@@ -20,7 +20,7 @@ func PrepareNextEpisodes(s *Service, cfs *fs.ContainerFs) {
 	l := dlog.Logger("next-episode")
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.nextEpisode = func(route, p string) {
+	s.nextEpisode = func(route, p string, lead int64) {
 		src := path.Join("/", route, p)
 		next, ok := nextEpisodeOf(s, cfs, src)
 		if !ok {
@@ -31,18 +31,19 @@ func PrepareNextEpisodes(s *Service, cfs *fs.ContainerFs) {
 			return
 		}
 		defer func() { _ = f.Close() }()
-		if pf, ok := f.(fs.Preparer); ok && pf.Prepare(fs.PrepareLead) {
-			l.Info().Str("playing", src).Str(dlog.KeyPath, next).Msg("getting the next episode ready")
+		if pf, ok := f.(fs.Preparer); ok && pf.Prepare(fs.Request{What: fs.PrepareLead, Lead: lead, Why: fs.ReasonNextEpisode}) {
+			l.Info().Str("playing", src).Str(dlog.KeyPath, next).Int64("lead_bytes", lead).
+				Msg("getting the next episode ready")
 		}
 	}
 }
 
-func (s *Service) nearEnd(route, _, p string) {
+func (s *Service) nearEnd(route, _, p string, lead int64) {
 	s.mu.Lock()
 	next := s.nextEpisode
 	s.mu.Unlock()
 	if next != nil {
-		next(route, p)
+		next(route, p, lead)
 	}
 }
 

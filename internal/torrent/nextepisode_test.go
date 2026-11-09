@@ -10,7 +10,7 @@ import (
 )
 
 // The episode after a nearly finished one is the next file of its kind in the folder it's
-// linked into, and gets its first 5% and end ready; the last one has nothing after it.
+// linked into, and gets the lead it was given and its end ready; the last one has nothing after it.
 func TestNextEpisode_FromTheLibraryFolder(t *testing.T) {
 	e := newLinkEnv(t)
 	eps := map[string]*preparingFile{}
@@ -34,11 +34,12 @@ func TestNextEpisode_FromTheLibraryFolder(t *testing.T) {
 		f.mu.Unlock()
 	}
 
-	e.svc.nearEnd("torrents", "", "Show.E01/show.E01.mkv")
+	e.svc.nearEnd("torrents", "", "Show.E01/show.E01.mkv", 100<<20)
 	require.Equal(t, []fs.Preparation{fs.PrepareLead}, eps["E02"].prepared())
+	require.Equal(t, fs.Request{What: fs.PrepareLead, Lead: 100 << 20, Why: fs.ReasonNextEpisode}, eps["E02"].requests()[0])
 	require.Empty(t, eps["E03"].prepared())
 
-	e.svc.nearEnd("torrents", "", "Show.E03/show.E03.mkv")
+	e.svc.nearEnd("torrents", "", "Show.E03/show.E03.mkv", 100<<20)
 	require.Empty(t, eps["E01"].prepared(), "nothing comes after the last episode")
 }
 
@@ -53,10 +54,10 @@ func TestNextEpisode_FromASeasonPack(t *testing.T) {
 	require.NoError(t, e.route.Storage.Add(fs.NewMemoryFile([]byte("subs")), "/Show.S01/Show.S01E01.en.srt"))
 	cfs, _ := e.boot()
 
-	e.svc.nearEnd("torrents", "", "Show.S01/Show.S01E01.mkv")
+	e.svc.nearEnd("torrents", "", "Show.S01/Show.S01E01.mkv", 100<<20)
 	require.Empty(t, e2.prepared(), "nothing happens until PrepareNextEpisodes is set up")
 
 	PrepareNextEpisodes(e.svc, cfs)
-	e.svc.nearEnd("torrents", "", "Show.S01/Show.S01E01.mkv")
+	e.svc.nearEnd("torrents", "", "Show.S01/Show.S01E01.mkv", 100<<20)
 	require.Equal(t, []fs.Preparation{fs.PrepareLead}, e2.prepared())
 }

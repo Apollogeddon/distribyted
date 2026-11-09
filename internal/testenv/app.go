@@ -44,6 +44,8 @@ type TestApp struct {
 	FS           *fs.ContainerFs
 	TempDir      string
 	Cache        *filecache.Cache
+	// Pieces is Cache as the app uses it, with the protected cache when there is one
+	Pieces       *dtorrent.PieceCache
 	LimitStorage *limitStorage
 	HTTPAddr     string
 	WebDavAddr   string
@@ -146,6 +148,19 @@ type testAppOption struct {
 	// cacheCapacity, if not 0, limits the production storage's piece cache to this many bytes,
 	// with the capacity told to the client and the reads guarded, as cmd/distribyted does
 	cacheCapacity int64
+	// protectPercent, with cacheCapacity, keeps that share of it for files' start pieces
+	// (protected_cache_percent)
+	protectPercent int64
+}
+
+// NewTestAppProtectedCache is NewTestAppCappedCache with percent of the capacity kept for
+// files' start pieces, as protected_cache_percent keeps it.
+func NewTestAppProtectedCache(capacity, percent int64, readTimeout int) (*TestApp, error) {
+	return newTestApp("", nil, false, true, true, false, nil, testAppOption{
+		torrent:        func(t *config.TorrentGlobal) { t.ReadTimeout = readTimeout },
+		cacheCapacity:  capacity,
+		protectPercent: percent,
+	})
 }
 
 // NewTestAppCappedCache is NewTestAppProductionStorage reaching peers only through dialers the
@@ -233,6 +248,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 
 	var st storage.ClientImpl
 	var fc *filecache.Cache
+	var pieces *dtorrent.PieceCache
 	var pc storage.PieceCompletion
 	switch {
 	case inMemory:
@@ -254,22 +270,34 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		// for why this exists as a separate path from the default below,
 		// and for a known reliability caveat with this storage backend.
 		capFunc := func() (int64, bool) { return -1, false }
-		var capacity int64
+		var capacity, protect int64
 		for _, o := range opts {
 			if o.cacheCapacity != 0 {
 				capacity = o.cacheCapacity
 			}
+			if o.protectPercent != 0 {
+				protect = o.protectPercent
+			}
 		}
 		st = storage.NewResourcePiecesOpts(fc.AsResourceProvider(), storage.ResourcePiecesOpts{Capacity: &capFunc})
+		pieces = dtorrent.NewPieceCache(fc)
 		if capacity != 0 {
 			// as cmd/distribyted wires it
-			fc.SetCapacity(capacity)
+			if protect > 0 {
+				pieces, err = dtorrent.OpenPieceCache(cf, filepath.Join(actualTempDir, "cache-protected"), protect)
+				if err != nil {
+					return nil, err
+				}
+				_ = pieces.Info()
+				fc = pieces.Main()
+			}
+			pieces.SetCapacity(capacity)
 			partial, err := filecache.NewCache(filepath.Join(actualTempDir, "cache-partial"))
 			if err != nil {
 				return nil, err
 			}
 			_ = partial.Info()
-			st = dtorrent.PieceStorage(fc, partial, time.Minute)
+			st = dtorrent.PieceStorage(pieces, partial, time.Minute)
 		}
 	default:
 		cf := filepath.Join(actualTempDir, "cache")
@@ -282,6 +310,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		// Without this, concurrent writes (piece chunks) block on the mutex while
 		// rescan holds it, delaying piece completion under -race and many goroutines.
 		_ = fc.Info()
+		pieces = dtorrent.NewPieceCache(fc)
 
 		pcp := filepath.Join(actualTempDir, "piece-completion")
 		if err := os.MkdirAll(pcp, 0o744); err != nil {
@@ -386,6 +415,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 		FS:           cfs,
 		TempDir:      actualTempDir,
 		Cache:        fc,
+		Pieces:       pieces,
 		LimitStorage: ls,
 		db:           dbl,
 		pc:           pc,
@@ -425,7 +455,7 @@ func newTestApp(tempDir string, limit *int64, inMemory bool, disableDefaultDiale
 
 	ch := config.NewHandler("")
 
-	h, err := dhttp.NewHandler(fc, ss, ts, ch, nil, httpfs, "", conf, "/fuse", cfs)
+	h, err := dhttp.NewHandler(pieces, ss, ts, ch, nil, httpfs, "", conf, "/fuse", cfs)
 	if err != nil {
 		return nil, err
 	}

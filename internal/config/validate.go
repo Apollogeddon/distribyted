@@ -68,6 +68,8 @@ func validateNumbers(r *Root) error {
 		check(t.GlobalCacheSize >= -1, "torrent.global_cache_size %d: use -1 for no limit", t.GlobalCacheSize)
 		check(t.ArchiveExtractLimit >= -1, "torrent.archive_extract_limit %d: use -1 for no limit", t.ArchiveExtractLimit)
 		check(t.ListenPort >= -1 && t.ListenPort <= 65535, "torrent.listen_port %d is not a port (-1 for any)", t.ListenPort)
+		check(t.ProtectedCachePercent >= -1 && t.ProtectedCachePercent <= 90,
+			"torrent.protected_cache_percent %d: use 1 to 90, or -1 to turn it off", t.ProtectedCachePercent)
 		check(t.MaxConnsPerTorrent >= 0, "torrent.max_conns_per_torrent %d is negative", t.MaxConnsPerTorrent)
 		check(t.IP == "" || net.ParseIP(t.IP) != nil, "torrent.ip %q is not an IP address", t.IP)
 	}

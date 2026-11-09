@@ -170,7 +170,7 @@ func prepareLinked(cfs *fs.ContainerFs, p string, l zerolog.Logger) {
 		return
 	}
 	defer func() { _ = f.Close() }()
-	if pf, ok := f.(fs.Preparer); ok && pf.Prepare(fs.PrepareStart) {
+	if pf, ok := f.(fs.Preparer); ok && pf.Prepare(fs.Request{What: fs.PrepareStart, Why: fs.ReasonLink}) {
 		l.Debug().Str(dlog.KeyPath, p).Msg("preparing the linked file's start and end")
 	}
 }

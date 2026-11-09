@@ -80,7 +80,7 @@ func TestTorrentFile_PrepareStart(t *testing.T) {
 	require.Equal(t, int64(fixtureFiles[0].size), r.Size)
 	require.Equal(t, PrepareNone, r.Asked)
 
-	require.True(t, p.Prepare(PrepareStart))
+	require.True(t, p.Prepare(Request{What: PrepareStart, Why: ReasonLink}))
 	require.Equal(t, []string{to.InfoHash().HexString()}, started, "the torrent is offered its saved peers")
 	require.Eventually(t, func() bool {
 		ready, ok := p.StartReady()
@@ -96,7 +96,7 @@ func TestTorrentFile_PrepareStart(t *testing.T) {
 	}
 	require.Equal(t, PrepareStart, r.Asked)
 
-	require.True(t, p.Prepare(PrepareNone))
+	require.True(t, p.Prepare(Request{What: PrepareNone}))
 	r, _ = p.Readiness()
 	require.Equal(t, PrepareNone, r.Asked)
 }
@@ -104,7 +104,7 @@ func TestTorrentFile_PrepareStart(t *testing.T) {
 // A file with no torrent, as in tests, has nothing to prepare.
 func TestTorrentFile_PrepareWithoutTorrent(t *testing.T) {
 	f := &torrentFile{}
-	require.False(t, f.Prepare(PrepareAll))
+	require.False(t, f.Prepare(Request{What: PrepareAll}))
 	_, ok := f.Readiness()
 	require.False(t, ok)
 	_, ok = f.StartReady()
@@ -113,13 +113,24 @@ func TestTorrentFile_PrepareWithoutTorrent(t *testing.T) {
 
 func TestPieceSync_LeadRanges(t *testing.T) {
 	const mib = 1024 * 1024
-	// a 3 GiB episode of 16 MiB pieces: its first 5% is 153.6 MiB, pieces 0 to 9
+	// a 3 GiB episode of 16 MiB pieces, with a lead of 150 MiB: pieces 0 to 9
 	s := &pieceSync{offset: 0, length: 3072 * mib, pieceLen: 16 * mib}
-	r := s.leadRanges()
+	r := s.leadRanges(150 * mib)
 	require.Equal(t, [2]int{0, 10}, r[0])
 	require.Equal(t, [2]int{191, 192}, r[1])
 
-	// a tiny file still gets its first piece
+	// a tiny file, or no lead, still gets its first piece
 	s = &pieceSync{offset: 0, length: 10, pieceLen: 16 * mib}
-	require.Equal(t, [2][2]int{{0, 1}, {0, 1}}, s.leadRanges())
+	require.Equal(t, [2][2]int{{0, 1}, {0, 1}}, s.leadRanges(64*mib))
+	s = &pieceSync{offset: 0, length: 3072 * mib, pieceLen: 16 * mib}
+	require.Equal(t, [2]int{0, 1}, s.leadRanges(0)[0])
+}
+
+// A file's start pieces are its first 32 MiB and last 8 MiB, wherever it sits in its torrent.
+func TestStartPieces(t *testing.T) {
+	const mib = 1024 * 1024
+	require.Equal(t, [2][2]int{{0, 2}, {191, 192}}, StartPieces(0, 3072*mib, 16*mib))
+	// the second file of a torrent, starting half way into piece 10
+	require.Equal(t, [2][2]int{{10, 13}, {202, 203}}, StartPieces(168*mib, 3072*mib, 16*mib))
+	require.Equal(t, [2][2]int{}, StartPieces(0, 0, 16*mib))
 }

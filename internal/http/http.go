@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
@@ -23,7 +22,7 @@ import (
 // readHeaderTimeout bounds how long a client may take to send its request headers, as WebDAV's does.
 const readHeaderTimeout = 30 * time.Second
 
-func New(fc *filecache.Cache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) error {
+func New(fc *torrent.PieceCache, ss *torrent.Stats, s *torrent.Service, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) error {
 	r, err := NewHandler(fc, ss, s, ch, tss, fs, logPath, conf, fusePath, lfs, opts...)
 	if err != nil {
 		return err
@@ -49,7 +48,7 @@ func newServer(addr string, h http.Handler) *http.Server {
 	}
 }
 
-func NewHandler(fc *filecache.Cache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) (*gin.Engine, error) {
+func NewHandler(fc *torrent.PieceCache, ss *torrent.Stats, s torrentService, ch *config.Handler, tss []*torrent.Server, fs http.FileSystem, logPath string, conf *config.Root, fusePath string, lfs containerFS, opts ...HandlerOption) (*gin.Engine, error) {
 	var o handlerOptions
 	for _, opt := range opts {
 		opt(&o)

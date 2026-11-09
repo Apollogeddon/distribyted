@@ -44,6 +44,14 @@ type TorrentGlobal struct {
 	// large piece lengths, at the cost of occasionally serving data from a
 	// peer before its integrity has been confirmed. Off by default.
 	ResponsiveReads bool `yaml:"responsive_reads,omitempty"`
+	// ProtectedCachePercent is the share of global_cache_size kept for the first and last
+	// megabytes of every file a player opens, which only other files' starts can evict; -1
+	// turns it off. 10 by default.
+	ProtectedCachePercent int64 `yaml:"protected_cache_percent,omitempty"`
+	// ProbeReadahead downloads nothing ahead of a file's reads until they go on in order, as a
+	// player's do, so a library app reading a file's headers costs only the pieces it reads.
+	// Off by default.
+	ProbeReadahead bool `yaml:"probe_readahead,omitempty"`
 }
 
 type WebDAVGlobal struct {
@@ -99,6 +107,9 @@ type Torrent struct {
 	TorrentPath string `yaml:"torrent_path,omitempty"`
 }
 
+// DefaultProtectedCachePercent is the share of the piece cache kept for files' starts.
+const DefaultProtectedCachePercent = 10
+
 func AddDefaults(r *Root) *Root {
 	if r.Torrent == nil {
 		r.Torrent = &TorrentGlobal{}
@@ -118,6 +129,10 @@ func AddDefaults(r *Root) *Root {
 
 	if r.Torrent.ArchiveExtractLimit == 0 {
 		r.Torrent.ArchiveExtractLimit = 4096 // 4GB
+	}
+
+	if r.Torrent.ProtectedCachePercent == 0 {
+		r.Torrent.ProtectedCachePercent = DefaultProtectedCachePercent
 	}
 
 	if r.Torrent.MaxConnsPerTorrent == 0 {

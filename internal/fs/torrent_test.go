@@ -1274,3 +1274,60 @@ func TestReadaheadFor(t *testing.T) {
 	require.Equal(t, int64(16*1024*1024), readaheadFor(16*1024*1024))
 	require.Equal(t, int64(maxReadahead), readaheadFor(128*1024*1024))
 }
+
+// With probe readahead on, a handle downloads nothing past the piece it reads until its reads
+// go on in order for widenAfter; then it gets the file's whole readahead, once. Jumps, as a
+// scan's are, keep it probing.
+func TestTorrentFileHandle_ProbeReadahead(t *testing.T) {
+	SetProbeReadahead(true)
+	t.Cleanup(func() { SetProbeReadahead(false) })
+	fake := &fakeTorrentReader{}
+	f := &torrentFile{
+		timeout: 5, stats: &readStats{}, log: zerolog.Nop(), len: 1 << 30,
+		readerFunc: func() torrent.Reader { return fake },
+		readahead:  16 << 20,
+	}
+	h := f.NewHandle()
+	require.NotNil(t, h.load())
+	require.Zero(t, fake.readaheadSet, "nothing ahead while probing")
+	require.Zero(t, h.currentReadahead())
+
+	a := h.activity()
+	read := func(off int64, n int) {
+		a.done(off, n)
+		h.widenIfPlaying(a)
+	}
+	// headers, then jumps through the file, as ffprobe and a thumbnailer read
+	read(0, 4<<20)
+	for off := int64(100 << 20); off < 1<<30; off += 100 << 20 {
+		read(off, 1<<20)
+	}
+	read(1<<30-(1<<20), 1<<20)
+	require.Zero(t, fake.readaheadSet)
+	require.True(t, h.probing.Load())
+
+	// a player reading on from its start
+	read(10<<20, 4<<20)
+	read(14<<20, 3<<20)
+	require.Zero(t, fake.readaheadSet, "7 MiB in order is still a probe")
+	read(17<<20, 1<<20)
+	require.Equal(t, int64(16<<20), fake.readaheadSet)
+	require.Equal(t, int64(16<<20), h.currentReadahead())
+
+	fake.readaheadSet = 0
+	read(18<<20, 4<<20)
+	require.Zero(t, fake.readaheadSet, "widened once")
+}
+
+// Without probe readahead, a handle has the file's readahead from its first read.
+func TestTorrentFileHandle_NoProbeReadahead(t *testing.T) {
+	fake := &fakeTorrentReader{}
+	f := &torrentFile{
+		timeout: 5, stats: &readStats{}, log: zerolog.Nop(),
+		readerFunc: func() torrent.Reader { return fake },
+		readahead:  16 << 20,
+	}
+	h := f.NewHandle()
+	require.NotNil(t, h.load())
+	require.Equal(t, int64(16<<20), fake.readaheadSet)
+}

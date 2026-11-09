@@ -11,6 +11,8 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Apollogeddon/distribyted/internal/fs"
 )
 
 func TestPieceReadFailures(t *testing.T) {
@@ -72,7 +74,7 @@ func (*writerToPiece) WriteTo(w io.Writer) (int64, error) {
 func TestGuardedPieceGivesUpOnAPieceItCantRead(t *testing.T) {
 	f := &pieceReadFailures{failed: make(map[int]*readFailures), giveUpAfter: 0, now: time.Now}
 	inner := &brokenPiece{}
-	p := guardPiece(inner, 3, f)
+	p := guardPiece(inner, 3, size16, f)
 
 	require.True(t, p.Completion().Complete)
 	r, err := p.(storage.PieceReaderer).NewReader()
@@ -89,9 +91,36 @@ func TestGuardedPieceGivesUpOnAPieceItCantRead(t *testing.T) {
 	require.True(t, p.Completion().Complete)
 }
 
+func size16() int64 { return 16 }
+
+func readFetched() int64 {
+	for _, c := range fs.Fetched().Reasons {
+		if c.Reason == fs.ReasonRead {
+			return c.Total
+		}
+	}
+	return 0
+}
+
+// A piece the storage completes is counted as downloaded, at its length; one that fails to
+// complete isn't.
+func TestGuardedPieceCountsItsDownload(t *testing.T) {
+	f := &pieceReadFailures{failed: make(map[int]*readFailures), now: time.Now, hash: "cc"}
+	before := readFetched()
+	require.NoError(t, guardPiece(&brokenPiece{}, 2, size16, f).MarkComplete())
+	require.Equal(t, before+16, readFetched())
+
+	require.Error(t, guardPiece(&failingCompletePiece{}, 3, size16, f).MarkComplete())
+	require.Equal(t, before+16, readFetched())
+}
+
+type failingCompletePiece struct{ brokenPiece }
+
+func (*failingCompletePiece) MarkComplete() error { return errors.New("disk full") }
+
 func TestGuardedPieceKeepsWriteTo(t *testing.T) {
 	f := &pieceReadFailures{failed: make(map[int]*readFailures), now: time.Now}
-	p := guardPiece(&writerToPiece{}, 0, f)
+	p := guardPiece(&writerToPiece{}, 0, size16, f)
 	w, ok := p.(io.WriterTo)
 	require.True(t, ok)
 	var b bytes.Buffer
@@ -99,7 +128,7 @@ func TestGuardedPieceKeepsWriteTo(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "whole", b.String())
 
-	_, ok = guardPiece(&brokenPiece{}, 0, f).(io.WriterTo)
+	_, ok = guardPiece(&brokenPiece{}, 0, size16, f).(io.WriterTo)
 	require.False(t, ok, "a piece without WriteTo doesn't gain one")
 }
 
@@ -138,7 +167,7 @@ func (*endPiece) ReadAt([]byte, int64) (int, error) { return 0, io.EOF }
 func TestGuardedPieceDoesNotCountReadsAtTheEnd(t *testing.T) {
 	f := &pieceReadFailures{failed: make(map[int]*readFailures), giveUpAfter: 0, now: time.Now}
 	inner := &endPiece{}
-	p := guardPiece(inner, 0, f)
+	p := guardPiece(inner, 0, size16, f)
 	r, err := p.(storage.PieceReaderer).NewReader()
 	require.NoError(t, err)
 	for range freeFailedReads + 2 {

@@ -18,11 +18,13 @@ type fakeTorrentFile struct {
 	*dfs.MemoryFile
 	r     dfs.Readiness
 	asked []dfs.Preparation
+	why   []dfs.Reason
 }
 
-func (f *fakeTorrentFile) Prepare(p dfs.Preparation) bool {
-	f.asked = append(f.asked, p)
-	f.r.Asked = p
+func (f *fakeTorrentFile) Prepare(r dfs.Request) bool {
+	f.asked = append(f.asked, r.What)
+	f.why = append(f.why, r.Why)
+	f.r.Asked, f.r.Lead = r.What, r.Lead
 	return true
 }
 func (f *fakeTorrentFile) Readiness() (dfs.Readiness, bool) { return f.r, true }
@@ -95,6 +97,7 @@ func TestFilesPrepare(t *testing.T) {
 	require.Equal(t, http.StatusOK, prepare(filmPath, "all").Code)
 	require.Equal(t, http.StatusOK, prepare(filmPath, "stop").Code)
 	require.Equal(t, []dfs.Preparation{dfs.PrepareStart, dfs.PrepareAll, dfs.PrepareNone}, f.asked)
+	require.Equal(t, []dfs.Reason{dfs.ReasonButton, dfs.ReasonButton, dfs.ReasonButton}, f.why)
 
 	require.Equal(t, http.StatusBadRequest, prepare(filmPath, "most").Code)
 	require.Equal(t, http.StatusNotFound, prepare("/torrents/Film", "start").Code)
@@ -117,8 +120,8 @@ func TestFilesPrepare_WholeFileTooBig(t *testing.T) {
 // A file got ready as the next episode says so in its dialog.
 func TestFilesReadinessDialog_NextEpisode(t *testing.T) {
 	r, f := readyTree(t, 1000)
-	f.r.Asked, f.r.Cached = dfs.PrepareLead, 20
+	f.r.Asked, f.r.Lead, f.r.Cached = dfs.PrepareLead, 100, 20
 	body := get(r, "/files/readiness?path="+url.QueryEscape(filmPath)).Body.String()
-	require.Contains(t, body, "Next episode: first 5% and end")
+	require.Contains(t, body, "Next episode: first 100 B and end")
 	require.Contains(t, body, "Downloading ahead")
 }

@@ -97,8 +97,10 @@ func newReadinessView(cfs containerFS, conf *config.Root, p string) readinessVie
 	case dfs.PrepareAll:
 		v.Asked, v.Preparing = "Whole file", r.Cached < r.Size
 	case dfs.PrepareLead:
-		// the start is pieces of 5%, so a little more is cached than asked for
-		v.Asked, v.Preparing = "Next episode: first 5% and end", !r.End || r.Cached*100 < r.Size*5
+		// the start is whole pieces, so a little more is cached than asked for
+		lead := min(r.Lead, r.Size)
+		v.Asked = "Next episode: first " + humanize.IBytes(uint64(max(lead, 0))) + " and end"
+		v.Preparing = !r.End || r.Cached < lead
 	}
 	if limit := wholeFileLimit(conf); limit >= 0 && r.Size > limit {
 		v.WholeTooBig = fmt.Sprintf("At %s it's over half the %s piece cache, so it can't be kept whole.",
@@ -142,7 +144,7 @@ var filesPrepareHandler = func(cfs containerFS, conf *config.Root) gin.HandlerFu
 			c.String(http.StatusBadRequest, "what must be start, all or stop")
 			return
 		}
-		if !pf.Prepare(want) {
+		if !pf.Prepare(dfs.Request{What: want, Why: dfs.ReasonButton}) {
 			c.String(http.StatusNotFound, "Not a torrent's file: "+p)
 			return
 		}

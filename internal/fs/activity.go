@@ -23,6 +23,9 @@ const (
 	maxAheadPieces = 64
 )
 
+// activityNow is the clock reads are timed by, swapped in tests.
+var activityNow = time.Now
+
 type activityBucket struct {
 	sec, n int64
 }
@@ -31,18 +34,28 @@ type activityBucket struct {
 type handleActivity struct {
 	file     *torrentFile
 	openedAt time.Time
-	// nearEnd is set once the handle has read past nearEndPercent of its file
+	// nearEnd is set once the handle has played past nearEndPercent of its file
 	nearEnd atomic.Bool
 	// quiet is set for the handle distribyted reads a file's duration through: it isn't a
 	// player, so its reads don't count as playing
 	quiet bool
 	// waitingSince is when the read in progress started, in Unix nanoseconds, or 0
 	waitingSince atomic.Int64
+	// gotFirstByte is set once the handle's first read returned data
+	gotFirstByte atomic.Bool
+	// probed is set once the file's duration was asked for, to judge the pace of its play
+	probed atomic.Bool
 
 	mu       sync.Mutex
 	pos      int64
 	lastRead time.Time
 	buckets  [activityWindow]activityBucket
+	// seq is the handle's run of reads: a player reads on from where it was, a scan jumps to
+	// what it wants to look at
+	seq readRun
+	// inRun is set when the handle's latest read carried on the file's run, sharedBytes long
+	inRun       bool
+	sharedBytes int64
 }
 
 var activities = struct {
@@ -87,7 +100,10 @@ func (a *handleActivity) done(off int64, n int) {
 	if n <= 0 || a.quiet {
 		return
 	}
-	now := time.Now()
+	now := activityNow()
+	if a.gotFirstByte.CompareAndSwap(false, true) {
+		recordFirstByte(now.Sub(a.openedAt))
+	}
 	sec := now.Unix()
 	a.mu.Lock()
 	b := &a.buckets[sec%activityWindow]
@@ -95,15 +111,113 @@ func (a *handleActivity) done(off int64, n int) {
 		*b = activityBucket{sec: sec}
 	}
 	b.n += int64(n)
+	own := a.seq.advance(off, n, now)
 	a.pos = off + int64(n)
 	a.lastRead = now
 	a.mu.Unlock()
-
+	// a player that opens the file again for each range it reads carries on the file's run
 	f := a.file
-	if f.onNearEnd != nil && f.len >= minNearEndFile && (off+int64(n))*100 >= f.len*nearEndPercent &&
-		a.nearEnd.CompareAndSwap(false, true) {
-		go f.onNearEnd(f.hash, f.path)
+	shared := f.run.advance(off, n, now)
+	a.mu.Lock()
+	a.inRun = shared.bytes > 0 && shared.bytes >= own.bytes
+	a.sharedBytes = shared.bytes
+	a.mu.Unlock()
+
+	if f.onNearEnd == nil || f.len < minNearEndFile || max(own.bytes, shared.bytes)*100 < f.len*minPlayedPercent {
+		return
 	}
+	// what was played is judged by its pace, which needs the file's duration: ask for it once
+	// play gets this far, so it's known by the end
+	if a.probed.CompareAndSwap(false, true) {
+		f.duration()
+	}
+	if (off+int64(n))*100 < f.len*nearEndPercent {
+		return
+	}
+	d := f.knownDuration()
+	if !own.played(f.len, d, now) && !shared.played(f.len, d, now) {
+		return
+	}
+	if a.nearEnd.CompareAndSwap(false, true) && f.run.fire() {
+		go f.onNearEnd(f.hash, f.path, LeadFor(f.len, d))
+	}
+}
+
+// readRun is a run of reads each starting about where the last ended, as a player's do: how
+// much it read, and since when.
+type readRun struct {
+	pos, bytes int64
+	since      time.Time
+}
+
+// advance adds a read of n at off to the run, or starts a new one when the read jumped, and
+// returns it.
+func (r *readRun) advance(off int64, n int, now time.Time) readRun {
+	// the kernel reads a few requests ahead of a player at once, so a little out of order
+	if r.since.IsZero() || off < r.pos-seqSlack || off > r.pos+seqSlack {
+		*r = readRun{since: now}
+	}
+	r.bytes += int64(n)
+	r.pos = max(r.pos, off+int64(n))
+	return *r
+}
+
+// played reports whether the run is play of a file size bytes long that plays for d, now:
+// minPlayedPercent of it, read no faster than maxPlayPace times real time.
+func (r readRun) played(size int64, d time.Duration, now time.Time) bool {
+	return r.bytes*100 >= size*minPlayedPercent && playedAtPace(r.bytes, size, d, now.Sub(r.since))
+}
+
+// fileRun is a file's run of reads across every handle reading it, so a player that opens
+// the file again for each range it reads still plays it through.
+type fileRun struct {
+	mu    sync.Mutex
+	run   readRun
+	fired bool // nearEnd fired for this run
+}
+
+func (f *fileRun) advance(off int64, n int, now time.Time) readRun {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	start := f.run.since
+	r := f.run.advance(off, n, now)
+	if r.since != start {
+		f.fired = false
+	}
+	return r
+}
+
+// fire reports whether nearEnd hasn't fired for this run yet, marking it fired.
+func (f *fileRun) fire() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fired {
+		return false
+	}
+	f.fired = true
+	return true
+}
+
+// sequential is how much the handle has read since it last jumped, or the file's run when the
+// handle's reads are part of it.
+func (a *handleActivity) sequential() int64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.inRun {
+		return max(a.seq.bytes, a.sharedBytes)
+	}
+	return a.seq.bytes
+}
+
+// playedAtPace reports whether reading n of a file size bytes long that plays for d took long
+// enough, at took, to be someone watching: no faster than maxPlayPace times real time. A scan
+// reads as fast as the swarm sends. With d unknown, any pace passes.
+func playedAtPace(n, size int64, d, took time.Duration) bool {
+	if d <= 0 || size <= 0 {
+		return true
+	}
+	played := time.Duration(float64(d) * float64(n) / float64(size))
+	return took*maxPlayPace >= played
 }
 
 const (
@@ -112,6 +226,15 @@ const (
 	// minNearEndFile is the smallest file whose end is watched for: an episode, not a
 	// subtitle or a sample.
 	minNearEndFile = 100 << 20
+	// minPlayedPercent is how much of a file a handle has to have read without jumping for
+	// its end to mean an episode is finishing: a player skipping an intro still does, a
+	// library app reading the last minutes for its credits doesn't.
+	minPlayedPercent = 30
+	// maxPlayPace is how many times faster than real time a read can go and still be play: a
+	// player buffers ahead, but on average reads at the rate it shows.
+	maxPlayPace = 2
+	// seqSlack is how far from where the last read ended the next can start and still read on.
+	seqSlack = 8 << 20
 )
 
 // ReadActivity is a file being read now, from every handle reading it.
@@ -328,6 +451,13 @@ var durations = struct {
 
 type durationEntry struct {
 	d time.Duration
+}
+
+// knownDuration is how long f plays for, if its header has been read, or 0.
+func (f *torrentFile) knownDuration() time.Duration {
+	durations.Lock()
+	defer durations.Unlock()
+	return durations.m[f].d
 }
 
 // duration is how long f plays for, or 0 while its header is being read, or when it isn't

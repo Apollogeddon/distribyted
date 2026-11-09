@@ -184,7 +184,7 @@ func looksLikeConfig(p string) bool {
 }
 
 type storageLayer struct {
-	fc  *filecache.Cache
+	fc  *torrent.PieceCache
 	pc  storage.PieceCompletion
 	st  storage.ClientImpl
 	fis *torrent.FileItemStore
@@ -197,7 +197,9 @@ func initStorageLayer(conf *config.Root) (storageLayer, error) {
 	}
 
 	cf := filepath.Join(conf.Torrent.MetadataFolder, "cache")
-	fc, err := filecache.NewCache(cf)
+	// files' starts, kept apart from the rest (protected_cache_percent)
+	fc, err := torrent.OpenPieceCache(cf, filepath.Join(conf.Torrent.MetadataFolder, "cache-protected"),
+		conf.Torrent.ProtectedCachePercent)
 	if err != nil {
 		return storageLayer{}, fmt.Errorf("error creating cache: %w", err)
 	}
@@ -412,6 +414,7 @@ func load(configPath string, o overrides) error {
 	log.Info().Msg(fmt.Sprintf("setting cache size to %d MB", conf.Torrent.GlobalCacheSize))
 	sl.fc.SetCapacity(conf.Torrent.GlobalCacheSize * 1024 * 1024)
 	fs.SetExtractLimit(max(conf.Torrent.ArchiveExtractLimit, 0) * 1024 * 1024)
+	fs.SetProbeReadahead(conf.Torrent.ProbeReadahead)
 
 	fss, err := ts.Load()
 	if err != nil {
